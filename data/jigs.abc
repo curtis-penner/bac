@@ -1,0 +1,35 @@
+X: 1
+T: The Kesh
+R: jig
+M: 6/8
+L: 1/8
+K: Gmaj
+|:G3 GAB| A3 ABd|edd gdd|edB dBA|
+GAG GAB|ABA ABd|edd gdd|BAF G3:|
+B2B d2d|ege dBA|B2B dBG|ABA AGA|
+BAB d^cd|ege dBd|gfg aga| bgg g3:|
+% Added by Jeremy 18 years ago.
+
+X: 2
+T: The Kesh
+R: jig
+M: 6/8
+L: 1/8
+K: Dmaj
+|: {g}A{d}A{e}A {g}ABc | {g}B{d}B{e}B {g}Bce | {g}fe{A}e ae{A}e | {g}fec {g}ec{d}B |
+| {g}A{d}A{e}A {g}ABc | {g}B{d}B{e}B {g}Bce | {g}fe{A}e aec | {g}B{d}A{e}A [1 {GAG}A3 :| [2 {GAG}A2 B||
+|: {g}c{d}c{e}c {g}ece | {g}faf {g}ec{d}A | {g}c{d}c{e}c {g}ec{d}A | {g}B{d}B{e}B {g}B{d}A{e}B |
+| {g}c{d}c{e}c {g}ece | {g}faf {g}ec{d}A | {g}ce{A}e {g}ece | {g}fa{g}a [1 A2 B :| [2 A3 |
+% Added by patrickmclaurin 13 years ago.
+
+ X: 8
+T: The Kesh
+R: jig
+M: 6/8
+L: 1/8
+K: Gmaj
+|: "G"G G/G/G GAB|"D"A A/A/A ABd|"G"e d/d/d gdd|edB "D"dBA|
+"G"G G/G/G GAB|"D"A A/A/A ABd|"G"e d/d/d gdB||"D"AGF"G" G2 A:|
+|:"G"B A/B/B dBd|"C"ege "G"dBA|"G"B A/B/B dBG|"D"A B/A/A A2 A|
+"G"B A/B/B dBd|"C"ege "G"dBA|g g/f/g "D"aga|"G"bgf g3 :|
+% Added by BillScates 5 years ago.
