@@ -37,10 +37,14 @@ import utils.cmdline
 import utils.util
 import format
 import ps.index
+import fields.info
+import music
 
 args = utils.cmdline.options()
 cfmt = format.Format()
 index = ps.index.Index()
+X = fields.info.XRef
+
 
 def signal_handler():
     """ signal handler for premature termination """
@@ -57,10 +61,10 @@ def process(s):
     :return:
     """
     s = s.strip()
-    if not X.do_this_tune and s.startswith('X:'):
-        parse_info(s)
-    elif is_field(s):
-        parse_info(s)
+    if not fields.info.do_this_tune and s.startswith('X:'):
+        fields.info.parse_info(s)
+    elif fields.info.is_field(s):
+        fields.info.parse_info(s)
     else:
         music.parse_music(s)
 

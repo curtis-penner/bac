@@ -126,7 +126,7 @@ def options():
                         action='store_false',
                         help=('turn off EPSF (encapsulated postscript) '
                               'output.'))
-    parser.add_argument('-args',
+    parser.add_argument('-f',
                         dest='filename',
                         default='',
                         type=str,
