@@ -2,7 +2,7 @@
 # Copyright (c) 2019 Curtis Penner
 
 import utils.log
-import constants
+from original import constants
 from music.symobol import Grace
 
 log = utils.log.log

@@ -40,7 +40,6 @@ V:B clef=bass      name=Basso
 d2 d'2 ^c'2 =c'2 | =b2 _b2 aa/g/ fd |
 
 """
-import re
 
 from fields.meter import Meter
 from fields.key import Key
@@ -48,7 +47,7 @@ from fields.key import Key
 from music.symbol import Symbol
 import utils.log
 import format
-import constants
+from original import constants
 
 log = utils.log.log()
 

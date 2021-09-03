@@ -10,7 +10,7 @@ import ps.syms
 import format
 import fields
 from utils import parse, common
-import constants
+from original import constants
 
 log = utils.log.log()
 args = utils.cmdline.options()

@@ -3,7 +3,7 @@
 import unittest
 
 from fields.key import Key
-import constants
+from original import constants
 
 
 class TestKey(unittest.TestCase):

@@ -2,7 +2,7 @@
 
 import os
 
-import constants
+from original import constants
 from utils.log import log
 import format
 import utils.util as util

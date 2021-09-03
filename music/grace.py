@@ -25,7 +25,7 @@ to the first note given in the chord.
 
 import utils.log
 from utils.util import put
-import constants
+from original import constants
 from music.symbol import Symbol, is_note
 from fields.key import Key
 import format

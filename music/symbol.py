@@ -1,6 +1,6 @@
 # Copyright (c) 2019 Curtis Penner
 
-import constants
+from original import constants
 from fields.key import Key
 import utils.log
 from utils.util import put

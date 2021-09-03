@@ -4,7 +4,7 @@ import datetime
 import getpass
 
 from utils import common
-import constants
+from original import constants
 import utils.log
 import utils.cmdline
 from ps import syms

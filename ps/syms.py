@@ -1,7 +1,7 @@
 # Copyright(c) Curtis Penner
 import math
 
-from constants import GSTEM_XOFF
+from original.constants import GSTEM_XOFF
 import format
 from ps import tab_
 

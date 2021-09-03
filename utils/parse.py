@@ -1,5 +1,5 @@
 import utils.log
-import constants
+from original import constants
 from utils import common
 import fields
 import format

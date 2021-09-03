@@ -39,7 +39,7 @@ interpretation.
 
 import utils.log
 import utils.cmdline
-import constants
+from original import constants
 from ps import tab_
 
 log = utils.log.log()

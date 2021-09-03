@@ -1,8 +1,6 @@
 # Copyright (c) 2019 Curtis Penner
 
-import constants
-
-# no previous length 
+# no previous length
 TAB_prevlen = 0;
 
 # font settings 
