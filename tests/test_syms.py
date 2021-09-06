@@ -1,7 +1,7 @@
 import unittest
 import sys
 
-from ps import syms
+import syms
 
 
 class TestDef(unittest.TestCase):

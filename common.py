@@ -5,26 +5,31 @@ The purpose of this module is to have a common place to keep global
 variable. I know it is not elegant but for now this is how I will work
 this.
 """
+from format import Format
 
-import utils.cmdline
+fmt = Format()
 
 output = 'out.ps'
 filename = ''
 
+do_output = False
 do_mode = 0
+do_tune = False
+
+is_epsf = False
 
 within_block = False
-do_tune = False
+
 
 file_initialized = False
 index_initialized = False
 
-pagenum = 0
+
 tunenum = 0
 in_page = False
-page_init = ''
 
-is_epsf = False
+pagenum = 0
+page_init = ''
 
 posy = 0.0
 
@@ -32,10 +37,13 @@ voices = list()
 
 fp = open(output, 'a')
 
-# ----- definitions of global variables ----- */
+# definitions of global variables
 #
 # int db=DEBUG_LV;                  /* debug control */
-# int maxSyms,maxVc;                /* for malloc */
+
+# for malloc */
+maxSyms = 800
+maxVc = 3
 # int allocSyms,allocVc;
 # struct ISTRUCT info,default_info; /* information fields */
 # char lvoiceid[STRLINFO];          /* string from last V: line */
@@ -143,7 +151,7 @@ fp = open(output, 'a')
 # int one_per_page;                  /* new page for each tune ? */
 # int pagenumbers;                   /* write page numbers ? */
 # int write_history;                 /* write history and notes ? */
-# int help_me;                       /* need help ? */
+help_me = 0   # need help ?
 # int select_all;                    /* select all tunes ? */
 # int epsf;                          /* for EPSF postscript output */
 # int choose_outname;                /* 1 names outfile w. title/fnam */
@@ -154,7 +162,7 @@ fp = open(output, 'a')
 # int continue_lines;                /* flag to continue all lines */
 # int landscape;                     /* flag for landscape output */
 # int barnums;                       /* interval for bar numbers */
-# bool make_index;                   // write index file
+make_index = False   # write index file
 # int notab;                         /* do not process tablature */
 # int transposegchords;              /* transpose gchords */
 # float alfa_c;                      /* max compression allowed */
@@ -171,7 +179,7 @@ fp = open(output, 'a')
 # float alfa_last,beta_last;       /* for last short short line.. */
 #
 # char in_file[MAXINF][STRLFILE];  /* list of input file names */
-# signed int  number_input_files;  /* number of input file names */
+number_input_files = 0   # number of input file names
 # FILE *fin;                       /* for input file */
 #
 # char outf[STRLFILE];             /* output file name */

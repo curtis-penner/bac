@@ -2,10 +2,10 @@
 
 import sys
 
-import utils.cmdline
-import fields.vcestr
-import fields.info
-from utils.common import within_block
+import cmdline
+import vcestr
+import info
+from common import within_block
 from format import Format
 
 cfmt = Format()
@@ -18,7 +18,7 @@ class Process:
     def cmdline(self, line):
         args_line = line[2:].strip()
         sys.argv.append(args_line)
-        utils.cmdline.options()
+        cmdline.options()
 
     def process_pscomment(self, fpin, fp, line):
         """
@@ -152,7 +152,7 @@ cfmt=dfmt;
             del lines[0]
 
         for line in lines:
-            if not fields.info.is_field(line):
+            if not info.is_field(line):
                 continue
 
 
@@ -194,7 +194,7 @@ cfmt=dfmt;
                           pat, sel_all, search_field)
                 continue
             if not voices:
-                voice = fields.vcestr.Voice()  # todo
+                voice = vcestr.Voice()  # todo
                 voice('1')
 
             if is_tab_line(line):

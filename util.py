@@ -4,11 +4,11 @@ import os
 import re
 import random
 
-from utils.log import log
-import utils.cmdline
-from utils import common
+from log import log
+import cmdline
+import common
 
-args = utils.cmdline.options()
+args = cmdline.options()
 
 
 # ----- bskip(h):  ----

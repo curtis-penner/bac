@@ -28,22 +28,21 @@ abctab2ps: a program to typeset tunes in abc format using PostScript
 import signal
 import os
 
-from utils import common
+import common
 
 import subs
-import utils.cmdline
-from utils.log import log, console
-import utils.cmdline
-import utils.util
+from log import log, console
+import cmdline
+import util
 import format
-import ps.index
-import fields.info
+import index
+import info
 import music
 
-args = utils.cmdline.options()
+args = cmdline.options()
 cfmt = format.Format()
-index = ps.index.Index()
-X = fields.info.XRef
+index = index.Index()
+X = info.XRef
 
 
 def signal_handler():
@@ -61,10 +60,10 @@ def process(s):
     :return:
     """
     s = s.strip()
-    if not fields.info.do_this_tune and s.startswith('X:'):
-        fields.info.parse_info(s)
-    elif fields.info.is_field(s):
-        fields.info.parse_info(s)
+    if not info.do_this_tune and s.startswith('X:'):
+        info.parse_info(s)
+    elif info.is_field(s):
+        info.parse_info(s)
     else:
         music.parse_music(s)
 
@@ -85,7 +84,7 @@ def main():
     
     # ----- help printout    -----
     if args.help_me:
-        utils.cmdline.write_help()
+        cmdline.write_help()
         exit(0)
 
     # if len(args.filenames):
@@ -94,7 +93,7 @@ def main():
     #     i_select = pointer_select[0]
     # search_field0 = s_field[i_select]  # default for interactive mode
     if args.epsf:
-        epsf_name, _ = utils.util.cut_ext(common.output)
+        epsf_name, _ = util.cut_ext(common.output)
     
     # ----- initialize -----
     # zero_sym()
@@ -137,7 +136,7 @@ def main():
                 args.select_all, search_field)
         else:
             if not common.epsf:
-                outf = utils.util.strext(outf, "ps", True)
+                outf = util.strext(outf, "ps", True)
                 if choose_outname: 
                     strext (outf, filename, "ps", True)
                 open_output_file(outf, filename)

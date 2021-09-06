@@ -2,8 +2,8 @@
 
 import unittest
 
-from fields.key import Key
-from original import constants
+from key import Key
+import constants
 
 
 class TestKey(unittest.TestCase):

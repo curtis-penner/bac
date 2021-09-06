@@ -1,15 +1,14 @@
 import unittest
 import logging
 
-import fields.meter
-import utils.cmdline
-import utils.log
+import meter
+import log
 
 
 class TestDefaults(unittest.TestCase):
     def test_constructor(self):
-        log_obj = utils.log.Log()
-        met = fields.meter.Meter(log_obj)
+        log_obj = log.Log()
+        met = meter.Meter(log_obj)
         self.assertIsInstance(met.log, logging.Logger)
 
 class TestParseMeterToken(unittest.TestCase):

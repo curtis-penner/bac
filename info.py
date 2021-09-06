@@ -1,9 +1,9 @@
 # Copyright 2019 Curtis Penner
 
-from fields.meter import Meter, DefaultLength
-from fields.key import Key
-from fields.vcestr import Voice
-from utils.log import log
+from meter import Meter, DefaultLength
+from key import Key
+from vcestr import Voice
+from log import log
 import music
 import format
 

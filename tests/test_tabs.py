@@ -2,7 +2,7 @@
 
 import unittest
 
-from ps import tab_
+import tab_
 
 
 class TestTab(unittest.TestCase):

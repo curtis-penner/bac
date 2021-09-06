@@ -1,13 +1,11 @@
 # Copyright 2019 Curtis Penner
 
 import os
-import sys
 
-from utils.log import (console, log)
-import utils.cmdline
-import utils.util
+from log import (console, log)
+import cmdline
 
-args = utils.cmdline.options()
+args = cmdline.options()
 
 CM = 28.35   # factor to transform cm to pt
 PT = 1.00   # factor to transform pt to pt

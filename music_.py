@@ -2,13 +2,13 @@
 
 from constants import (BASE, NOTE, REST, BREST, INVISIBLE)
 import constants
-import utils.util
+import util
 from constants import (COMMENT, MUSIC, TO_BE_CONTINUED, E_O_F, INFO,
                        TITLE, METER, PARTS, KEY, XREF, DLEN, HISTORY, BLANK,
                        TEMPO, VOICE)
-from fields.key import Key
+from key import Key
 from style import (f0p, f0x, f5p, f5x, f1p, f1x)
-from ps import pssubs
+import pssubs
 
 #    subroutines connected with output of music
 maxSyms = 800
@@ -37,7 +37,7 @@ class Music:
         self.u = 0
         self.v = 0
         self.w = 0
-        self.dc = utils.util.put
+        self.dc = util.put
 
     def nwid(self, dur):
         """
@@ -91,13 +91,13 @@ class Music:
             historic = 'h'
 
         if self.w == 1:
-            utils.util.put('$.1f csig%s', [x, historic])
+            util.put('$.1f csig%s', [x, historic])
         elif self.w == 2:
-            utils.util.put('$.1f ctsig%s', [x, historic])
+            util.put('$.1f ctsig%s', [x, historic])
         elif self.w == 3:
-            utils.util.put('$.1f t1sig%s', [x, self.text])
+            util.put('$.1f t1sig%s', [x, self.text])
         else:
-            utils.util.put("%.1f (%s) (%d) tsig\n", [x, self.text, self.v])
+            util.put("%.1f (%s) (%d) tsig\n", [x, self.text, self.v])
 
     def draw_keysig(self, x, voice):
         """
@@ -154,24 +154,24 @@ class Music:
             p = x
             for i in range(n1, n2):
                 if i >= n3:
-                    utils.util.put("%.1f %d nt0 ", [p, sh_pos[i] + yad])
+                    util.put("%.1f %d nt0 ", [p, sh_pos[i] + yad])
                 else:
                     sf += 1
-                    utils.util.put("%.1f %d sh0 ", [p, sh_pos[i]+yad])
+                    util.put("%.1f %d sh0 ", [p, sh_pos[i] + yad])
                 p = p + 5
-            utils.util.put("\n")
+            util.put("\n")
         elif t == Key.A_FT:
             p = x
             for i in range(n1, n2):
                 if i >= n3:
-                    utils.util.put("%.1f %d nt0 ", [p, ft_pos[i] + yad])
+                    util.put("%.1f %d nt0 ", [p, ft_pos[i] + yad])
                 else:
                     sf -= 1
-                    utils.util.put("%.1f %d ft0 ", [p, ft_pos[i]+yad])
+                    util.put("%.1f %d ft0 ", [p, ft_pos[i] + yad])
             p = p + 5
-            utils.util.put("\n")
+            util.put("\n")
         else:
-            utils.util.bug("wrong type in draw_keysig", False)
+            util.bug("wrong type in draw_keysig", False)
         return sf
 
 def next_note(k, n, syms):  # Change the signature

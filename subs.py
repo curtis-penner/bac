@@ -1,20 +1,20 @@
 import sys
 import os
 
-from ps import pssubs
-from utils import common
-import utils.util as util
-from utils.util import bskip, put
-import utils.log
-import utils.cmdline
+import pssubs
+import common
+import util as util
+from util import bskip, put
+import log
+import cmdline
 import format
-import fields.info
+import info
 import constants
 
-args = utils.cmdline.options()
-log = utils.log.log()
+args = cmdline.options()
+log = log.log()
 cfmt = format.Format()
-info = fields.info.Field()
+info = info.Field()
 
 maxSyms = 800
 allocSyms = 800
@@ -55,7 +55,7 @@ def process_cmdline(line):
         line = line.strip()
     params = line.split()
     sys.argv.extend(params)
-    return utils.cmdline.options()
+    return cmdline.options()
 
 
 def tex_str(line):   # tex_str(const char *str, string *s, float *wid)
@@ -185,12 +185,12 @@ def tex_str(line):   # tex_str(const char *str, string *s, float *wid)
             elif line[c] == 'a' and line[c+1] == 'e':      # ae
                 c += 1
                 s.append("\\346")
-                w += 1.5*util.cwid('a')
+                w += 1.5 * util.cwid('a')
                 n += 1
             elif line[c] == 'A' and line[c+1] =='E':      # AE
                 c += 1
                 s.append("\\306")
-                w += 1.5*util.cwid('A')
+                w += 1.5 * util.cwid('A')
                 n += 1
             elif line[c] == 'c':          # c-cedilla
                 c += 1
@@ -499,7 +499,7 @@ class Words:
                 ftline0=textwidth/cfmt.staffwidth
                 # revised estimate: assume some chars lost at each line end
                 nbreak=(int)ftline0
-                textwidth=textwidth+5*nbreak*util.cwid('a')*swfac*cfmt.textfont.size
+                textwidth= textwidth + 5 * nbreak * util.cwid('a') * swfac * cfmt.textfont.size
                 ftline=textwidth/cfmt.staffwidth
                 ntline=(int)(ftline+1.0)
                 if(vb>=10)
@@ -844,7 +844,7 @@ def write_heading(fp):
     lwidth = cfmt.staffwidth
 
     # write the main title 
-    util.bskip(cfmt.titlefont.size+cfmt.titlespace)
+    util.bskip(cfmt.titlefont.size + cfmt.titlespace)
     set_font(fp,cfmt.titlefont,1)
     if cfmt.withxrefs:
         put(f"{xrefnum}. ")
@@ -858,7 +858,7 @@ def write_heading(fp):
 
     # write second title 
     if len(info.titles) >=2:
-        util.bskip(cfmt.subtitlespace+cfmt.subtitlefont.size)
+        util.bskip(cfmt.subtitlespace + cfmt.subtitlefont.size)
         set_font(fp,cfmt.subtitlefont,1)
         strcpy(t,info.title2)
         if(cfmt.titlecaps) cap_str(t)

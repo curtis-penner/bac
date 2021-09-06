@@ -1,17 +1,13 @@
-#    
-#   This file is part of abctab2ps, 
-#   See file abctab2ps.cpp for details.
- 
+import common
 
-#    subroutines to handle output buffer    
+cfmt = common.fmt
 
 
 
 # ----- bskip(h): translate down by h points in output buffer ---- 
-void bskip(float h);
-
-# ----- init_pdims: initialize page dimensions ----- 
-void init_pdims (void);
+def bskip(h: float) -> float:
+    """ todo"""
+    return h
 
 # ----- clear_buffer ------- 
 void clear_buffer (void);
@@ -34,11 +30,11 @@ void check_buffer (FILE *fp, int nb);
 
 
 # ----- init_pdims: initialize page dimensions ----- 
-void init_pdims (void)
-{
-    if (in_page) return;
-    posx=cfmt.leftmargin;
-    posy=cfmt.pageheight-cfmt.topmargin; 
+def init_pdims():
+    if in_page:
+        return;
+    posx = cfmt.leftmargin;
+    posy = cfmt.pageheight-cfmt.topmargin;
 
 }
 

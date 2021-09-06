@@ -3,15 +3,15 @@
 import datetime
 import getpass
 
-from utils import common
-from original import constants
-import utils.log
-import utils.cmdline
-from ps import syms
+import common
+import constants
+import log
+import cmdline
+import syms
 from format import Format, Font
 
-log = utils.log.log
-args = utils.cmdline.options()
+log = log.log
+args = cmdline.options()
 
 cfmt = Format()
 

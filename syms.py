@@ -1,9 +1,9 @@
 # Copyright(c) Curtis Penner
 import math
 
-from original.constants import GSTEM_XOFF
+from constants import GSTEM_XOFF
 import format
-from ps import tab_
+import tab_
 
 cfmt = format.Format()
 temp_switch = False

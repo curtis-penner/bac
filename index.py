@@ -3,17 +3,18 @@
 import datetime
 import getpass
 
-import utils.log
-import utils.cmdline
-import ps.pssubs
-import ps.syms
+import log
+import cmdline
+import pssubs
+import syms
 import format
 import fields
-from utils import parse, common
-from original import constants
+import parse_
+import common
+import constants
 
-log = utils.log.log()
-args = utils.cmdline.options()
+log = log.log()
+args = cmdline.options()
 cfmt = format.Format()
 info = fields.info.info()
 
@@ -66,19 +67,19 @@ class Index:
         # Author
         if not args.noauthor:
             findex.write(f'%For: {getpass.getuser()}\n')
-        if ps.pssubs.PS_LEVEL == 2:
+        if pssubs.PS_LEVEL == 2:
             findex.write("%%LanguageLevel: 2\n")
 
         findex.write("%%EndComments\n\n")
 
         findex.write("%%BeginSetup\n")
-        if ps.pssubs.PS_LEVEL < 2:
-            ps.pssubs.level1_fix(findex)
+        if pssubs.PS_LEVEL < 2:
+            pssubs.level1_fix(findex)
 
-        ps.syms.define_font(findex, cfmt.indexfont.name, 1)
+        syms.define_font(findex, cfmt.indexfont.name, 1)
         findex.write("\n/T {translate} bind def\n/M {moveto} bind def\n")
         findex.write("/S {show} bind def\n")
-        ps.syms.def_misc(findex)
+        syms.def_misc(findex)
         findex.write("%%EndSetup\n\n")
 
         common.page_number = 0
@@ -125,9 +126,9 @@ class Index:
         info = fields.info.Field()
 
         for line in self.fp.readlines():
-            if parse.is_comment(line):
+            if parse_.is_comment(line):
                 continue
-            line = parse.decomment_line(line)
+            line = parse_.decomment_line(line)
             f_type = fields.info.info_field(line)
             if f_type == constants.XREF:
                 if within_block:

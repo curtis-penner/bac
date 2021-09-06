@@ -1,15 +1,15 @@
 # Copyright (c) 2019 Curtis Penner
 
-from original import constants
-from fields.key import Key
-import utils.log
-from utils.util import put
-import music.grace
-import music.gchord
-import music.deco
+import constants
+from key import Key
+import log
+from util import put
+import grace
+import gchord
+import deco
 
-console = utils.log.console
-log = utils.log.log
+console = log.console
+log = log.log
 
 """
 
@@ -130,8 +130,8 @@ class Symbol:
         self.head = 0
         self.eoln = 0
         self.grcpit = 0  # pitch to wheich grace notes apply
-        self.gr = music.grace.Grace()
-        self.dc = music.deco.Deco()
+        self.gr = grace.Grace()
+        self.dc = deco.Deco()
         self.xs = 0
         self.ys = 0
         self.u = 0
@@ -166,7 +166,7 @@ class Symbol:
         :param line:
         :return str:
         """
-        new_line = music.gchord.Gchord.parse_gchord(line)
+        new_line = gchord.Gchord.parse_gchord(line)
         if line != new_line:
             line = new_line
             return line
@@ -348,7 +348,7 @@ class Note(Symbol):
         super().__init__()
         self.ymn = 0  # min note head height (used in gracenotes, draw_decorations, draw_note)
         self.ymx = 0  # max note head height (used in gracenotes, draw_decorations, draw_note)
-        self.gr = music.grace.Grace()
+        self.gr = grace.Grace()
 
     def _draw_basic_note(self, x, w, d, m):
         """

@@ -41,15 +41,15 @@ d2 d'2 ^c'2 =c'2 | =b2 _b2 aa/g/ fd |
 
 """
 
-from fields.meter import Meter
-from fields.key import Key
+from meter import Meter
+from key import Key
 # from constants import (SYMBOL, KEYSTR, GchordList)
 from music.symbol import Symbol
-import utils.log
+import log
 import format
-from original import constants
+import constants
 
-log = utils.log.log()
+log = log.log()
 
 voices = list()
 max_vc = 5

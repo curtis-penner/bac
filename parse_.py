@@ -1,10 +1,10 @@
-import utils.log
-from original import constants
-from utils import common
+import log
+import constants
+import common
 import fields
 import format
 
-log = utils.log.log()
+log = log.log()
 key = fields.key.Key()
 cfmt = format.Format()
 

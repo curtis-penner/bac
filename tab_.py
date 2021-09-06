@@ -2,18 +2,18 @@
 
 import os
 
-from original import constants
-from utils.log import log
+import constants
+from log import log
 import format
-import utils.util as util
-import utils.cmdline
+import util as util
+import cmdline
 
-import fields.key
-import fields.vcestr
+import key
+import vcestr
 
-args = utils.cmdline.options()
-tab_key = fields.key.Key()
-v_obj = fields.vcestr.Voice()
+args = cmdline.options()
+tab_key = key.Key()
+v_obj = vcestr.Voice()
 voices = list()
 
 STAFFHEIGHT = 24         # height of music staves in pt

@@ -3,12 +3,12 @@
 import unittest
 import sys
 
-import utils.cmdline
+import cmdline
 
 
 class TestCmdline(unittest.TestCase):
     def test_cmdline_defaults(self):
-        args = utils.cmdline.options()
+        args = cmdline.options()
         self.assertFalse(args.one_per_page)
         self.assertEqual(args.maxshrink, 0.0)
         self.assertFalse(args.break_all)
@@ -59,12 +59,12 @@ class TestCmdlineUsed(unittest.TestCase):
     def test_o(self):
         sys.argv.append('-o')
         sys.argv.append('oh.ps')
-        args = utils.cmdline.options()
+        args = cmdline.options()
         self.assertEqual(args.outfile, 'oh.ps')
 
     def test_f1(self):
         sys.argv.append('file0')
-        args = utils.cmdline.options()
+        args = cmdline.options()
         self.assertIsInstance(args.filenames, list)
         self.assertTrue('file0' in args.filenames)
         self.assertEqual(args.filenames[0], 'file0')
@@ -74,7 +74,7 @@ class TestCmdlineUsed(unittest.TestCase):
         sys.argv.append('file1')
         sys.argv.append('file2')
         sys.argv.append('file3')
-        args = utils.cmdline.options()
+        args = cmdline.options()
         self.assertIsInstance(args.filenames, list)
         self.assertTrue('file2' in args.filenames)
         self.assertTrue('file0' not in args.filenames)
@@ -82,11 +82,11 @@ class TestCmdlineUsed(unittest.TestCase):
 
     def test_b(self):
         sys.argv.append('-b')
-        args = utils.cmdline.options()
+        args = cmdline.options()
         self.assertTrue(args.break_all)
         sys.argv = [sys.argv[0]]
         sys.argv.append('+b')
-        args = utils.cmdline.options()
+        args = cmdline.options()
         self.assertFalse(args.break_all)
 
 

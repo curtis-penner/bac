@@ -1,5 +1,14 @@
 
 
+VERSION = "1.8"   # version */
+REVISION = "11"   # revison */
+VDATE = "Apr 26 2011"   # version date */
+VERBOSE0 = 2   # default verbosity */
+DEBUG_LV = 0   # debug output level */
+OUTPUTFILE = "Out.ps"   # standard output file */
+INDEXFILE = "Ind.ps"   # output file for index */
+PS_LEVEL = 2   # PS laguage level: must be 1 or 2 */
+
 BASEWIDTH = 0.8   # width for lines drawn within music
 SLURWIDTH = 0.8   # width for lines for slurs
 STEM_YOFF = 1.0   # offset stem from note center
@@ -282,6 +291,8 @@ RHMODERNBEAMS = 6
 BRUMMER_ABC = 1   # possible styles for Brummer in germantab
 BRUMMER_1AB = 2
 BRUMMER_123 = 3
+
+INDEXFILE = 'ind.ps'   # output file for index
 
 
 class Tabformat:

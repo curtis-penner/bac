@@ -1,6 +1,6 @@
 # Copyright 2019 Curtis Penner
 
-from utils.log import log
+from log import log
 
 """
 ----- Function of the spacing parameters ----- 

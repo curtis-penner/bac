@@ -3,7 +3,7 @@
 import unittest
 import os
 
-import ps.syms as syms
+import syms as syms
 
 
 class TestSyms(unittest.TestCase):

@@ -36,22 +36,6 @@ class Gchord(object):
         self.x = 0.0
 
 
-GchordList = list()
-
-prep_gch_list = GchordList   # guitar chords for preparsing
-prep_deco = Deco()   # decorations for preparsing
-
-ixpfree = 0   # first free element in xp array
-
-# things to alloc:
-sym = Symbol()   # symbol list
-symv = Symbol()   # music for voices
-xp = XPos()   # shared horizontal positions
-
-sym_st = Symbol()   # music a staff start
-nsym_st = 0
-
-
 class Beam(object):   # packages info about one beam
     def __init__(self):
         self.i1 = 0
@@ -77,19 +61,19 @@ class Endings(object):   # where to draw endings
 class Symbol(object):   # struct for a drawable symbol
     def __init(self):
         self.type = 0   # type of symbol
-        self.pits = list()   # pitches for notes
-        self.lens = list()   # note lengths as multiple of BASE
-        self.accs = list()   # code for accidentals
-        self.sl1 = list()   # which slur start on this head
-        self.sl2 = list()   # which slur ends on this head
-        self.ti1 = list()   # flag to start tie here
-        self.ti2 = list()   # flag to end tie here
-        self.ten1 = list()   # flag to start tenuto here(only tab)
-        self.ten2 = list()   # flag to end tenuto here(only tab)
+        self.pits = [0]*8   # pitches for notes
+        self.lens = [0]*8   # note lengths as multiple of BASE
+        self.accs = [0]*8   # code for accidentals
+        self.sl1 = [0]*8   # which slur start on this head
+        self.sl2 = [0]*8   # which slur ends on this head
+        self.ti1 = [0]*8   # flag to start tie here
+        self.ti2 = [0]*8   # flag to end tie here
+        self.ten1 = [0]*8   # flag to start tenuto here(only tab)
+        self.ten2 = [0]*8   # flag to end tenuto here(only tab)
         self.lig1 = 0   # ligatura starts here
         self.lig2 = 0   # ligatura ends here
-        self.shhd = list()   # horizontal shift for heads
-        self.shac = list()   # horizontal shift for accidentals
+        self.shhd = [0]*8   # horizontal shift for heads
+        self.shac = [0]*8   # horizontal shift for accidentals
         self.npitch = 0   # number of note heads
         self.len = 0   # basic note length
         self.fullmes = 0   # flag for full-measure rests
@@ -162,4 +146,19 @@ class XPos(object):       # struct for a horizontal position
         self.tfac = 0.0   # factor to tune spacings
         self.x = 0.0   # final horizontal position
 
+
+GchordList = list()
+
+prep_gch_list = GchordList   # guitar chords for preparsing
+prep_deco = Deco()   # decorations for preparsing
+
+ixpfree = 0   # first free element in xp array
+
+# things to alloc:
+sym = Symbol()   # symbol list
+symv = Symbol()   # music for voices
+xp = XPos()   # shared horizontal positions
+
+sym_st = Symbol()   # music a staff start
+nsym_st = 0
 

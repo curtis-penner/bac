@@ -23,16 +23,16 @@ When the following note is a chord, appogiaturas and accacciaturas are tied
 to the first note given in the chord.
 """
 
-import utils.log
-from utils.util import put
-from original import constants
+import log
+from util import put
+import constants
 from music.symbol import Symbol, is_note
-from fields.key import Key
+from key import Key
 import format
 
 cfmt = format.Format()
 
-log = utils.log.log
+log = log.log
 key = Key()
 voices = list()
 

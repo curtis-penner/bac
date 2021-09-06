@@ -1,9 +1,9 @@
 # Copyright 2019 Curtis Penner
 
-from utils import common
-import fields.info
+import common
+import info
 
-info = fields.info.Field()
+info = info.Field()
 
 
 class Process:

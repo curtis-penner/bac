@@ -6,6 +6,8 @@ version = '0.1'
 revision = 'a'
 format_dir = ''
 
+s_field = list()
+
 
 def options():
     """
@@ -17,6 +19,8 @@ def options():
                                      ' format directly in postscript',
                                      prog='bac',
                                      prefix_chars='-+')
+
+
     parser.add_argument('--version',
                         action='version',
                         version=f'%(prog)s {version} {revision}')
@@ -24,11 +28,6 @@ def options():
                         dest='one_per_page',
                         action='store_true',
                         help='write one tune per page.')
-    parser.add_argument('+1',
-                        dest='one_per_page',
-                        action='store_const',
-                        const=False,
-                        help='write multiple tunes per page.')
     parser.add_argument('-a',
                         dest='maxshrink',
                         type=float,
@@ -49,18 +48,8 @@ def options():
                         action='store_true',
                         help=('break at all line ends, even if they end '
                               'with the continuation symbol "\\".'))
-    parser.add_argument('+b',
-                        dest='break_all',
-                        action='store_false',
-                        help='break at all line ends, following '
-                             'normal convention')
+
     parser.add_argument('-B',
-                        dest='bars_per_line',
-                        default=0,
-                        type=int,
-                        help='try to typeset with bars per staff bars '
-                             'on each line.')
-    parser.add_argument('+B',
                         dest='bars_per_line',
                         default=0,
                         type=int,
@@ -83,12 +72,7 @@ def options():
                               'along the staff by specifying the '
                               '"compression parameter" alfa with '
                               'the -a flag.'))
-    parser.add_argument('+c',
-                        # This needs to be choose_outname = False
-                        # outf = OUTPUTFILE
-                        action='store_false',
-                        dest='continue_all',
-                        help='Do not consider input as one long line.')
+
     # This needs to have a special option -- see util.scan_U
     parser.add_argument('-d',
                         dest='dstaffsep',
@@ -121,11 +105,7 @@ def options():
                              'Each tune is then put into a separate file '
                              'with a correct bounding box and '
                              'no page breaks.')
-    parser.add_argument('+E',
-                        dest='epsf',
-                        action='store_false',
-                        help=('turn off EPSF (encapsulated postscript) '
-                              'output.'))
+
     parser.add_argument('-f',
                         dest='filename',
                         default='',
@@ -138,11 +118,7 @@ def options():
                         type=str,
                         help='read format from file formatfile[.fmt]. The '
                              'directory can be set with flag -D.')
-    parser.add_argument('+F',
-                        action='store_const',
-                        const='',
-                        dest='styf',
-                        help='Do not read the format file.')
+
     parser.add_argument('-g',
                         dest='glue',
                         default='fill',
@@ -173,10 +149,7 @@ def options():
                         action='store_true',
                         default=False,
                         help='print in landscape mode.')
-    parser.add_argument('+l',
-                        dest='landscape',
-                        action='store_false',
-                        help='print in portrait mode.')
+
     parser.add_argument('-m',
                         dest='leftmargin',
                         default='0.0cm',
@@ -235,37 +208,25 @@ def options():
                         action='store_true',
                         help='includes historical notes and other stuff at '
                              'the bottom of each tune.')
-    parser.add_argument('+n',
-                        dest='write_historical',
-                        action='store_false',
-                        help='turn off historical notes and other stuff.')
+
     parser.add_argument('-N',
                         dest='pagenumbers',
                         default=False,
                         action='store_true',
                         help='write page numbers')
-    parser.add_argument('+N',
-                        dest='pagenumbers',
+
+    parser.add_argument('-o',
+                        dest='outfile',
+                        default='out.ps',
+                        help='output filename')
+    parser.add_argument('-O',
+                        dest='outf',  # change this to choose_output
                         default=False,
                         action='store_true',
-                        help='write page numbers')
-    parser.add_argument(
-        '-o',
-        dest='outfile',
-        default='out.ps',
-        help='output filename')
-    parser.add_argument(
-        '-O',
-        dest='outf',  # change this to choose_output
-        default=False,
-        action='store_true',
-        help=('in PS (EPS) mode, the output is written to outfile.ps '
-              '(outfile001.eps). If the parameter to -O is "=", output '
-              'for "foo.abc" is written to "foo.ps" ("foo001.eps").'))
-    parser.add_argument('+O',
-                        dest='outf',
-                        action='store_false',
-                        help='make out.ps the default')
+                        help=('in PS (EPS) mode, the output is written to outfile.ps '
+                              '(outfile001.eps). If the parameter to -O is "=", output '
+                              'for "foo.abc" is written to "foo.ps" ("foo001.eps").'))
+
     parser.add_argument('-p',
                         dest='pretty',
                         action='store_const',
@@ -275,11 +236,7 @@ def options():
                               'titles, and larger music music. By '
                               'default, the layout squeezes the tunes to '
                               'reduce the number of pages.'))
-    parser.add_argument('+p',
-                        dest='pretty',
-                        action='store_const',
-                        const=0,
-                        help='turn off pretty output.')
+
     parser.add_argument('-P',
                         dest='pretty',
                         action='store_const',
@@ -355,31 +312,81 @@ def options():
                         type=str,
                         help='sets the width of the staff '
                              'to width (cm/in/pt).')
-    parser.add_argument(
-        '-x',
-        dest='include_xrefs',
-        action='store_true',
-        default=False,
-        help='includes the xref numbers in the tune title.')
+    parser.add_argument( '-x',
+                        dest='include_xrefs',
+                        action='store_true',
+                        default=False,
+                        help='includes the xref numbers in the tune title.')
 
-    parser.add_argument(
-        '+x',
-        dest='include_xrefs',
-        default=False,
-        action='store_false',
-        help='')
-    parser.add_argument(
-        '-X',
-        dest='strictness',
-        default=0.0,
-        type=float,
-        help='set strictness for note spacing; 0 < strictness < 1.')
-    parser.add_argument(
-        'filenames',
-        type=str,
-        nargs='*',
-        default='',
-        help='abc files to be processed. There must be one')
+    parser.add_argument('-X',
+                        dest='strictness',
+                        default=0.0,
+                        type=float,
+                        help='set strictness for note spacing; 0 < strictness < 1.')
+    parser.add_argument('filenames',
+                        type=str,
+                        nargs='*',
+                        default='',
+                        help='abc files to be processed. There must be one')
+
+    parser.add_argument('+b',
+                        dest='break_all',
+                        action='store_false',
+                        help='break at all line ends, following '
+                             'normal convention')
+    parser.add_argument('+c',
+                        # This needs to be choose_outname = False
+                        # outf = OUTPUTFILE
+                        action='store_false',
+                        dest='continue_all',
+                        help='Do not consider input as one long line.')
+    parser.add_argument('+x',
+                        dest='include_xrefs',
+                        default=False,
+                        action='store_false',
+                        help='')
+    parser.add_argument('+1',
+                        dest='one_per_page',
+                        action='store_const',
+                        const=False,
+                        help='write multiple tunes per page.')
+    parser.add_argument('+B',
+                        dest='bars_per_line',
+                        default=0,
+                        type=int,
+                        help='try to typeset with bars per staff bars')
+    parser.add_argument('+E',
+                        dest='epsf',
+                        action='store_false',
+                        help=('turn off EPSF (encapsulated postscript) '
+                              'output.'))
+    parser.add_argument('+F',
+                        action='store_const',
+                        const='',
+                        dest='styf',
+                        help='Do not read the format file.')
+    parser.add_argument('+l',
+                        dest='landscape',
+                        action='store_false',
+                        help='print in portrait mode.')
+    parser.add_argument('+n',
+                        dest='write_historical',
+                        action='store_false',
+                        help='turn off historical notes and other stuff.')
+    parser.add_argument('+N',
+                        dest='pagenumbers',
+                        default=False,
+                        action='store_true',
+                        help='write page numbers')
+    parser.add_argument('+O',
+                        dest='outf',
+                        action='store_false',
+                        help='make out.ps the default')
+    parser.add_argument('+p',
+                        dest='pretty',
+                        action='store_const',
+                        const=0,
+                        help='turn off pretty output.')
 
     return parser.parse_args()
 
@@ -452,3 +459,9 @@ def write_version():
 
     if len(format_dir) > 0:
         print(f'Default format directory {format_dir}', )
+
+
+if __name__ == '__main__':
+    m = options()
+    import json
+    print(json.dumps(vars(m), indent=4))

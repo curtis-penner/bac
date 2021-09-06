@@ -37,13 +37,13 @@ an appended octave modifier (eg. "treble-8"), which changes the pitch
 interpretation.
 """
 
-import utils.log
-import utils.cmdline
-from original import constants
-from ps import tab_
+import log
+import cmdline
+import constants
+import tab_
 
-log = utils.log.log()
-args = utils.cmdline.options()
+log = log.log()
+args = cmdline.options()
 
 
 class Key:
