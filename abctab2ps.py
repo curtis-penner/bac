@@ -1,27 +1,46 @@
 import os.path
 import sys
+import signal
 import cmdline
 import common
+import parse
+from index import Index
 import music_seg
 from format import Format
-from constants import INDEXFILE
+from constants import VERSION, REVISION, INDEXFILE
+import subs
+from log import log
 
+args = cmdline.options()
+
+
+def signal_handler():
+    """ signal handler for premature termination """
+    subs.close_output_file(args.outfile)
+    log.critical('could not install signal handler for SIGTERM and SIGINT')
+    exit(130)
 
 
 def main():
-    psel = list()
+    # cleanup on premature termination
+    signal.signal(signal.SIGINT, signal_handler)
+    signal.signal(signal.SIGTERM, signal_handler)
+
     # set default options and parse arguments
-    maxSyms = allocSyms = 800
-    maxVc = allocVc = 3
+    # common.maxSyms = 800
+    # common.allocSyms = 800
+    # common.maxVc = 3
+    # common.allocVc = 3
     cfmt = Format()
 
     # init_ops(true)   # do_output = false
-    args = cmdline.options()
     if common.do_output:
-        print(f"This is abctab2ps, version {cmdline.version}.{cmdline.revision}")
+        print(f"This is abctab2ps, version {VERSION}.{REVISION}")
 
-
-    # alloc_structs()
+    # Adjust the filenames
+    args.filenames = args.filenames[0]
+    if args.filename:
+        args.filenames.append(args.filename)
 
     # set the page format
     nfontnames = 0
@@ -36,16 +55,17 @@ def main():
         cmdline.write_help()
         exit (0)
 
-    if args.number_input_files > 0:
-        isel = psel[args.number_input_files-1]
+    psel = list()   # pointers from files to selectors
+    if len(args.filenames) > 0:
+        isel = args.filenames[-1]
     else:
         isel=psel[0]
 
-    search_field0 = cmdline.s_field[isel]   # default for interactive mode
+    search_field0 = args.selct_field0   # default for interactive mode
     if args.epsf:
-        for filename in cmdline.file
-        name, extension = os.path.splitext(filename)
-        cutext(outf);
+        for filename in args.filename.split():
+            name, extension = os.path.splitext(filename)
+            # cutext(outf);
 
     # initialize
     symbol = music_seg.Symbol()
@@ -56,8 +76,8 @@ def main():
     # verbose = 0;
     common.file_open = False
     common.file_initialized = False
-    nepsf = 0
-    bposy = 0
+    common.nepsf = 0
+    common.bposy = 0
     common.posx = cfmt.leftmargin
     common.posy = cfmt.pageheight - cfmt.topmargin
 
@@ -66,72 +86,63 @@ def main():
     print(f"do_output: {common.do_output}")
     print(f"make_index: {args.make_index}")
     if common.do_output and args.make_index:
-        open_index_file(INDEXFILE)
+        index = Index()
+        index.open_index_file(INDEXFILE)
 
     # loop over files in list
-    if args.number_input_files == 0:
+    if len(args.filenames) == 0:
+        # no input file specified: open stdin
         print("++++ No input files, read from stdin\n")
-    for j in range(args.number_input_files): {
-        if args.number_input_files == 0:
-            # no input file specified: open stdin
-            fin = sys.stdin
-            in_file[0] = "stdin"
+        fin = sys.stdin
+        common.in_file[0] = "stdin"
+        sys.exit(2)
+    for filename in args.filenames:
+        # process list of input files
+        name, ext = os.path.splitext(filename)
+
+        # skip.ps and.eps files
+        if ext != ".ps" or ext != ".eps":
+            continue
+
+        elif not ext and not os.path.exists(name):
+            filename = name + '.abc'
+
+        if not os.path.exists(filename):
+            log.error(f'{filename} not found')
+            continue
+
+        fin = open(filename, 'r')
+        pat, xref_str = parse.rehash_selectors()
+
+        # The code in broken here as do_output is forever true.
+        if not common.do_output:
+            print(f"{filename}:")
+            parse.do_index(fin, xref_str, pat,
+                           common.select_all,
+                           args.search_field0)
         else:
-            # process list of input files
-            if j == args.number_input_files):
-                break
-            else {
-                getext(in_file[j], ext);
-                / *skip.ps and.eps
-                files * /
-                if ((!strcmp(ext, "ps")) | | (!strcmp(ext, "eps"))) continue;
+            name, ext = os.path.splitext(filename)
 
-                if ((fin = fopen (in_file[j], "r")) == NULL) {
-                if (!strcmp(ext, "")) strext (in_file[j], in_file[j], "abc", 1);
-                if ((fin = fopen (in_file[j], "r")) == NULL) {
-                printf ("++++ Cannot open input file: %s\n", in_file[j]);
-                continue;
-                }
-                }
-            }
-        }
-        isel=psel[j];
-        search_field=s_field[isel];
-        npat=rehash_selectors (sel_str[isel], xref_str, pat);
-        dfmt=sfmt;
-        strcpy(infostr, in_file[j]);
+        fout = open(name + '.ps', 'a')
 
-        // The code in broken here as do_output is forever true.
-        if (not do_output) {
-          printf ("%s:\n", in_file[j]);
-          do_index (fin,xref_str,npat,pat,select_all,search_field);
-        } else {
-          if (!epsf) {
-            strext (outf, outf, "ps", 1);
-            if (choose_outname) strext (outf, in_file[j], "ps", 1);
-            open_output_file(outf,in_file[j]);
-          }
-          printf ("%s: ", in_file[j]);
-          if (vb>=3) printf ("\n");
-          process_file (fin,fout,xref_str,npat,pat,select_all,search_field);
-          printf ("\n");
-        }
-  }
+        log.info(f"{filename}:")
+        music_seg.process_file(fin, fout, xref_str,
+                               pat, common.select_all,
+                               args.search_field0)
+        print()
 
-  if (not do_output)
-    printf ("Selected %d title%s of %d\n", tnum1, tnum1==1?"":"s", tnum2);
+    if not common.do_output:
+        print(f"Selected {common.tnum1} title {common.tnum1} of {common.tnum2}")
 
-  if (do_output && make_index) close_index_file ();
-  rc = close_output_file ();
+    if common.do_output and common.make_index:
+        subs.close_index_file ()
+    rc = subs.close_output_file ()
 
-  if (do_output && rc)
-    return 1;
-  else
-    return 0;
-}
+    if common.do_output and rc:
+        return 1
+    else:
+        return 0
+
 
 if __name__ == '__main__':
     main()
-
-                                                                              334,0-1       Bot
-
