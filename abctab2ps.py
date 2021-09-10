@@ -43,7 +43,6 @@ def main():
         args.filenames.append(args.filename)
 
     # set the page format
-    nfontnames = 0
     if not cfmt.set_page_format():
         exit(3)
     if args.help_me == 2:
