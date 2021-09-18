@@ -1,13 +1,14 @@
 
 
-VERSION = "1.8"   # version */
-REVISION = "11"   # revison */
-VDATE = "Apr 26 2011"   # version date */
-VERBOSE0 = 2   # default verbosity */
-DEBUG_LV = 0   # debug output level */
-OUTPUTFILE = "Out.ps"   # standard output file */
-INDEXFILE = "Ind.ps"   # output file for index */
-PS_LEVEL = 2   # PS laguage level: must be 1 or 2 */
+VERSION = "1.8"   # version
+REVISION = "11"   # revison
+VDATE = "Apr 26 2011"   # version date
+VERBOSE0 = 2   # default verbosity
+DEBUG_LV = 0   # debug output level
+OUTPUTFILE = "Out.ps"   # standard output file
+INDEXFILE: str = "Ind.ps"   # output file for index
+PS_LEVEL = 2   # PS laguage level: must be 1 or 2
+DEFAULT_FDIR = ""   # default directory to search for format files
 
 BASEWIDTH = 0.8   # width for lines drawn within music
 SLURWIDTH = 0.8   # width for lines for slurs
@@ -49,7 +50,7 @@ BETA_X = 1.2   # max expansion before complaining
 VOCPRE = 0.4   # portion of vocals word before note
 GCHPRE = 0.4   # portion of guitar chord before note
 
-DEFVOICE = "1"   # default name for first voice
+DEFVOICE = "1"   # default name for first v
 
 
 # ----- macros for program internals -----
@@ -193,10 +194,10 @@ SUBBASS = 10
 FRENCHVIOLIN = 11
 TREBLE8UP = 12
 
-G_FILL = 1   # modes for glue
-G_SHRINK = 2
-G_SPACE = 3
-G_STRETCH = 4
+G_FILL = 'fill'   # modes for glue
+G_SHRINK = 'shrink'
+G_SPACE = 'space'
+G_STRETCH = 'stretch'
 
 S_TITLE = 1   # where to do pattern matching
 S_RHYTHM = 2
@@ -270,16 +271,11 @@ D_TABOLINE = 61
 D_STRUMUP = 62
 D_STRUMDOWN = 63
 
+NETTO = 0
+BRUTTO = 1
+ALMOSTBRUTTO = 2
+
 TABFONTDIRS = "/usr/share/abctab2ps;/usr/local/share/abctab2ps;fonts"
-
-
-class Tabfont:
-    def __init__(self):   # tablature font settings
-        self.size = 14   # font size and line distance
-        self.scale = 1.0   # scale factor for font
-        self.frfont = "frFrancisque"  # font for frenchtab
-        self.itfont = "itTimes"  # font for italiantab
-        self.defont = "deCourier" # font for germantab
 
 RHSIMPLE = 1   # possible rhythm styles
 RHMODERN = 2
@@ -291,18 +287,3 @@ RHMODERNBEAMS = 6
 BRUMMER_ABC = 1   # possible styles for Brummer in germantab
 BRUMMER_1AB = 2
 BRUMMER_123 = 3
-
-INDEXFILE = 'ind.ps'   # output file for index
-
-
-class Tabformat:
-    def __init__(self):   # tablature format parameters
-        self.addflags = 2   # how many more flags in tabrhythm
-        self.rhstyle = RHSIMPLE   # rhythm flag style
-        self.allflags = 0   # whether all flags are to be printed
-        self.firstflag = 0   # whether only changing flags are to be printed
-        self.ledgeabove = 0   # bourdon ledger lines above symbol?
-        self.flagspace = 0.0   # additional space between flag and tab system
-        self.gchordspace = 10   # distance between gchord and tablature
-        self.brummer = BRUMMER_ABC   # sytle for brumemr in german tab
-        self.germansepline = 1   # draw separator line in German tab

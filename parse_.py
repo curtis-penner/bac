@@ -1,11 +1,11 @@
 import log
 import constants
 import common
-import fields
+import key
 import format
 
 log = log.log()
-key = fields.key.Key()
+key = key.Key()
 cfmt = format.Format()
 
 voices = list()
@@ -21,7 +21,7 @@ def init_parse_params():
     ntinext = 0
 
 
-    # for continuation after output: reset nsym, switch to first voice
+    # for continuation after output: reset nsym, switch to first v
     for voice in voices:
         voice.sym = list()
         # this would suppress tie/repeat carryover from previous page:
@@ -77,7 +77,7 @@ def is_cmdline(line):
 
 
 """
-# ----- switch_voice: read spec for a voice, return voice number ----- 
+# ----- switch_voice: read spec for a v, return v number ----- 
 int switch_voice (char *str)
 {
         int j,np,newv;
@@ -88,7 +88,7 @@ int switch_voice (char *str)
 
         j=-1;
 
-        # start loop over voice options: parse t1=t2 
+        # start loop over v options: parse t1=t2 
         r=str;
         np=newv=0;
         for (;;) {
@@ -123,59 +123,59 @@ int switch_voice (char *str)
                         if j < 0:
                             bug("j invalid in switch_voice", True)
                         if            (!strcmp(t1,"name")        || !strcmp(t1,"nm"))     
-                                strcpy(voice[j].name,    t2);
+                                strcpy(v[j].name,    t2);
 
                         elif (!strcmp(t1,"sname")     || !strcmp(t1,"snm"))    
-                                strcpy(voice[j].sname, t2);
+                                strcpy(v[j].sname, t2);
 
                         elif (!strcmp(t1,"staves")    || !strcmp(t1,"stv"))    
-                                voice[j].staves    = atoi(t2);
+                                v[j].staves    = atoi(t2);
 
                         elif (!strcmp(t1,"brace")     || !strcmp(t1,"brc")) 
-                                voice[j].brace     = atoi(t2);
+                                v[j].brace     = atoi(t2);
 
                         elif (!strcmp(t1,"bracket") || !strcmp(t1,"brk")) 
-                                voice[j].bracket = atoi(t2);
+                                v[j].bracket = atoi(t2);
 
                         elif (!strcmp(t1,"gchords") || !strcmp(t1,"gch"))
-                                g_logv (str,t2,&voice[j].do_gch);
+                                g_logv (str,t2,&v[j].do_gch);
 
                         # for sspace: add 2000 as flag if not incremental    
                         elif (!strcmp(t1,"space")     || !strcmp(t1,"spc")) {    
-                                g_unum (str,t2,&voice[j].sep);
-                                if (t2[0]!='+' && t2[0]!='-') voice[j].sep += 2000.0;
+                                g_unum (str,t2,&v[j].sep);
+                                if (t2[0]!='+' && t2[0]!='-') v[j].sep += 2000.0;
                         }
 
                         elif (!strcmp(t1,"clef")        || !strcmp(t1,"cl")) {
-                                if (!set_clef(t2,&voice[j].key))
-                                        std::cerr << "Unknown clef in voice spec: " << t2 << std::endl;
+                                if (!set_clef(t2,&v[j].key))
+                                        std::cerr << "Unknown clef in v spec: " << t2 << std::endl;
                         }
                         elif (!strcmp(t1,"stems") || !strcmp(t1,"stm")) {
-                                if            (!strcmp(t2,"up"))        voice[j].stems=1;
-                                elif (!strcmp(t2,"down"))    voice[j].stems=-1;
-                                elif (!strcmp(t2,"free"))    voice[j].stems=0;
-                                else std::cerr << "Unknown stem setting in voice spec: " << t2 << std::endl;
+                                if            (!strcmp(t2,"up"))        v[j].stems=1;
+                                elif (!strcmp(t2,"down"))    v[j].stems=-1;
+                                elif (!strcmp(t2,"free"))    v[j].stems=0;
+                                else std::cerr << "Unknown stem setting in v spec: " << t2 << std::endl;
                         }
                         elif (!strcmp(t1,"octave")) {
                                 ; # ignore abc2midi parameter for compatibility 
                         }
-                        else std::cerr << "Unknown option in voice spec: " << t1 << std::endl;
+                        else std::cerr << "Unknown option in v spec: " << t1 << std::endl;
                 }
 
         }
 
-        # if new voice was initialized, save settings im meter0, key0 
+        # if new v was initialized, save settings im meter0, key0 
         if (newv) {
-                voice[j].meter0 = voice[j].meter;
-                voice[j].key0     = voice[j].key;
+                v[j].meter0 = v[j].meter;
+                v[j].key0     = v[j].key;
         }
 
         if (verbose>7) 
-                printf ("Switch to voice %d    <%s> <%s> <%s>    clef=%d\n", 
-                                j,voice[j].id,voice[j].name,voice[j].sname, 
-                                voice[j].key.ktype); 
+                printf ("Switch to v %d    <%s> <%s> <%s>    clef=%d\n", 
+                                j,v[j].id,v[j].name,v[j].sname, 
+                                v[j].key.ktype); 
 
-        nsym0=voice[j].nsym;    # set nsym0 to decide about eoln later.. ugly 
+        nsym0=v[j].nsym;    # set nsym0 to decide about eoln later.. ugly 
         return j;
 
 } 
@@ -269,7 +269,7 @@ def info_field(line):
     elif (s[0]=='V') {
             strip (lvoiceid,    &s[2]);
             if (!*lvoiceid) {
-                    syntax("missing voice specifier",p);
+                    syntax("missing v specifier",p);
                     return 0;
             }
             return VOICE;
@@ -382,13 +382,13 @@ int numeric_pitch(char note)
         if (note=='z') 
                 return 14;
         if (note >= 'C' && note <= 'G')
-                return(note-'C'+16+voice[ivc].key.add_pitch);
+                return(note-'C'+16+v[ivc].key.add_pitch);
         elif (note >= 'A' && note <= 'B')
-                return(note-'A'+21+voice[ivc].key.add_pitch);
+                return(note-'A'+21+v[ivc].key.add_pitch);
         elif (note >= 'c' && note <= 'g')
-                return(note-'c'+23+voice[ivc].key.add_pitch);
+                return(note-'c'+23+v[ivc].key.add_pitch);
         elif (note >= 'a' && note <= 'b')
-                return(note-'a'+28+voice[ivc].key.add_pitch);
+                return(note-'a'+28+v[ivc].key.add_pitch);
         printf ("numeric_pitch: cannot identify <%c>\n", note);
         return(0);
 }
@@ -423,21 +423,21 @@ void handle_inside_field(int type)
 
         if (type==METER) {
                 if (nvoice==0) ivc=switch_voice (DEFVOICE);
-                set_meter (info.meter,&voice[ivc].meter);
-                append_meter (&(voice[ivc].meter));
+                set_meter (info.meter,&v[ivc].meter);
+                append_meter (&(v[ivc].meter));
         }
 
         elif (type==DLEN) {
                 if (nvoice==0) ivc=switch_voice (DEFVOICE);
-                set_dlen (info.len,    &voice[ivc].meter);
+                set_dlen (info.len,    &v[ivc].meter);
         }
 
         elif (type==KEY) {
                 if (nvoice==0) ivc=switch_voice (DEFVOICE);
-                oldkey=voice[ivc].key;
-                rc=set_keysig(info.key,&voice[ivc].key,0);
-                if (rc) set_transtab (halftones,&voice[ivc].key);
-                append_key_change(oldkey,voice[ivc].key);
+                oldkey=v[ivc].key;
+                rc=set_keysig(info.key,&v[ivc].key,0);
+                if (rc) set_transtab (halftones,&v[ivc].key);
+                append_key_change(oldkey,v[ivc].key);
         }
 
         elif (type==VOICE) {
@@ -471,15 +471,15 @@ int parse_uint (void)
 # ----- parse_bar: parse for some kind of bar ---- 
 int parse_bar (void)
 {
-        int k;
+        int j;
         GchordList::iterator ii;
 
         # special cases: [1 or [2 without a preceeding bar, [| 
         if (*p=='[') {
                 if (strchr("123456789",*(p+1))) {
-                        k=add_sym (BAR);
-                        symv[ivc][k].u=B_INVIS;
-                        symv[ivc][k].v=chartoi(*(p+1));
+                        j=add_sym (BAR);
+                        symv[ivc][j].u=B_INVIS;
+                        symv[ivc][j].v=chartoi(*(p+1));
                         p=p+2;
                         return 1;
                 }
@@ -489,34 +489,34 @@ int parse_bar (void)
         if (*p == '|') {
                 p++;
                 if (*p == '|') { 
-                        k=add_sym (BAR);
-                        symv[ivc][k].u=B_DBL;
+                        j=add_sym (BAR);
+                        symv[ivc][j].u=B_DBL;
                         p++;
                 }
                 elif (*p == ':') { 
-                        k=add_sym(BAR);
-                        symv[ivc][k].u=B_LREP;
+                        j=add_sym(BAR);
+                        symv[ivc][j].u=B_LREP;
                         p++; 
                 }
                 elif (*p==']') {                                    # code |] for fat end bar 
-                        k=add_sym(BAR);
-                        symv[ivc][k].u=B_FAT2;
+                        j=add_sym(BAR);
+                        symv[ivc][j].u=B_FAT2;
                         p=p+1;
                 }
                 else {
-                        k=add_sym(BAR);
-                        symv[ivc][k].u=B_SNGL;
+                        j=add_sym(BAR);
+                        symv[ivc][j].u=B_SNGL;
                 }
         }
         elif (*p == ':') {
                 if (*(p+1) == '|') { 
-                        k=add_sym(BAR);
-                        symv[ivc][k].u=B_RREP;
+                        j=add_sym(BAR);
+                        symv[ivc][j].u=B_RREP;
                         p+=2;
                 }
                 elif (*(p+1) == ':') {
-                        k=add_sym(BAR);
-                        symv[ivc][k].u=B_DREP;
+                        j=add_sym(BAR);
+                        symv[ivc][j].u=B_DREP;
                         p+=2; }
                 else {
                         # ':' is decoration in tablature
@@ -527,24 +527,24 @@ int parse_bar (void)
         }
 
         elif ((*p=='[') && (*(p+1)=='|') && (*(p+2)==']')) {    # code [|] invis 
-                k=add_sym(BAR);
-                symv[ivc][k].u=B_INVIS;
+                j=add_sym(BAR);
+                symv[ivc][j].u=B_INVIS;
                 p=p+3;
         }
 
         elif ((*p=='[') && (*(p+1)=='|')) {        # code [| for thick-thin bar 
-                k=add_sym(BAR);
-                symv[ivc][k].u=B_FAT1;
+                j=add_sym(BAR);
+                symv[ivc][j].u=B_FAT1;
                 p=p+2;
         }
 
         else return 0;
 
         # copy over preparsed stuff (gchords, decos) 
-        strcpy(symv[ivc][k].text,"");
+        strcpy(symv[ivc][j].text,"");
         if (!prep_gchlst.empty()) {
                 for (ii=prep_gchlst.begin(); ii!=prep_gchlst.end(); ii++) {
-                        symv[ivc][k].gchords->push_back(*ii);
+                        symv[ivc][j].gchords->push_back(*ii);
                 }
                 prep_gchlst.clear();
         }
@@ -552,18 +552,18 @@ int parse_bar (void)
                 for (int i=0; i<prep_deco.n; i++) {
                         int deco=prep_deco.t[i];
                         if ((deco!=D_STACC) && (deco!=D_SLIDE))
-                                symv[ivc][k].dc.add(deco);
+                                symv[ivc][j].dc.add(deco);
                 }
                 prep_deco.clear();
         }
 
         # see if valid bar is followed by specifier for first or second ending 
         if (strchr("123456789",*p)) {
-                symv[ivc][k].v=chartoi(*p); p++;
+                symv[ivc][j].v=chartoi(*p); p++;
         } elif ((*p=='[') && (strchr("123456789",*(p+1)))) {
-                symv[ivc][k].v=chartoi(*(p+1)); p=p+2;
+                symv[ivc][j].v=chartoi(*(p+1)); p=p+2;
         } elif ((*p==' ') && (*(p+1)=='[') && (strchr("123456789",*(p+2)))) {
-                symv[ivc][k].v=chartoi(*(p+2)); p=p+3;
+                symv[ivc][j].v=chartoi(*(p+2)); p=p+3;
         }
 
         return 1;
@@ -675,10 +675,10 @@ int parse_gchord ()
         }
         p++;
         if (db>3) printf("    parse guitar chord <%s>\n", gchnew.text.c_str());
-        gch_transpose(&gchnew.text, voice[ivc].key);
+        gch_transpose(&gchnew.text, v[ivc].key);
         prep_gchlst.push_back(gchnew);
 
-        #|     gch_transpose (voice[ivc].key); |
+        #|     gch_transpose (v[ivc].key); |
 
         return 1;
 }
@@ -702,7 +702,7 @@ int parse_deco ()
                 {D_UPBOW,     'u', "!upbow!"},
                 {D_DOWNBOW, 'v', "!downbow!"},
                 {D_HAT,         'K', "!sforzando!"},
-                {D_ATT,         'k', "!accent!"},
+                {D_ATT,         'j', "!accent!"},
                 {D_ATT,         'L', "!emphasis!"}, #for abc standard 1.7.6 compliance
                 {D_SEGNO,     'S', "!segno!"},
                 {D_CODA,        'O', "!coda!"},
@@ -783,10 +783,10 @@ int parse_length (void)
 {
         int len,fac;
 
-        len=voice[ivc].meter.dlen;                    # start with default length 
+        len=v[ivc].meter.dlen;                    # start with default length 
 
         if (len<=0) {
-                syntax("got len<=0 from current voice", p);
+                syntax("got len<=0 from current v", p);
                 printf("Cannot proceed without default length. Emergency stop.\n");
                 exit(1);
         }
@@ -873,7 +873,7 @@ int parse_grace_sequence (int *pgr, int *agr, int* len)
                 while (*p == '\'') { pgr[n] += 7; p++; }
                 while (*p == ',') {    pgr[n] -= 7; p++; }
 
-                do_transpose (voice[ivc].key, &pgr[n], &agr[n]);
+                do_transpose (v[ivc].key, &pgr[n], &agr[n]);
 
                 # parse_length() returns default length when no length specified 
                 # => we may only call it when explicit length specified 
@@ -896,7 +896,7 @@ void identify_note (struct SYMBOL *s, char *q)
 
         # set flag if duration equals (or gretaer) length of one measure 
         if (nvoice>0) {
-                if (len>=(WHOLE*voice[ivc].meter.meter1)/voice[ivc].meter.meter2)
+                if (len>=(WHOLE*v[ivc].meter.meter1)/v[ivc].meter.meter2)
                         s->fullmes=1;
         }
 
@@ -1005,7 +1005,7 @@ int parse_basic_note (int *pitch, int *length, int *accidental)
 
         len=parse_length();
 
-        do_transpose (voice[ivc].key, &pit, &acc);
+        do_transpose (v[ivc].key, &pit, &acc);
 
         *pitch=pit;
         *length=len;
@@ -1023,7 +1023,7 @@ int parse_basic_note (int *pitch, int *length, int *accidental)
 # ----- parse_note: parse for one note or rest with all trimmings --- 
 int parse_note (void)
 {
-        int k,deco,i,chord,m,type,rc,sl1,sl2,j,n;
+        int j,deco,i,chord,m,type,rc,sl1,sl2,j,n;
         int pitch,length,accidental,invis;
         char *q,*q0;
         GchordList::iterator ii;
@@ -1055,30 +1055,30 @@ int parse_note (void)
         if ((*p=='x')||(*p=='X')) {type=REST; invis=1; }
         if (!type) return 0;
 
-        k=add_sym(type);                                         # add new symbol to list 
+        j=add_sym(type);                                         # add new symbol to list 
 
 
-        symv[ivc][k].dc.n=prep_deco.n;             # copy over pre-parsed stuff 
+        symv[ivc][j].dc.n=prep_deco.n;             # copy over pre-parsed stuff 
         for (i=0;i<prep_deco.n;i++) 
-                symv[ivc][k].dc.t[i]=prep_deco.t[i];
+                symv[ivc][j].dc.t[i]=prep_deco.t[i];
         prep_deco.clear();
         if (ngr) {
-                symv[ivc][k].gr.n=ngr;
-                symv[ivc][k].gr.len=lgr;
+                symv[ivc][j].gr.n=ngr;
+                symv[ivc][j].gr.len=lgr;
                 for (i=0;i<ngr;i++) {
-                        symv[ivc][k].gr.p[i]=pgr[i];
-                        symv[ivc][k].gr.a[i]=agr[i];
+                        symv[ivc][j].gr.p[i]=pgr[i];
+                        symv[ivc][j].gr.a[i]=agr[i];
                 }
                 ngr = 0;
         } else {
-                symv[ivc][k].gr.n=0;
-                symv[ivc][k].gr.len=0;
+                symv[ivc][j].gr.n=0;
+                symv[ivc][j].gr.len=0;
         }
 
         if (!prep_gchlst.empty()) {
-                #gch_transpose (voice[ivc].key);
+                #gch_transpose (v[ivc].key);
                 for (ii=prep_gchlst.begin(); ii!=prep_gchlst.end(); ii++) {
-                        symv[ivc][k].gchords->push_back(*ii);
+                        symv[ivc][j].gchords->push_back(*ii);
                 }
                 prep_gchlst.clear();
         }
@@ -1086,18 +1086,18 @@ int parse_note (void)
         q0=p;
         if (type==REST) {
                 p++;
-                symv[ivc][k].lens[0] = parse_length();
-                symv[ivc][k].npitch=1;
-                symv[ivc][k].invis=invis;
+                symv[ivc][j].lens[0] = parse_length();
+                symv[ivc][j].npitch=1;
+                symv[ivc][j].invis=invis;
                 if (db>3) printf ("    parsed rest, length %d/%d = 1/%d\n", 
-                                symv[ivc][k].lens[0],BASE,BASE/symv[ivc][k].lens[0]); 
+                                symv[ivc][j].lens[0],BASE,BASE/symv[ivc][j].lens[0]); 
         }
         elif (type==BREST) {
                 p++;
-                symv[ivc][k].lens[0] = (WHOLE*voice[ivc].meter.meter1)/voice[ivc].meter.meter2;
-                symv[ivc][k].len = symv[ivc][k].lens[0];
-                symv[ivc][k].fullmes = parse_brestnum();
-                symv[ivc][k].npitch=1;
+                symv[ivc][j].lens[0] = (WHOLE*v[ivc].meter.meter1)/v[ivc].meter.meter2;
+                symv[ivc][j].len = symv[ivc][j].lens[0];
+                symv[ivc][j].fullmes = parse_brestnum();
+                symv[ivc][j].npitch=1;
         }
         else {
                 m=0;                                                                 # get pitch and length 
@@ -1105,32 +1105,32 @@ int parse_note (void)
                 for (;;) {
                         if (chord && (*p=='(')) {
                                 sl1++;
-                                symv[ivc][k].sl1[m]=sl1;
+                                symv[ivc][j].sl1[m]=sl1;
                                 p++;
                         }
                         if (deco=parse_deco()) {         # for extra decorations within chord 
-                                for (i=0;i<deco;i++) symv[ivc][k].dc.add(prep_deco.t[i]);
+                                for (i=0;i<deco;i++) symv[ivc][j].dc.add(prep_deco.t[i]);
                                 prep_deco.clear();
                         }
 
                         rc=parse_basic_note (&pitch,&length,&accidental);
-                        if (rc==0) { voice[ivc].nsym--; return 0; }
-                        symv[ivc][k].pits[m] = pitch;
-                        symv[ivc][k].lens[m] = length;
-                        symv[ivc][k].accs[m] = accidental;
-                        symv[ivc][k].ti1[m]    = symv[ivc][k].ti2[m] = 0;
+                        if (rc==0) { v[ivc].nsym--; return 0; }
+                        symv[ivc][j].pits[m] = pitch;
+                        symv[ivc][j].lens[m] = length;
+                        symv[ivc][j].accs[m] = accidental;
+                        symv[ivc][j].ti1[m]    = symv[ivc][j].ti2[m] = 0;
                         for (j=0;j<ntinext;j++) 
-                                if (tinext[j]==symv[ivc][k].pits[m]) symv[ivc][k].ti2[m]=1;
+                                if (tinext[j]==symv[ivc][j].pits[m]) symv[ivc][j].ti2[m]=1;
 
-                        if (chord && (*p=='-')) {symv[ivc][k].ti1[m]=1; p++;}
+                        if (chord && (*p=='-')) {symv[ivc][j].ti1[m]=1; p++;}
 
                         if (chord && (*p==')')) {
                                 sl2++;
-                                symv[ivc][k].sl2[m]=sl2;
+                                symv[ivc][j].sl2[m]=sl2;
                                 p++;
                         }
 
-                        if (chord && (*p=='-')) {symv[ivc][k].ti1[m]=1; p++;}
+                        if (chord && (*p=='-')) {symv[ivc][j].ti1[m]=1; p++;}
 
                         m++;
 
@@ -1146,42 +1146,42 @@ int parse_note (void)
                 }
                 ntinext=0;
                 for (j=0;j<m;j++)
-                        if (symv[ivc][k].ti1[j]) {
-                                tinext[ntinext]=symv[ivc][k].pits[j];
+                        if (symv[ivc][j].ti1[j]) {
+                                tinext[ntinext]=symv[ivc][j].pits[j];
                                 ntinext++;
                         }
-                symv[ivc][k].npitch=m;
+                symv[ivc][j].npitch=m;
                 if (m>0) {
-                        symv[ivc][k].grcpit = symv[ivc][k].pits[0];
+                        symv[ivc][j].grcpit = symv[ivc][j].pits[0];
                 }
         }
 
-        for (m=0;m<symv[ivc][k].npitch;m++) {     # add carryover from > or < 
-                if (symv[ivc][k].lens[m]+carryover<=0) {
+        for (m=0;m<symv[ivc][j].npitch;m++) {     # add carryover from > or < 
+                if (symv[ivc][j].lens[m]+carryover<=0) {
                         syntax("> leads to zero or negative note length",q0);
                 }
                 else
-                        symv[ivc][k].lens[m] += carryover;
+                        symv[ivc][j].lens[m] += carryover;
         }
         carryover=0;
 
         if (db>3) printf ("    parsed note, decos %d, text <%s>\n",
-                        symv[ivc][k].dc.n, symv[ivc][k].text);
+                        symv[ivc][j].dc.n, symv[ivc][j].text);
 
 
-        symv[ivc][k].yadd=0;
-        if (voice[ivc].key.ktype==BASS)                 symv[ivc][k].yadd=-6;
-        if (voice[ivc].key.ktype==ALTO)                 symv[ivc][k].yadd=-3;
-        if (voice[ivc].key.ktype==TENOR)                symv[ivc][k].yadd=+3;
-        if (voice[ivc].key.ktype==SOPRANO)            symv[ivc][k].yadd=+6;
-        if (voice[ivc].key.ktype==MEZZOSOPRANO) symv[ivc][k].yadd=-9;
-        if (voice[ivc].key.ktype==BARITONE)         symv[ivc][k].yadd=-12;
-        if (voice[ivc].key.ktype==VARBARITONE)    symv[ivc][k].yadd=-12;
-        if (voice[ivc].key.ktype==SUBBASS)            symv[ivc][k].yadd=0;
-        if (voice[ivc].key.ktype==FRENCHVIOLIN) symv[ivc][k].yadd=-6;
+        symv[ivc][j].yadd=0;
+        if (v[ivc].key.ktype==BASS)                 symv[ivc][j].yadd=-6;
+        if (v[ivc].key.ktype==ALTO)                 symv[ivc][j].yadd=-3;
+        if (v[ivc].key.ktype==TENOR)                symv[ivc][j].yadd=+3;
+        if (v[ivc].key.ktype==SOPRANO)            symv[ivc][j].yadd=+6;
+        if (v[ivc].key.ktype==MEZZOSOPRANO) symv[ivc][j].yadd=-9;
+        if (v[ivc].key.ktype==BARITONE)         symv[ivc][j].yadd=-12;
+        if (v[ivc].key.ktype==VARBARITONE)    symv[ivc][j].yadd=-12;
+        if (v[ivc].key.ktype==SUBBASS)            symv[ivc][j].yadd=0;
+        if (v[ivc].key.ktype==FRENCHVIOLIN) symv[ivc][j].yadd=-6;
 
         if (type!=BREST)
-                identify_note (&symv[ivc][k],q0); 
+                identify_note (&symv[ivc][j],q0); 
         return type;
 }
 
@@ -1266,8 +1266,8 @@ int parse_vocals (char *line)
 
                 if (!strcmp(word,"|")) {                             # skip forward to next bar 
                         isym++;
-                        while ((symv[ivc][isym].type!=BAR) && (isym<voice[ivc].nsym)) isym++; 
-                        if (isym>=voice[ivc].nsym) 
+                        while ((symv[ivc][isym].type!=BAR) && (isym<v[ivc].nsym)) isym++; 
+                        if (isym>=v[ivc].nsym) 
                         { syntax("Not enough bar lines for |",c1); break; }
                 } 
 
@@ -1280,8 +1280,8 @@ int parse_vocals (char *line)
                                 w++;
                         }
                         isym++;
-                        while ((symv[ivc][isym].type!=NOTE) && (isym<voice[ivc].nsym)) isym++; 
-                        if (isym>=voice[ivc].nsym) 
+                        while ((symv[ivc][isym].type!=NOTE) && (isym<v[ivc].nsym)) isym++; 
+                        if (isym>=v[ivc].nsym) 
                         { syntax ("Not enough notes for words",c1); break; }
                         symv[ivc][isym].wordp[nwline]=add_wd(word);
                 }
@@ -1302,7 +1302,7 @@ def parse_music_line(line, ivc):
 
 
     if ivc >= len(voices):
-        log.error("Trying to parse undefined voice")
+        log.error("Trying to parse undefined v")
         exit(1)
 
     nwline = 0
@@ -1675,8 +1675,8 @@ int read_line (FILE *fp, int do_music, string* linestr)
         }
 
         if (db>1)    
-                printf ("    parsed music music %d to %d for voice %d\n", 
-                                nsym0,voice[ivc].nsym-1,ivc);
+                printf ("    parsed music music %d to %d for v %d\n", 
+                                nsym0,v[ivc].nsym-1,ivc);
 
         return type;
 }

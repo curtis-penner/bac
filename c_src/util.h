@@ -1,8 +1,8 @@
 #ifndef _utilH
 #define _utilH
 
-#include <cstdarg>
-#include <string>
+#include <stdarg.h>
+#include <string.h>
 
 /*  
  *  This file is part of abctab2ps, 
@@ -13,13 +13,13 @@
 
 
 /* ----- error warning ----- */
-void warning(std::string, std::string);
+void warning(const char*, const char*);
 
 /* ----- error exit ----- */
-void error(std::string, std::string);
+void error(const char*, const char*);
 
 /* ----- bug: print message for internal error and maybe stop -----  */
-void bug (std::string, bool);
+void bug (const char*, bool);
 
 /* ----- ranf(x1,x2): return random float between x1 and x2 --- */
 float ranf(float x1, float x2);

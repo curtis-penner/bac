@@ -1,110 +1,24 @@
 import common
 
-cfmt = common.fmt
+in_page = False
+nbuf = 0
 
 
+def clear_buffer():
+    global nbuf, ln_num
 
-# ----- bskip(h): translate down by h points in output buffer ---- 
-def bskip(h: float) -> float:
-    """ todo"""
-    return h
+    nbuf = 0
+    common.bposy = 0.0
+    ln_num = 0
 
-# ----- clear_buffer ------- 
-void clear_buffer (void);
-
-# ----- write_index_entry ------- 
-void write_index_entry (void);
-
-# ----- write_buffer: write buffer contents, break at full pages ---- 
-void write_buffer (FILE *fp);
-
-# ----- buffer_eob: handle completed block in buffer ------- 
-void buffer_eob (FILE *fp);
-
-# ----- check_buffer: dump buffer if less than nb bytes avilable --- 
-void check_buffer (FILE *fp, int nb);
-
-
-
-
-
-
-# ----- init_pdims: initialize page dimensions ----- 
-def init_pdims():
-    if in_page:
-        return;
-    posx = cfmt.leftmargin;
-    posy = cfmt.pageheight-cfmt.topmargin;
-
-}
-
-# ----- clear_buffer ------- 
-void clear_buffer (void)
-{
-    nbuf     = 0;
-    bposy    = 0.0;
-    ln_num = 0;
-}
-
-# ----- write_index_entry ------- 
-void write_index_entry (void)
-{
-    string s;
-    float w,dx1,dx2;
-
-    if (!index_initialized) init_index_file ();
-
+"""
+# ----- write_buffer: write buffer contents, break at full pages ----
+def write_buffer(fp):
     
-    if (vb>=8) printf("Write index entry: %5d    <%s>\n",
-                                        pagenum, info.title);
+    if not nbuf:
+        return
 
-    
-    # spacing determined here 
-    index_posy = index_posy-1.2*cfmt.indexfont.size;
-
-    if (index_posy-cfmt.indexfont.size < cfmt.botmargin) {
-        close_index_page (findex);
-        init_index_page (findex);
-    }
-
-    dx1 = 1.8*cfmt.indexfont.size;
-    dx2 = dx1+cfmt.indexfont.size;
-
-    
-    tex_str (info.title,&s,&w);
-    if (s.empty()) s = "No title";
-    fprintf (findex, "%.2f %.2f M (%d) lshow\n", 
-                     index_posx+dx1, index_posy, pagenum);
-
-    fprintf (findex, "%.2f %.2f M (%s) S\n", 
-                     index_posx+dx2, index_posy, s.c_str());
-
-    if (strlen(info.rhyth) || strlen(info.orig)) {
-        fprintf (findex, "(    (");
-        if (strlen(info.rhyth)) fprintf (findex, "%s", info.rhyth);
-        if (strlen(info.rhyth) && strlen(info.orig))
-            fprintf (findex, ", ");
-        if (strlen(info.orig)) fprintf (findex, "%s", info.orig);
-        fprintf (findex, ")) S\n");
-    }
-
-    
-    if (strlen(info.comp[0])) fprintf (findex, "(     - %s) S\n", info.comp[0]);
- 
-}
-
-
-
-
-# ----- write_buffer: write buffer contents, break at full pages ---- 
-void write_buffer (FILE *fp)
-{
-    int i,l,b1,b2,nb;
-    float p1,dp;
-    
-    if (nbuf==0) return;
-
-    writenum++;
+    writenum += 1
     
     if ((writenum==1) && make_index) write_index_entry();
 
@@ -132,13 +46,10 @@ void write_buffer (FILE *fp)
     
     clear_buffer();
     return;
-}
 
 # ----- buffer_eob: handle completed block in buffer ------- 
-# if the added stuff does not fit on current page, write it out
-     after page break and change buffer handling mode to pass though 
-void buffer_eob (FILE *fp)
-{
+# if the added stuff does not fit on current page, write it out after page break and change buffer handling mode to pass though 
+def buffer_eob(fp):
     int do_break;
 
     if (ln_num>=BUFFLN) 
@@ -155,7 +66,7 @@ void buffer_eob (FILE *fp)
 
     do_break=0;
     if (posy+bposy<cfmt.botmargin) do_break=1;
-    if (cfmt.oneperpage) do_break=1;
+    if (cfmt.one_per_page) do_break=1;
     
     if (do_break && (!epsf)) {
         if (tunenum != 1) write_pagebreak (fp);
@@ -167,7 +78,7 @@ void buffer_eob (FILE *fp)
 }
 
 # ----- check_buffer: dump buffer if less than nb bytes avilable --- 
-void check_buffer (FILE *fp, int nb)
+def check_buffer(fp, nb: int):
 {
     char mm[81];
 
@@ -179,4 +90,4 @@ void check_buffer (FILE *fp, int nb)
     }
 }
 
-
+"""

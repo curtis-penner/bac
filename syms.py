@@ -3,7 +3,7 @@ import math
 
 from constants import GSTEM_XOFF
 import format
-import tab_
+import tab
 
 cfmt = format.Format()
 temp_switch = False
@@ -1416,7 +1416,7 @@ def define_symbols(fp):
     :return:
     """
     # load tablature fonts
-    tab_.def_tabfonts(fp)
+    tab.def_tabfonts(fp)
 
     # general music stuff
     def_misc(fp)
@@ -1452,4 +1452,4 @@ def define_symbols(fp):
     def_typeset(fp)
 
     # tablature stuff
-    tab_.def_tabsyms(fp)
+    tab.def_tabsyms(fp)

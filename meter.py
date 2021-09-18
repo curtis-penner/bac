@@ -3,10 +3,8 @@
 import sys
 
 # import constants
-import log
+from log import log
 import format
-
-log = log.log()
 
 cfmt = format.Format()
 

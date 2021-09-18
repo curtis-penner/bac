@@ -38,7 +38,7 @@ xps = list()   # of XPos()
 def set_xpwid(xp):
     """
     In every element xp set tune_fac = 1.0 and wl and wr to WIDTH_MIN
-    For every voice that has syms:
+    For every v that has syms:
         k1 is the first symbol
         k2 is the last symbol
         if k1.wl > xp[0].wl: xp[0].wl = k1.wl

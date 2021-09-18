@@ -1,6 +1,3 @@
-bposy = 0.0   # current position in buffered data
-posx = 0.0
-posy = 0.0
 
 
 class Grace(object):   # describes grace notes

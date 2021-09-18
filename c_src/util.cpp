@@ -3,9 +3,9 @@
  *  See file abctab2ps.cpp for details.
  */
 
-#include <iostream>
+#include <stdio.h>
 #include <ctype.h>
-#include <string>
+#include <string.h>
 #include <stdlib.h>
 
 #include "abctab2ps.h"
@@ -16,30 +16,30 @@
 
 
 /* ----- error warning ----- */
-void warning(std::string msg0, std::string msg1)
+void warning(const char* msg0, const char* msg1)
 {
-    std::cerr <<"WARNING: " <<  msg0 << msg1 << "\n";
+    printf("Warning: %s%s\n", msg0, msg1);
 }
 
 /* ----- error exit ----- */
-void error(std::string msg0, std::string msg1)
+void error(const char* msg0, const char* msg1)
 {
-    std::cerr <<"\nERROR: " <<  msg0 << msg1 << "\n";
+    printf("Error: %s%s\n", msg0, msg1);
     exit (1);
 }
 
 /* ----- bug: print message for internal error and maybe stop -----  */
-void bug(std::string msg, bool fatal)
+void bug(const char* msg, bool fatal)
 {
-    std::cerr << "\n\nThis cannot happen!\n";
-    if (msg.size() > 0) { 
-        std::cerr << "\nInternal error: " << msg << "\n";
+    printf("\n\nThis cannot happen!\n");
+    if (sizeof(msg)) { 
+        printf("\nInternal error: %s\n", msg);
     }
     if (fatal) {
-        std::cerr << "Emergency stop.\n\n";
+        printf("Emergency stop.\n\n");
         exit (1);
     } else {
-        std::cerr << "Trying to continue...\n\n";
+        printf("Trying to continue...\n\n");
     }
 }
 

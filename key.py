@@ -37,12 +37,11 @@ an appended octave modifier (eg. "treble-8"), which changes the pitch
 interpretation.
 """
 
-import log
+from log import log
 import cmdline
-import constants
-import tab_
+import tab
+from constants import (FRENCHTAB)
 
-log = log.log()
 args = cmdline.options()
 
 
@@ -79,11 +78,6 @@ class Key:
 
     modes = {'maj': 0, 'min': -3, 'ion': 0, 'mix': 3, 'dor': 3,
              'phr': 3, 'lyd': 1, 'loc': -5, 'aeo': 3}
-
-    TREBLE = 1
-    TREBLE8 = 2
-    BASS = 3
-    ALTO = 4
 
     # types of clefs
     clef_type = dict(treble=1,
@@ -427,6 +421,7 @@ class Key:
             acc_new=0
         return pitch_new, acc_new
 
+    '''
     def gch_transpose(self, gch):
         """
         transpose guitar chord string in gch
@@ -600,43 +595,44 @@ class Key:
             self.key_type = tab_.GERMANTAB
             return True
         return False
+    '''
 
     def is_tab_key(self):
         """ 
         decide whether the clef number in "key" means tablature
         """
-        return (self.key_type == tab_.FRENCHTAB or
-                self.key_type == tab_.FRENCH5TAB or
-                self.key_type == tab_.FRENCH4TAB or
-                self.key_type == tab_.SPANISHTAB or
-                self.key_type == tab_.SPANISH5TAB or
-                self.key_type == tab_.SPANISH4TAB or
-                self.key_type == tab_.ITALIANTAB or
-                self.key_type == tab_.ITALIAN7TAB or
-                self.key_type == tab_.ITALIAN8TAB or
-                self.key_type == tab_.ITALIAN5TAB or
-                self.key_type == tab_.ITALIAN4TAB or
-                self.key_type == tab_.GERMANTAB)
+        return (self.key_type == FRENCHTAB or
+                self.key_type == tab.FRENCH5TAB or
+                self.key_type == tab.FRENCH4TAB or
+                self.key_type == tab.SPANISHTAB or
+                self.key_type == tab.SPANISH5TAB or
+                self.key_type == tab.SPANISH4TAB or
+                self.key_type == tab.ITALIANTAB or
+                self.key_type == tab.ITALIAN7TAB or
+                self.key_type == tab.ITALIAN8TAB or
+                self.key_type == tab.ITALIAN5TAB or
+                self.key_type == tab.ITALIAN4TAB or
+                self.key_type == tab.GERMANTAB)
 
     def tab_numlines(self):
         """ 
         return number of lines per tablature system
         """
-        if self.key_type in [tab_.FRENCHTAB,
-                             tab_.SPANISHTAB,
-                             tab_.ITALIANTAB,
-                             tab_.ITALIAN7TAB,
-                             tab_.ITALIAN8TAB]:
+        if self.key_type in [FRENCHTAB,
+                             tab.SPANISHTAB,
+                             tab.ITALIANTAB,
+                             tab.ITALIAN7TAB,
+                             tab.ITALIAN8TAB]:
             return 6
-        elif self.key_type in [tab_.FRENCH5TAB,
-                               tab_.SPANISH5TAB,
-                               tab_.ITALIAN5TAB,
-                               tab_.GERMANTAB]:
+        elif self.key_type in [tab.FRENCH5TAB,
+                               tab.SPANISH5TAB,
+                               tab.ITALIAN5TAB,
+                               tab.GERMANTAB]:
             # 5 lines should be enough for german tab
             return 5
-        elif self.key_type in [tab_.FRENCH4TAB,
-                               tab_.SPANISH4TAB,
-                               tab_.ITALIAN4TAB]:
+        elif self.key_type in [tab.FRENCH4TAB,
+                               tab.SPANISH4TAB,
+                               tab.ITALIAN4TAB]:
         
             return 4
         else:

@@ -1,20 +1,22 @@
 import sys
 import os
 
+import buffer
 import pssubs
 import common
-import util as util
+import util
 from util import bskip, put
-import log
+from log import log
 import cmdline
 import format
-import info
-import constants
+
+from constants import (RAGGED, OBEYCENTER, OBEYLINES, OBEYRIGHT)
+from constants import (TEXT_W)
 
 args = cmdline.options()
-log = log.log()
 cfmt = format.Format()
-info = info.Field()
+font = format.Font()
+
 
 maxSyms = 800
 allocSyms = 800
@@ -24,6 +26,7 @@ allocVc = 3
 
 def write_help():
     pass
+
 
 def is_xrefstr(xrefstr):
     """
@@ -272,7 +275,7 @@ class Pos:
         dif = new_posx-self.posx
         if dif*dif < 0.001:
             return
-        with open(common.filename, 'a') as f:
+        with open(common.output, 'a') as f:
             f.write(f"{dif:.2f} 0 T\n")
         self.posx = new_posx
 
@@ -311,7 +314,7 @@ def close_output_file(fp):
         os.remove(filename)
         return True
     else:
-        m = utils.util.get_file_size(common.output)
+        m = util.get_file_size(common.output)
         print(f'Output written to {common.output} (pages: {common.pagenum}, '
               f'titles: {common.tunenum}, bytes: {m}')
         return False
@@ -344,266 +347,275 @@ def open_output_file(out_filename, in_filename):
     if status:
        log.error(f'Cannot open output file {out_filename}')
     common.pagenum = 0
-    common.tunenum = tnum1 = tnum2 = 0
-    file_open = True
-    file_initialized = False
+    common.tunenum = False
+    tnum1 = False
+    tnum2 = False
+    common.file_open = True
+    common.file_initialized = False
 
 # These are in ps/index.py
 # def open_index_file(filename):
 # def close_index_file(findex):
 
-class Words:
-    def __init__(self):
-        self.words_of_text = list()
+def close_index_page(fp):
+    fp.write("\n%%PageTrailer\n"
+             "grestore\n"
+             "showpage\n")
 
 
-    def add_to_text_block(self, ln, add_final_nl):
-        """
-        Used in:
-            subs.put_text
+def close_index_file():
+    if common.vb >= 8:
+        print("Close index file")
+    close_index_page(common.fp)
+    common.fp.close()
 
-        :param str ln:
-        :param bool add_final_nl:
-        :return ln, words_of_text:
-        """
-        # const char *c
-        word = list()
-        # int nl
-        self.words_of_text = list()
-        c = 0
-        nl = 0
 
-        while c < len(ln):
-            while ln[c] == ' ':
-                c += 1
-            if c >= len(ln):
+def add_to_text_block(ln, add_final_nl):
+    """
+    Used in:
+        subs.put_text
+
+    :param str ln:
+    :param bool add_final_nl:
+    :return ln, words_of_text:
+    """
+    word = list()
+    words_of_text = list()
+    c = 0
+    nl = 0
+
+    while c < len(ln):
+        while ln[c] == ' ':
+            c += 1
+        if c >= len(ln):
+            break
+        while ln[c] != ' ' and c >= len(ln) and ln[c] != '\n':
+            nl=0
+            if ln[c] == '\\' and ln[c+1] == '\\':
+                nl=1
+                c += 2
                 break
-            while ln[c] != ' ' and c >= len(ln) and ln[c] != '\n':
-                nl=0
-                if ln[c] == '\\' and ln[c+1] == '\\':
-                    nl=1
-                    c += 2
-                    break
-                word.append(ln[c])
-                c += 1
-            if word:
-                self.words_of_text.append(word)
-                word = list()
-            if nl:
-                self.words_of_text.append("$$NL$$")
-                word = list()
-        if add_final_nl:
-            self.words_of_text.append("$$NL$$")
+            word.append(ln[c])
+            c += 1
+        if word:
+            words_of_text.append(word)
+            word = list()
+        if nl:
+            words_of_text.append("$$NL$$")
+            word = list()
+    if add_final_nl:
+        words_of_text.append("$$NL$$")
 
 
-    def write_text_block(self, fp, job):
-        """
+def set_swfac(name):
+    # estimate text widths.. ok for T-R, wild guess for other fonts
+    swfac = 1.0
+    if cfmt.textfont.name == "Times-Roman":
+        swfac = 1.00
+    if cfmt.textfont.name == "Times-Bold":
+        swfac = 1.05
+    if cfmt.textfont.name == "Helvetica":
+        swfac = 1.10
+    if cfmt.textfont.name == "Helvetica-Bold":
+        swfac = 1.15
+    if cfmt.textfont.name == "Palatino":
+        swfac = 1.10
+    return swfac
 
-        :param fp:
-        :param job:
-        """
-        # size_t ntxt
-        # int i,i1,i2,ntline,nc,mc,nbreak
-        # float textwidth,ftline,ftline0,swfac,baseskip,parskip
-        # float wwidth,wtot,spw
-        # string str
 
-        if not self.words_of_text:
-            return
+def write_text_block(fp, job, words_of_text):
+    """
 
-        baseskip = cfmt.textfont.size * cfmt.lineskipfac
-        parskip = cfmt.textfont.size * cfmt.parskipfac
-        cfmt.textfont.set_font_str(common.page_init)
+    :param fp:
+    :param job:
+    """
+    # size_t ntxt
+    # int i,i1,i2,ntline,nc,mc,nbreak
+    # float textwidth,ftline,ftline0,swfac,baseskip,parskip
+    # float wwidth,wtot,spw
+    # string str
 
-        # estimate text widths.. ok for T-R, wild guess for other fonts
-        swfac = 1.0
-        if cfmt.textfont.name == "Times-Roman":
-            swfac = 1.00
-        if cfmt.textfont.name == "Times-Bold":
-            swfac=1.05
-        if cfmt.textfont.name == "Helvetica":
-            swfac=1.10
-        if cfmt.textfont.name == "Helvetica-Bold":
-            swfac=1.15
-        if cfmt.textfont.name == "Palatino":
-            swfac=1.10
-
-        # Now this is stupid. All that work to just set it to 1.0
-        swfac = 1.0
-        spw = utils.util.cwid(' ')
-        put("/LF \{0 "
-            f"{-baseskip:.1f}"
-            " rmoveto} bind def\n")
-
-        # output by pieces, separate at newline token
-        ntxt = len(self.words_of_text)
-        i1 = 0
-        while i1 < ntxt:
-            i2 = -1
-            for i in range(i1, ntxt):
-                if self.words_of_text[i] == '$$NL$$':
-                    i2 = i
-                    break
-            if i2 == -1:
-                i2 = ntxt
-            bskip(baseskip)
-
-            if job == constants.OBEYLINES:
-                put("0 0 M(")
-                for i in range(i1, i2):
-                    line, wwidth = tex_str(self.words_of_text[i])
-                    put(f"{line} ")
-                put(") rshow\n")
-
-            elif job == constants.OBEYCENTER:
-                put(f"{cfmt.staffwidth/2:.1f} 0 M(")
-                for i in range(i1, i2):
-                    line, wwidth = tex_str(self.words_of_text[i])
-                    put(f"{line}")
-                    if i<i2-1:
-                        put(" ")
-                put(") cshow\n")
-
-            elif job == constants.OBEYRIGHT:
-                put(f"{cfmt.staffwidth:.1f} 0 M(")
-                for i in range(i1, i2):
-                    line, wwidth = tex_str(self.words_of_text[i])
-                    put(f"{line}")
-                    if i<i2-1:
-                        put(" ")
-                put(") lshow\n")
-
-            else:
-                put("0 0 M mark\n")
-                nc = 0
-                mc = -1
-                wtot = -spw
-                for(i=i2-1;i>=i1;i--) {
-                for i in range(i2, i1, -1):
-                    line, wwidth = tex_str(self.words_of_text[i])
-                    mc += ?? + 1
-                    wtot += wwidth+spw
-                    nc += len(line)+2
-                    if nc >= 72:
-                        nc = 0
-                        put("\n"); }
-                    put(f"({line})")
-                if(job==RAGGED)
-                    PUT1(" %.1f P1\n",cfmt.staffwidth)
-                else
-                    PUT1(" %.1f P2\n",cfmt.staffwidth)
-                        # first estimate:(total textwidth)/(available width)
-                        textwidth=wtot*swfac*cfmt.textfont.size
-                if(strstr(cfmt.textfont.name,"Courier"))
-                    textwidth=0.60*mc*cfmt.textfont.size
-                ftline0=textwidth/cfmt.staffwidth
-                # revised estimate: assume some chars lost at each line end
-                nbreak=(int)ftline0
-                textwidth= textwidth + 5 * nbreak * util.cwid('a') * swfac * cfmt.textfont.size
-                ftline=textwidth/cfmt.staffwidth
-                ntline=(int)(ftline+1.0)
-                if(vb>=10)
-                    printf("first estimate %.2f, revised %.2f\n", ftline0,ftline)
-                if(vb>=10)
-                    printf("Output %d word%s, about %.2f lines(fac %.2f)\n",
-                                 i2-i1, i2-i1==1?"":"s", ftline,swfac)
-                bskip((ntline-1)*baseskip)
-            }
-
-            buffer_eob(fp);
-            # next line to allow pagebreak after each text "line"
-            # if(!epsf && !within_tune) write_buffer(fp);
-            i1=i2+1
-        }
-        bskip(parskip)
-        buffer_eob(fp);
-        # next line to allow pagebreak after each paragraph
-        if(!epsf && !within_tune) write_buffer(fp)
-        strcpy(page_init,"")
+    if not words_of_text:
         return
-    }
 
+    baseskip = cfmt.textfont.size * cfmt.lineskipfac
+    parskip = cfmt.textfont.size * cfmt.parskipfac
+    cfmt.textfont.set_font_str(common.page_init)
 
+    swfac = set_swfac(cfmt.textfont.name)
 
-    # ----- put_words -------
-    void put_words(self, fp)
-    {
-        int i,nw,n
-        char str[81]
-        char *p,*q
+    # Now this is stupid. All that work to just set it to 1.0
 
-        set_font(fp,cfmt.wordsfont, 0)
-        cfmt.wordsfont.set_font_str(page_init)
+    spw = util.cwid(' ')
+    put("/LF \{0 "
+        f"{-baseskip:.1f}"
+        " rmoveto} bind def\n")
 
-        n=0
-        for(i=0;i<ntext;i++) if(text_type[i]==TEXT_W) n++
-        if(n==0) return
+    # output by pieces, separate at newline token
+    ntxt = len(words_of_text)
+    i1 = 0
+    while i1 < ntxt:
+        i2 = -1
+        for i in range(i1, ntxt):
+            if words_of_text[i] == '$$NL$$':
+                i2 = i
+                break
+        if i2 == -1:
+            i2 = ntxt
+        bskip(baseskip)
 
-        bskip(cfmt.wordsspace)
-        for(i=0;i<ntext;i++) {
-            if(text_type[i]==TEXT_W) {
-                bskip(cfmt.lineskipfac*cfmt.wordsfont.size)
-                p=&text[i][0]
-                q=&str[0]
-                if(isdigit(text[i][0])) {
-                    while(*p != '\0') {
-                        *q=*p
-                        q++
-                        p++
-                        if(*p==' ') break
-                        if(*(p-1)==':') break
-                        if(*(p-1)=='.') break
-                    }
-                    if(*p==' ') p++
+        if job == OBEYLINES:
+            put("0 0 M(")
+            for i in range(i1, i2):
+                line, wwidth = tex_str(words_of_text[i])
+                put(f"{line} ")
+            put(") rshow\n")
+
+        elif job == OBEYCENTER:
+            put(f"{cfmt.staffwidth/2:.1f} 0 M(")
+            for i in range(i1, i2):
+                line, wwidth = tex_str(words_of_text[i])
+                put(f"{line}")
+                if i<i2-1:
+                    put(" ")
+            put(") cshow\n")
+
+        elif job == OBEYRIGHT:
+            put(f"{cfmt.staffwidth:.1f} 0 M(")
+            for i in range(i1, i2):
+                line, wwidth = tex_str(words_of_text[i])
+                put(f"{line}")
+                if i<i2-1:
+                    put(" ")
+            put(") lshow\n")
+
+        else:
+            put("0 0 M mark\n")
+            nc = 0
+            mc = -1
+            wtot = -spw
+            for i in range(i2-1, i1, -1):
+                line, wwidth = tex_str(words_of_text[i])
+                mc += len(words_of_text)
+                wtot += wwidth+spw
+                nc += len(line)+2
+                if nc >= 72:
+                    nc = 0
+                    put("\n")
+                put(f"({line})")
+                if job == RAGGED:
+                    put(" %.1f P1\n",cfmt.staffwidth)
+                else:
+                    put(" %.1f P2\n",cfmt.staffwidth)
+                    # first estimate:(total textwidth)/(available width)
+                    textwidth=wtot*swfac*cfmt.textfont.size
+            if "Courier" in cfmt.textfont.name:
+                textwidth = 0.60 * mc * cfmt.textfont.size
+            ftline0 = textwidth / cfmt.staffwidth
+            # revised estimate: assume some chars lost at each line end
+            nbreak = int(ftline0)
+            textwidth = textwidth + 5 * nbreak * util.cwid('a') * swfac * cfmt.textfont.size
+            ftline = textwidth/cfmt.staffwidth
+            ntline = (int)(ftline+1.0)
+            if common.vb >= 10:
+                print(f"first estimate {ftline0:.2f}, revised {ftline:.2f}")
+            if common.vb >= 10:
+                print(f"Output {i2-i1} words, about {ftline:.2f} lines(fac {swfac:.2f})")
+            bskip((ntline-1)*baseskip)
+
+        buffer.buffer_eob(fp)
+        # next line to allow pagebreak after each text "line"
+        # if(!epsf && !within_tune) write_buffer(fp);
+        i1=i2+1
+    bskip(parskip)
+    buffer.buffer_eob(fp)
+    # next line to allow pagebreak after each paragraph
+    if not common.epsf and not common.within_tune:
+        buffer.write_buffer(fp)
+    common.page_init = ""
+
+'''
+def put_words(fp):
+
+    # int i,nw,n
+    # char str[81]
+    # char *p,*q
+
+    cfmt.wordsfont.set_font(fp, False)
+    cfmt.wordsfont.set_font_str(common.page_init)
+
+    n=0
+    for i in range(ntext):
+        if text_type[i] == TEXT_W:
+            n += 1
+    if not n:
+        return
+
+    bskip(cfmt.wordsspace)
+    for i in range(ntext):
+        if text_type[i] == TEXT_W:
+            bskip(cfmt.lineskipfac*cfmt.wordsfont.size)
+            p=text[i][0]
+            q=str[0]
+            if text[i][0].isdigit():
+                while(*p != '\0') {
+                    *q=*p
+                    q++
+                    p++
+                    if(*p==' ') break
+                    if(*(p-1)==':') break
+                    if(*(p-1)=='.') break
                 }
-                *q='\0'
+                if(*p==' ') p++
+            }
+            *q='\0'
 
-                # permit page break at empty lines or stanza start
-                nw=nwords(text[i])
-                if((nw==0) ||(strlen(str)>0)) buffer_eob(fp)
+            # permit page break at empty lines or stanza start
+            nw=nwords(text[i])
+            if((nw==0) ||(strlen(str)>0)) buffer_eob(fp)
 
-                if(nw>0) {
-                    if(strlen(str)>0) {
-                        PUT0("45 0 M(")
-                        put_str(str)
-                        PUT0(") lshow\n")
-                    }
-                    if(strlen(p)>0) {
-                        PUT0("50 0 M(")
-                        put_str(p)
-                        PUT0(") rshow\n")
-                    }
+            if(nw>0) {
+                if(strlen(str)>0) {
+                    put("45 0 M(")
+                    put_str(str)
+                    put(") lshow\n")
+                }
+                if(strlen(p)>0) {
+                    PUT0("50 0 M(")
+                    put_str(p)
+                    PUT0(") rshow\n")
                 }
             }
         }
-
-        buffer_eob(fp)
-        strcpy(page_init,"")
-
     }
 
-    # ----- put_text -------
-    void put_text(self, fp, int type, char *str)
-    {
-        int i,n
-        float baseskip,parskip
+    buffer_eob(fp)
+    strcpy(page_init,"")
 
-        n=0
-        for(i=0;i<ntext;i++) if(text_type[i]==type) n++
-        if(n==0) return
+}
 
-        baseskip = cfmt.textfont.size * cfmt.lineskipfac
-        parskip = cfmt.textfont.size * cfmt.parskipfac
-        PUT0("0 0 M\n")
-        self.words_of_text.clear()
-        add_to_text_block(str,0)
-        for(i=0;i<ntext;i++) {
-            if(text_type[i]==type) add_to_text_block(text[i],1)
-        }
-        write_text_block(fp,RAGGED)
-        buffer_eob(fp);
+# ----- put_text -------
+void put_text(fp, int type, char *str)
+{
+    int i,n
+    float baseskip,parskip
 
+    n=0
+    for(i=0;i<ntext;i++) if(text_type[i]==type) n++
+    if(n==0) return
+
+    baseskip = cfmt.textfont.size * cfmt.lineskipfac
+    parskip = cfmt.textfont.size * cfmt.parskipfac
+    PUT0("0 0 M\n")
+    words_of_text.clear()
+    add_to_text_block(str,0)
+    for(i=0;i<ntext;i++) {
+        if(text_type[i]==type) add_to_text_block(text[i],1)
     }
+    write_text_block(fp,RAGGED)
+    buffer_eob(fp);
+
+}
 
 # ----- put_history ------- 
 void put_history(FILE *fp)
@@ -844,10 +856,10 @@ def write_heading(fp):
     lwidth = cfmt.staffwidth
 
     # write the main title 
-    util.bskip(cfmt.titlefont.size + cfmt.titlespace)
-    set_font(fp,cfmt.titlefont,1)
+    bskip(cfmt.titlefont.size + cfmt.titlespace)
+    cfmt.titlefont.set_font(fp, True)
     if cfmt.withxrefs:
-        put(f"{xrefnum}. ")
+        fp.write(f"{xrefnum}. ")
     t = info.titles[0]
     if(cfmt.titlecaps) cap_str(t)
     put_str(t)
@@ -940,18 +952,19 @@ def write_heading(fp):
 
 }
 
-# ----- write_parts    ----- 
+
 def write_parts(fp):
     """
-    
     :param fp: file
     """
     if len(info.parts) > 0:
         util.bskip(cfmt.partsfont.size)
-        set_font(fp, cfmt.partsfont,0)
+        cfmt.partsfont.set_font(fp, False)
         fp.write("0 0 M(")
         put_str(info.parts)
         fp.write(") rshow\n")
         bskip(cfmt.partsspace)
+'''
 
-
+if __name__ == '__main__':
+    pass

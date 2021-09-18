@@ -198,11 +198,11 @@ int parse_music_line (char *line)
     char msg[81];
     char *p1,*pmx;
 
-    if (ivc>=nvoice) { bug("Trying to parse undefined voice", true); }
+    if (ivc>=nvoice) { bug("Trying to parse undefined v", true); }
 
     nwline=0;
     type=0;
-    nsym0=voice[ivc].nsym;
+    nsym0=v[ivc].nsym;
 
     nbr=0;
     p1=p=p0=line;
@@ -211,7 +211,7 @@ int parse_music_line (char *line)
     while (*p != 0) {
         if (p>pmx) break;                /* emergency exit */
         type=parse_sym();
-        n=voice[ivc].nsym;
+        n=v[ivc].nsym;
         i=n-1;
         if ((db>4) && type)
             printf ("   sym[%d] code (%d,%d)\n",
@@ -255,8 +255,8 @@ int parse_music_line (char *line)
             else
                 symv[ivc][i].slur_st += nbr;
             nbr=0;
-            if (voice[ivc].end_slur) symv[ivc][i].slur_end++;
-            voice[ivc].end_slur=0;
+            if (v[ivc].end_slur) symv[ivc][i].slur_end++;
+            v[ivc].end_slur=0;
 
             if (pplet) {                   /* start of n-plet */
                 symv[ivc][i].p_plet=pplet;
@@ -277,7 +277,7 @@ int parse_music_line (char *line)
 
             if (*p == '-') {                  /* a-b tie */
                 symv[ivc][last_note].slur_st++;
-                voice[ivc].end_slur=1;
+                v[ivc].end_slur=1;
                 p++;
             }
 
@@ -343,7 +343,7 @@ int parse_music_line (char *line)
     }
 
     /* maybe set end-of-line marker, if music were added */
-    n=voice[ivc].nsym;
+    n=v[ivc].nsym;
 
     if (n>nsym0) {
         if (type==CONTINUE || cfmt.barsperstaff || cfmt.continueall) {
@@ -500,7 +500,7 @@ int read_line (FILE *fp, int do_music, string* linestr)
     /* now parse a real line of music */
     if (nvoice==0) ivc=switch_voice (DEFVOICE);
 
-    nsym0=voice[ivc].nsym;
+    nsym0=v[ivc].nsym;
 
     /* music or tablature? */
     if (is_tab_line(line)) {
@@ -510,8 +510,8 @@ int read_line (FILE *fp, int do_music, string* linestr)
     }
 
     if (db>1)
-        printf ("  parsed music music %d to %d for voice %d\n",
-                nsym0,voice[ivc].nsym-1,ivc);
+        printf ("  parsed music music %d to %d for v %d\n",
+                nsym0,v[ivc].nsym-1,ivc);
 
     return type;
 }

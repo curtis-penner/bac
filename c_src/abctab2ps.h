@@ -3,7 +3,7 @@
 
 #include <stdio.h>
 
-#include "oscompat.h"
+// #include "oscompat.h"
 
 #include <string>
 #include <list>
@@ -26,7 +26,8 @@ using std::map;
 #define VDATE        "Apr 26 2011"      /* version date */
 #define VERBOSE0           2            /* default verbosity */
 #define DEBUG_LV           0            /* debug output level */
-#define OUTPUTFILE      "Out.ps"        /* standard output file */
+/* standard output file */
+#define OUTPUTFILE      "Out.ps"
 #define INDEXFILE       "Ind.ps"        /* output file for index */
 #define PS_LEVEL           2            /* PS laguage level: must be 1 or 2 */
 

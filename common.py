@@ -5,51 +5,87 @@ The purpose of this module is to have a common place to keep global
 variable. I know it is not elegant but for now this is how I will work
 this.
 """
-from format import Format
+# from constants import DEBUG_LV, VERBOSE0, S_TITLE
+# # from info import Field
+# import cmdline
+from constants import (S_TITLE, VERBOSE0, DEBUG_LV)
+# from format import Format
 
-fmt = Format()
+# cfmt = Format()
 
-output = 'out.ps'
-filename = ''
+
+# args = cmdline.options()
+
+bagpipe = False
+bposy = 0.0
+
+# choose_outname = args.outf
 
 do_output = False
 do_mode = 0
 do_tune = False
 
-is_epsf = False
-
-within_block = False
-
+epsf = False
 
 file_initialized = False
-index_initialized = False
+file_open = False
+fp = open('out.ps', 'a')
+# findex = open('index.ps', 'r')
 
-
-tunenum = 0
 in_page = False
+in_file = list()
+index_initialized = False
+is_epsf = False
+istab = False
 
-pagenum = 0
+nepsf = 0
+
+output = 'out.ps'
+
 page_init = ''
-
+pagenum = 0
+posx = 0.0
 posy = 0.0
 
+search_field0 = S_TITLE
+
+tunenum = 0
+tnum1 = 0
+tnum2 = 0
+
+vb = 0
+verbose = 0
+vg = VERBOSE0
 voices = list()
 
-fp = open(output, 'a')
+within_block = False
+within_tune = False
 
 # definitions of global variables
-#
-# int db=DEBUG_LV;                  /* debug control */
 
-# for malloc */
-maxSyms = 800
-maxVc = 3
-# int allocSyms,allocVc;
-# struct ISTRUCT info,default_info; /* information fields */
-# char lvoiceid[STRLINFO];          /* string from last V: line */
-# int  nvoice,mvoice;               /* number of voices defd, nonempty */
-# int  ivc;                         /* current voice */
-# int  ivc0;                        /* top nonempty voice */
+db = DEBUG_LV   # debug control
+
+# for malloc
+# maxSyms = 800
+# maxVc = 3
+# allocSyms = 800
+# allocVc = 3
+
+# information fields
+# info = Field()
+# default_info = Field()
+
+# string from last V: line
+# last_voice_id = ''
+lvoiceid = ""
+
+# number of voices defd, nonempty
+# number_voice
+# number_nonempty_voice
+nvoice = 0
+mvoice = 0
+ivc = None   # current v
+ivc0 = 0   # top nonempty v */
 # int ixpfree;                      /* first free element in xp array */
 # struct METERSTR default_meter;    /* data to specify the meter */
 # struct KEYSTR default_key;        /* data to specify the key */
@@ -57,7 +93,7 @@ maxVc = 3
 # struct SYMBOL  *sym;              /* symbol list */
 # struct SYMBOL  **symv;            /* symbols for voices */
 # struct XPOS    *xp;               /* shared horizontal positions */
-# struct VCESPEC *voice;            /* characteristics of a voice */
+# struct VCESPEC *v;            /* characteristics of a v */
 # struct SYMBOL  **sym_st;          /* symbols a staff start */
 # int            *nsym_st;
 #
@@ -86,7 +122,7 @@ maxVc = 3
 # StringVector words_of_text;            /* for output of text */
 #
 #
-# char vcselstr[STRLFILE];          /* string for voice selection */
+vcselstr = ''   # string for v selection
 # char mbf[501];                 /* mini-buffer for one line */
 # char buf[BUFFSZ];              /* output buffer.. should hold one tune */
 # int nbuf;                      /* number of bytes buffered */
@@ -100,7 +136,6 @@ maxVc = 3
 # int text_type[NTEXT];          /* type of each text line */
 # int ntext;                     /* number of text lines */
 # char page_init[201];           /* initialization string after page break */
-# bool do_output;                // do index (false) or output (true)
 # char escseq[81];               /* escape sequence string */
 # int linenum;                   /* current line number in input file */
 # int tunenum;                   /* number of current tune */
@@ -152,7 +187,7 @@ maxVc = 3
 # int pagenumbers;                   /* write page numbers ? */
 # int write_history;                 /* write history and notes ? */
 help_me = 0   # need help ?
-# int select_all;                    /* select all tunes ? */
+select_all = False    # select all tunes?
 # int epsf;                          /* for EPSF postscript output */
 # int choose_outname;                /* 1 names outfile w. title/fnam */
 # int break_continues;               /* ignore continuations ? */
@@ -198,3 +233,17 @@ number_input_files = 0   # number of input file names
 # int  psel[MAXINF];               /* pointers from files to selectors */
 #
 # int temp_switch;
+
+
+def bskip(h):
+    """
+    translate down by h points in output buffer
+
+    :param h:
+    :return:
+    """
+    global bposy
+
+    if (h*h>0.0001):
+        fp.write("0 %.2f T\n", -h)
+        bposy = bposy - h

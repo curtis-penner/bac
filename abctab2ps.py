@@ -5,7 +5,7 @@ import cmdline
 import common
 import parse
 from index import Index
-import music_seg
+import music
 from format import Format
 from constants import VERSION, REVISION, INDEXFILE
 import subs
@@ -47,27 +47,21 @@ def main():
         exit(3)
     if args.help_me == 2:
         print(cfmt)
-        exit (0)
+        exit(0)
 
     # help printout
     if args.help_me == 1:
         cmdline.write_help()
-        exit (0)
+        exit(0)
 
-    psel = list()   # pointers from files to selectors
-    if len(args.filenames) > 0:
-        isel = args.filenames[-1]
-    else:
-        isel=psel[0]
-
-    search_field0 = args.selct_field0   # default for interactive mode
+    search_field0 = args.select_field0   # default for interactive mode
     if args.epsf:
         for filename in args.filename.split():
             name, extension = os.path.splitext(filename)
             # cutext(outf);
 
     # initialize
-    symbol = music_seg.Symbol()
+    symbol = music.Symbol()
     common.pagenum = 0
     common.tunenum = 0
     common.tnum1 = 0
@@ -95,6 +89,10 @@ def main():
         fin = sys.stdin
         common.in_file[0] = "stdin"
         sys.exit(2)
+
+    fout = None
+
+    pat, xref_str = parse.rehash_selectors(args.filenames)
     for filename in args.filenames:
         # process list of input files
         name, ext = os.path.splitext(filename)
@@ -111,7 +109,6 @@ def main():
             continue
 
         fin = open(filename, 'r')
-        pat, xref_str = parse.rehash_selectors()
 
         # The code in broken here as do_output is forever true.
         if not common.do_output:
@@ -135,7 +132,7 @@ def main():
 
     if common.do_output and common.make_index:
         subs.close_index_file ()
-    rc = subs.close_output_file ()
+    rc = subs.close_output_file(fout)
 
     if common.do_output and rc:
         return 1

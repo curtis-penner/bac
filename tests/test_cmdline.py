@@ -16,12 +16,12 @@ class TestCmdline(unittest.TestCase):
         self.assertFalse(args.select_composer)
         self.assertFalse(args.continue_all)
         self.assertEqual(args.dstaffsep, '0.0cm')
-        self.assertEqual(args.fmtdir, '')
+        self.assertEqual(args.styd, '')
         self.assertEqual(args.sel_arg, 0)
         self.assertFalse(args.epsf)
         self.assertEqual(args.filename, '')
         self.assertEqual(args.styf, 'fonts.fmt')
-        self.assertEqual(args.glue, 'fill')
+        self.assertEqual(args.gmode, 'fill')
         self.assertFalse(args.help_me)
         self.assertFalse(args.make_index)
         self.assertIsNone(args.nbars)
@@ -35,21 +35,19 @@ class TestCmdline(unittest.TestCase):
         self.assertFalse(args.write_historical)
         self.assertFalse(args.pagenumbers)
         self.assertEqual(args.outfile, 'out.ps')
-        self.assertFalse(args.outf)
         self.assertIsNone(args.pretty)
         self.assertEqual(args.paper_format, 'letter')
         self.assertFalse(args.select_rhythm)
         self.assertFalse(args.select_source)
-        self.assertEqual(args.scale, 0.7)
-        self.assertFalse(args.select_title)
-        self.assertEqual(args.transposition, '')
+        self.assertEqual(args.select_field0, 1)
+        self.assertEqual(args.transpose, '')
         self.assertEqual(args.tabsize, 14)
         self.assertFalse(args.transposegchords)
         self.assertEqual(args.voices, '')
         self.assertEqual(args.staffwidth, '')
         self.assertFalse(args.include_xrefs)
         self.assertEqual(args.strictness, 0.0)
-        # self.assertEqual(args.filenames, list())
+        self.assertEqual(args.filenames, list())
 
 
 class TestCmdlineUsed(unittest.TestCase):
@@ -62,13 +60,11 @@ class TestCmdlineUsed(unittest.TestCase):
         args = cmdline.options()
         self.assertEqual(args.outfile, 'oh.ps')
 
-    def test_f1(self):
+    def test_f(self):
+        sys.argv.append('-f')
         sys.argv.append('file0')
         args = cmdline.options()
-        self.assertIsInstance(args.filenames, list)
-        self.assertTrue('file0' in args.filenames)
-        self.assertEqual(args.filenames[0], 'file0')
-
+        self.assertEqual('file0', args.filename)
 
     def test_fn(self):
         sys.argv.append('file1')
@@ -76,9 +72,12 @@ class TestCmdlineUsed(unittest.TestCase):
         sys.argv.append('file3')
         args = cmdline.options()
         self.assertIsInstance(args.filenames, list)
-        self.assertTrue('file2' in args.filenames)
-        self.assertTrue('file0' not in args.filenames)
-        self.assertEqual(len(args.filenames), 3)
+        self.assertTrue('file2' in args.filenames[0])
+        self.assertTrue('file0' not in args.filenames[0])
+        args.filenames = args.filenames[0]
+        print(args.filenames)
+        args.filenames.append('file0')
+        self.assertTrue('file0' in args.filenames)
 
     def test_b(self):
         sys.argv.append('-b')

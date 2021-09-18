@@ -18,11 +18,11 @@ def bskip(h):
 
     :param h:
     """
-    global bposy
+    # global bposy
 
     if h*h > 0.0001:
         put(f'0 {-h:.2f} T\n')
-        bposy = bposy - h
+        common.bposy -= h
 
 
 
@@ -267,7 +267,7 @@ def cwid(c):
                'h': 50.0,
                'i': 27.8,
                'j': 27.8,
-               'k': 50.0,
+               'j': 50.0,
                'l': 27.8,
                'm': 77.8,
                'n': 50.0,

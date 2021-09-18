@@ -4,6 +4,7 @@ import os
 
 from log import (console, log)
 import cmdline
+import common
 
 args = cmdline.options()
 
@@ -131,8 +132,8 @@ class Format:
         self.continueall = False
         self.breakall = 0
         self.writehistory = 0
-        self.withxrefs = 0
-        self.oneperpage = 0
+        self.withxrefs = 0   # include_xrefs
+        self.one_per_page = 0
         self.titlecaps = 0
         self.barsperstaff = 0
         self.barnums = False
@@ -255,8 +256,9 @@ class Format:
             return
 
     def ops_into_fmt(self):
-        self.staffsep = self.staffsep + args.dstaffsep
-        self.sysstaffsep = self.sysstaffsep + args.dstaffsep
+        dstaffsep = float(args.dstaffsep.removesuffix('cm'))
+        self.staffsep = self.staffsep + dstaffsep
+        self.sysstaffsep = self.sysstaffsep + dstaffsep
 
     def __str__(self):
         return f'''Format: {self.name}
@@ -312,7 +314,7 @@ class Format:
     writehistory       {self.writehistory}
     continueall        {self.continueall}
     breakall           {self.breakall}
-    oneperpage         {self.oneperpage}
+    one_per_page       {self.one_per_page}
     withxrefs          {self.withxrefs}
     squarebrevis       {self.squarebrevis}
     endingdots         {self.endingdots}
@@ -380,7 +382,7 @@ class Format:
                        "breakall",
                        "writehistory",
                        "withxrefs",
-                       "oneperpage",
+                       "one_per_page",
                        "squarebrevis",
                        "endingdots",
                        "slurisligatura",
@@ -453,6 +455,17 @@ class Format:
         # #         printf("missing '=' in meterdisplay:%s\n", s);
         # #     }
         # return 0
+
+    def init_pdims(self) -> None:
+        """
+        initialize page dimensions
+
+        :return:
+        """
+        if common.in_page:
+            return
+        common.posx = self.leftmargin
+        common.posy = self.pageheight - self.topmargin
 
 
 def g_unum(s):

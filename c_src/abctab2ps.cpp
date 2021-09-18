@@ -35,7 +35,7 @@
 #include "util.h"
 #include "parse.h"
 #include "music.h"
-#include "oscompat.h"
+// #include "oscompat.h"
 
 
 /* ----- definitions of global variables ----- */
