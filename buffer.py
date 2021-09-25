@@ -1,93 +1,93 @@
+import logging
+
+import index
 import common
+from log import log
+from constants import BUFFLN, BUFFSZ
+from pssubs import write_pagebreak
 
-in_page = False
-nbuf = 0
+index = index.Index()
 
 
-def clear_buffer():
-    global nbuf, ln_num
-
-    nbuf = 0
+def clear_buffer() -> None:
+    common.nbuf = 0
     common.bposy = 0.0
-    ln_num = 0
+    common.ln_num = 0
 
-"""
-# ----- write_buffer: write buffer contents, break at full pages ----
-def write_buffer(fp):
-    
-    if not nbuf:
+
+def write_buffer(fp) -> None:
+    """ write buffer contents, break at full pages """
+    if not common.nbuf:
         return
 
-    writenum += 1
-    
-    if ((writenum==1) && make_index) write_index_entry();
+    common.writenum += 1
 
-    nb=0;
-    for (l=0;l<ln_num;l++) {
-        b1=0;
-        p1=0;
-        if (l>0) {
-            b1=ln_buf[l-1];
-            p1=ln_pos[l-1];
-        }
-        b2=ln_buf[l];
-        dp=ln_pos[l]-p1;
-        if ((posy+dp<cfmt.botmargin) && (!epsf)) {
-            write_pagebreak (fp);
-        }
-        for (i=b1;i<b2;i++) putc(buf[i],fp);
-        posy=posy+dp;
-        nb=ln_buf[l];
-    }
+    if common.writenum == 1 and common.make_index:
+        index.write_index_entry()
 
-    if (nb<nbuf) {
-        for (i=nb;i<nbuf;i++) putc(buf[i],fp);
-    }
-    
-    clear_buffer();
-    return;
+    nb = 0
+    for i in range(common.ln_num):
+        b1 = 0
+        p1 = 0
+        if i > 0:
+            b1 = common.ln_buf[i-1]
+            p1 = common.ln_pos[i-1]
 
-# ----- buffer_eob: handle completed block in buffer ------- 
-# if the added stuff does not fit on current page, write it out after page break and change buffer handling mode to pass though 
-def buffer_eob(fp):
-    int do_break;
+        b2 = common.ln_buf[i]
+        dp = common.ln_pos[i]-p1
+        if common.posy+dp < common.cfmt.botmargin and not common.epsf:
+            write_pagebreak(fp)
 
-    if (ln_num>=BUFFLN) 
-        rx("max number off buffer lines exceeded"," -- check BUFFLN");
-    
-    ln_buf[ln_num]=nbuf;
-    ln_pos[ln_num]=bposy;
-    ln_num++;
-    
-    if (!use_buffer) {
-        write_buffer (fp);
-        return;
-    }
+        fp.write(common.buf[b1:b2])
+        common.posy += dp
+        nb = common.ln_buf[i]
 
-    do_break=0;
-    if (posy+bposy<cfmt.botmargin) do_break=1;
-    if (cfmt.one_per_page) do_break=1;
-    
-    if (do_break && (!epsf)) {
-        if (tunenum != 1) write_pagebreak (fp);
-        write_buffer (fp);
-        use_buffer=0;
-    }
+    if nb < common.nbuf:
+        fp.write(common.buf[nb:common.nbuf])
 
-    return;
-}
+    clear_buffer()
 
-# ----- check_buffer: dump buffer if less than nb bytes avilable --- 
-def check_buffer(fp, nb: int):
-{
-    char mm[81];
 
-    if (nbuf+nb>BUFFSZ) {
-        sprintf (mm, "BUFFSZ exceeded at line %d", ln_num);
-        std::cerr << "possibly bad page breaks, " <<    mm << std::endl;
-        write_buffer (fp);
-        use_buffer=0;
-    }
-}
+def buffer_eob(fp) -> None:
+    """
+    handle completed block in buffer
 
-"""
+    if the added stuff does not fit on current page,
+    write it out after page break and change buffer
+    handling mode to pass though
+
+    :param fp:
+    :return:
+    """
+    if common.ln_num >= BUFFLN:
+        logging.warning("max number off buffer lines exceeded",
+                        " -- check BUFFLN")
+
+    common.ln_buf[common.ln_num] = common.nbuf
+    common.ln_pos[common.ln_num] = common.bposy
+    common.ln_num += 1
+
+    if not common.use_buffer:
+        write_buffer(fp)
+        return
+
+    do_break = False
+    if common.posy+common.bposy < common.cfmt.botmarginDD:
+        do_break = True
+    if common.cfmt.one_per_page:
+        do_break = True
+
+    if do_break and not common.epsf:
+        if common.tunenum != 1:
+            write_pagebreak(fp)
+        write_buffer(fp)
+        common.use_buffer = False
+
+
+def check_buffer(fp, nb: int) -> None:
+    """ dump buffer if less than nb bytes available """
+    if common.nbuf+nb > BUFFSZ:
+        mm = f"BUFFSZ exceeded at line {common.ln_num}"
+        log.error(f"possibly bad page breaks, {mm}")
+        write_buffer(fp)
+        common.use_buffer = False
