@@ -3,8 +3,8 @@
 import sys
 
 import cmdline
-import vcestr
 import info
+import voice
 from common import within_block
 from format import Format
 
@@ -152,7 +152,7 @@ cfmt=dfmt;
             del lines[0]
 
         for line in lines:
-            if not info.is_field(line):
+            if not voice.is_field(line):
                 continue
 
 
@@ -194,7 +194,7 @@ cfmt=dfmt;
                           pat, sel_all, search_field)
                 continue
             if not voices:
-                voice = vcestr.Voice()  # todo
+                voice = info.Voice()  # todo
                 voice('1')
 
             if is_tab_line(line):
