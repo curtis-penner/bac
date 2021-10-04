@@ -40,7 +40,10 @@ interpretation.
 from log import log
 import cmdline
 import tab
-from constants import (FRENCHTAB)
+from constants import (FRENCHTAB, FRENCH4TAB, FRENCH5TAB)
+from constants import (SPANISHTAB, SPANISH4TAB, SPANISH5TAB)
+from constants import (ITALIANTAB, ITALIAN4TAB, ITALIAN5TAB, ITALIAN7TAB, ITALIAN8TAB)
+from constants import (GERMANTAB)
 
 args = cmdline.options()
 
@@ -602,37 +605,37 @@ class Key:
         decide whether the clef number in "key" means tablature
         """
         return (self.key_type == FRENCHTAB or
-                self.key_type == tab.FRENCH5TAB or
-                self.key_type == tab.FRENCH4TAB or
-                self.key_type == tab.SPANISHTAB or
-                self.key_type == tab.SPANISH5TAB or
-                self.key_type == tab.SPANISH4TAB or
-                self.key_type == tab.ITALIANTAB or
-                self.key_type == tab.ITALIAN7TAB or
-                self.key_type == tab.ITALIAN8TAB or
-                self.key_type == tab.ITALIAN5TAB or
-                self.key_type == tab.ITALIAN4TAB or
-                self.key_type == tab.GERMANTAB)
+                self.key_type == FRENCH5TAB or
+                self.key_type == FRENCH4TAB or
+                self.key_type == SPANISHTAB or
+                self.key_type == SPANISH5TAB or
+                self.key_type == SPANISH4TAB or
+                self.key_type == ITALIANTAB or
+                self.key_type == ITALIAN7TAB or
+                self.key_type == ITALIAN8TAB or
+                self.key_type == ITALIAN5TAB or
+                self.key_type == ITALIAN4TAB or
+                self.key_type == GERMANTAB)
 
     def tab_numlines(self):
         """ 
         return number of lines per tablature system
         """
         if self.key_type in [FRENCHTAB,
-                             tab.SPANISHTAB,
-                             tab.ITALIANTAB,
-                             tab.ITALIAN7TAB,
-                             tab.ITALIAN8TAB]:
+                             SPANISHTAB,
+                             ITALIANTAB,
+                             ITALIAN7TAB,
+                             ITALIAN8TAB]:
             return 6
-        elif self.key_type in [tab.FRENCH5TAB,
-                               tab.SPANISH5TAB,
-                               tab.ITALIAN5TAB,
-                               tab.GERMANTAB]:
+        elif self.key_type in [FRENCH5TAB,
+                               SPANISH5TAB,
+                               ITALIAN5TAB,
+                               GERMANTAB]:
             # 5 lines should be enough for german tab
             return 5
-        elif self.key_type in [tab.FRENCH4TAB,
-                               tab.SPANISH4TAB,
-                               tab.ITALIAN4TAB]:
+        elif self.key_type in [FRENCH4TAB,
+                               SPANISH4TAB,
+                               ITALIAN4TAB]:
         
             return 4
         else:
