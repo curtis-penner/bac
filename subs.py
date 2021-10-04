@@ -2,8 +2,10 @@ import sys
 import os
 
 import buffer
+import info
 import pssubs
 import common
+from common import bskip
 import util
 from util import bskip, put
 from log import log
@@ -18,50 +20,27 @@ cfmt = format.Format()
 font = format.Font()
 
 
-maxSyms = 800
-allocSyms = 800
-maxVc = 3
-allocVc = 3
-   
-
 def write_help():
     pass
 
 
-def is_xrefstr(xrefstr):
-    """
-    check if string ok for xref selection
-
-    :param xrefstr:
-    :return bool:
-    """
+def is_xrefstr(xrefstr: str) -> bool:
+    """ check if string ok for xref selection """
     return xrefstr.isdigit() and int(xrefstr) != 0
 
-def ops_into_fmt(fmt):
-    """
 
-    :param Format fmt:
-    """
-    fmt.staffsep = fmt.staffsep + args.dstaffsep
-    fmt.sysstaffsep = fmt.sysstaffsep + args.dstaffsep
-
-def process_cmdline(line):
-    """
-    parse '%!'-line from input file
-
-    :param line:
-    :return Namespace: argparse
-    """
+def process_cmdline(line: str) -> args:
+    """ parse '%!'-line from input file """
     if line.startswith('%!'):
         line = line[2:].strip()
     else:
         line = line.strip()
     params = line.split()
     sys.argv.extend(params)
-    return cmdline.options()
+    cmdline.options()
 
 
-def tex_str(line):   # tex_str(const char *str, string *s, float *wid)
+def tex_str(line) -> tuple:    # tex_str(const char *str, string *s, float *wid)
     """
     change string to take care of some tex-style codes
 
@@ -260,24 +239,17 @@ def put_str(line):
     print(f"{s}")
 
 
+def check_margin(new_posx):
+    """
+    do horizontal shift if needed
 
-class Pos:
-    def __init__(self):
-        self.posx = 0.0
-        self.posy = 0.0
-
-    def check_margin(self, new_posx):
-        """
-        do horizontal shift if needed
-
-        :param new_posx:
-        """
-        dif = new_posx-self.posx
-        if dif*dif < 0.001:
-            return
-        with open(common.output, 'a') as f:
-            f.write(f"{dif:.2f} 0 T\n")
-        self.posx = new_posx
+    :param new_posx:
+    """
+    dif = new_posx - common.posx
+    if dif*dif < 0.001:
+        return
+    common.fp.write(f"{dif:.2f} 0 T\n")
+    common.posx = new_posx
 
 
 def epsf_title(title):
@@ -348,8 +320,8 @@ def open_output_file(out_filename, in_filename):
        log.error(f'Cannot open output file {out_filename}')
     common.pagenum = 0
     common.tunenum = False
-    tnum1 = False
-    tnum2 = False
+    common.tnum1 = False
+    common.tnum2 = False
     common.file_open = True
     common.file_initialized = False
 
@@ -423,18 +395,7 @@ def set_swfac(name):
     return swfac
 
 
-def write_text_block(fp, job, words_of_text):
-    """
-
-    :param fp:
-    :param job:
-    """
-    # size_t ntxt
-    # int i,i1,i2,ntline,nc,mc,nbreak
-    # float textwidth,ftline,ftline0,swfac,baseskip,parskip
-    # float wwidth,wtot,spw
-    # string str
-
+def write_text_block(fp, job: int, words_of_text='') -> None:
     if not words_of_text:
         return
 
@@ -534,423 +495,423 @@ def write_text_block(fp, job, words_of_text):
         buffer.write_buffer(fp)
     common.page_init = ""
 
-'''
-def put_words(fp):
 
-    # int i,nw,n
-    # char str[81]
-    # char *p,*q
-
-    cfmt.wordsfont.set_font(fp, False)
-    cfmt.wordsfont.set_font_str(common.page_init)
-
-    n=0
-    for i in range(ntext):
-        if text_type[i] == TEXT_W:
-            n += 1
-    if not n:
-        return
-
-    bskip(cfmt.wordsspace)
-    for i in range(ntext):
-        if text_type[i] == TEXT_W:
-            bskip(cfmt.lineskipfac*cfmt.wordsfont.size)
-            p=text[i][0]
-            q=str[0]
-            if text[i][0].isdigit():
-                while(*p != '\0') {
-                    *q=*p
-                    q++
-                    p++
-                    if(*p==' ') break
-                    if(*(p-1)==':') break
-                    if(*(p-1)=='.') break
-                }
-                if(*p==' ') p++
-            }
-            *q='\0'
-
-            # permit page break at empty lines or stanza start
-            nw=nwords(text[i])
-            if((nw==0) ||(strlen(str)>0)) buffer_eob(fp)
-
-            if(nw>0) {
-                if(strlen(str)>0) {
-                    put("45 0 M(")
-                    put_str(str)
-                    put(") lshow\n")
-                }
-                if(strlen(p)>0) {
-                    PUT0("50 0 M(")
-                    put_str(p)
-                    PUT0(") rshow\n")
-                }
-            }
-        }
-    }
-
-    buffer_eob(fp)
-    strcpy(page_init,"")
-
-}
-
-# ----- put_text -------
-void put_text(fp, int type, char *str)
-{
-    int i,n
-    float baseskip,parskip
-
-    n=0
-    for(i=0;i<ntext;i++) if(text_type[i]==type) n++
-    if(n==0) return
-
-    baseskip = cfmt.textfont.size * cfmt.lineskipfac
-    parskip = cfmt.textfont.size * cfmt.parskipfac
-    PUT0("0 0 M\n")
-    words_of_text.clear()
-    add_to_text_block(str,0)
-    for(i=0;i<ntext;i++) {
-        if(text_type[i]==type) add_to_text_block(text[i],1)
-    }
-    write_text_block(fp,RAGGED)
-    buffer_eob(fp);
-
-}
-
-# ----- put_history ------- 
-void put_history(FILE *fp)
-{
-    int i,ok
-    float baseskip,parskip
-
-    set_font(fp, cfmt.textfont,0)
-    cfmt.textfont.set_font_str(page_init)
-    baseskip = cfmt.textfont.size * cfmt.lineskipfac
-    parskip = cfmt.textfont.size * cfmt.parskipfac
-
-    bskip(cfmt.textspace)
-
-    if(strlen(info.rhyth)>0) {
-        bskip(baseskip); 
-        PUT0("0 0 M(Rhythm: ")
-        put_str(info.rhyth)
-        PUT0(") show\n")
-        bskip(parskip)
-    }
-    
-    if(strlen(info.book)>0) {
-        bskip(0.5*CM); 
-        PUT0("0 0 M(Book: ")
-        put_str(info.book)
-        PUT0(") show\n")
-        bskip(parskip)
-    }
-
-    if(strlen(info.src)>0) {
-        bskip(0.5*CM); 
-        PUT0("0 0 M(Source: ")
-        put_str(info.src)
-        PUT0(") show\n")
-        bskip(parskip)
-    }
-
-    put_text(fp, TEXT_D, "Discography: ")
-    put_text(fp, TEXT_N, "Notes: ")
-    put_text(fp, TEXT_Z, "Transcription: ")
-    
-    ok=0
-    for(i=0;i<ntext;i++) {
-        if(text_type[i]==TEXT_H) {
-            bskip(0.5*CM); 
-            PUT0("0 0 M(")
-            put_str(text[i])
-            PUT0(") show\n")
-            ok=1
-        }
-    }
-    if(ok) bskip(parskip)
-    buffer_eob(fp)
-    strcpy(page_init,"")
-
-}
-
-
-# ----- write_inside_title    ----- 
-void write_inside_title(FILE *fp)
-{
-    char t[201]
-
-    if          (numtitle==1) strcpy(t,info.title)
-    elifnumtitle==2) strcpy(t,info.title2)
-    elifnumtitle==3) strcpy(t,info.title3)
-    if(vb>15) print("write inside title <%s>\n", t)
-    if(strlen(t)==0) return
-
-    bskip(cfmt.subtitlefont.size+0.2*CM)
-    set_font(fp, cfmt.subtitlefont, 0)
-
-    if(cfmt.titlecaps) cap_str(t)
-    PUT0("(")
-    put_str(t)
-    if(cfmt.titleleft) PUT0(") 0 0 M rshow\n")
-    else PUT1(") %.1f 0 M cshow\n", cfmt.staffwidth/2)
-    bskip(cfmt.musicspace+0.2*CM)
-
-}    
-
-
-# ----- write_tunetop ----- 
-def write_tunetop(fp):
-    put(f"\n\n%% --- tune {tunenum+1} {info.title}\n")
-    if not common.epsf:
-        bskip(cfmt.topspace)
-
-# ----- tempo_is_metronomemark ----- 
+# def put_words(fp):
 #
- * checks whether a tempostring is a metronome mark("1/4=100")
- * or a verbose text(eg. "Andante"). In abc, verbose tempo texts
- * must start with double quotes
- 
-int tempo_is_metronomemark(char* tempostr)
-{
-    char* p
-    for(p=tempostr; *p; p++) {
-        if(isspace(*p)) continue
-        if(*p == '"')
-            return 0
-        else
-            break
-    }
-    if(*p)
-        return 1; # only when actually text found 
-    else
-        return 0
-}
+#     # int i,nw,n
+#     # char str[81]
+#     # char *p,*q
+#
+#     cfmt.wordsfont.set_font(fp, False)
+#     cfmt.wordsfont.set_font_str(common.page_init)
+#
+#     n=0
+#     for i in range(ntext):
+#         if text_type[i] == TEXT_W:
+#             n += 1
+#     if not n:
+#         return
+#
+#     bskip(cfmt.wordsspace)
+#     for i in range(ntext):
+#         if text_type[i] == TEXT_W:
+#             bskip(cfmt.lineskipfac*cfmt.wordsfont.size)
+#             p=text[i][0]
+#             q=str[0]
+#             if text[i][0].isdigit():
+#                 while(*p != '\0') {
+#                     *q=*p
+#                     q++
+#                     p++
+#                     if(*p==' ') break
+#                     if(*(p-1)==':') break
+#                     if(*(p-1)=='.') break
+#                 }
+#                 if(*p==' ') p++
+#             }
+#             *q='\0'
+#
+#             # permit page break at empty lines or stanza start
+#             nw=nwords(text[i])
+#             if((nw==0) ||(strlen(str)>0)) buffer_eob(fp)
+#
+#             if(nw>0) {
+#                 if(strlen(str)>0) {
+#                     put("45 0 M(")
+#                     put_str(str)
+#                     put(") lshow\n")
+#                 }
+#                 if(strlen(p)>0) {
+#                     PUT0("50 0 M(")
+#                     put_str(p)
+#                     PUT0(") rshow\n")
+#                 }
+#             }
+#         }
+#     }
+#
+#     buffer_eob(fp)
+#     strcpy(page_init,"")
+#
+# }
+#
+# # ----- put_text -------
+# void put_text(fp, int type, char *str)
+# {
+#     int i,n
+#     float baseskip,parskip
+#
+#     n=0
+#     for(i=0;i<ntext;i++) if(text_type[i]==type) n++
+#     if(n==0) return
+#
+#     baseskip = cfmt.textfont.size * cfmt.lineskipfac
+#     parskip = cfmt.textfont.size * cfmt.parskipfac
+#     PUT0("0 0 M\n")
+#     words_of_text.clear()
+#     add_to_text_block(str,0)
+#     for(i=0;i<ntext;i++) {
+#         if(text_type[i]==type) add_to_text_block(text[i],1)
+#     }
+#     write_text_block(fp,RAGGED)
+#     buffer_eob(fp);
+#
+# }
+#
+# # ----- put_history -------
+# void put_history(FILE *fp)
+# {
+#     int i,ok
+#     float baseskip,parskip
+#
+#     set_font(fp, cfmt.textfont,0)
+#     cfmt.textfont.set_font_str(page_init)
+#     baseskip = cfmt.textfont.size * cfmt.lineskipfac
+#     parskip = cfmt.textfont.size * cfmt.parskipfac
+#
+#     bskip(cfmt.textspace)
+#
+#     if(strlen(info.rhyth)>0) {
+#         bskip(baseskip);
+#         PUT0("0 0 M(Rhythm: ")
+#         put_str(info.rhyth)
+#         PUT0(") show\n")
+#         bskip(parskip)
+#     }
+#
+#     if(strlen(info.book)>0) {
+#         bskip(0.5*CM);
+#         PUT0("0 0 M(Book: ")
+#         put_str(info.book)
+#         PUT0(") show\n")
+#         bskip(parskip)
+#     }
+#
+#     if(strlen(info.src)>0) {
+#         bskip(0.5*CM);
+#         PUT0("0 0 M(Source: ")
+#         put_str(info.src)
+#         PUT0(") show\n")
+#         bskip(parskip)
+#     }
+#
+#     put_text(fp, TEXT_D, "Discography: ")
+#     put_text(fp, TEXT_N, "Notes: ")
+#     put_text(fp, TEXT_Z, "Transcription: ")
+#
+#     ok=0
+#     for(i=0;i<ntext;i++) {
+#         if(text_type[i]==TEXT_H) {
+#             bskip(0.5*CM);
+#             PUT0("0 0 M(")
+#             put_str(text[i])
+#             PUT0(") show\n")
+#             ok=1
+#         }
+#     }
+#     if(ok) bskip(parskip)
+#     buffer_eob(fp)
+#     strcpy(page_init,"")
+#
+# }
+#
+#
+# # ----- write_inside_title    -----
+# def write_inside_title(FILE *fp)
+# {
+#     char t[201]
+#
+#     if          (numtitle==1) strcpy(t,info.title)
+#     elifnumtitle==2) strcpy(t,info.title2)
+#     elifnumtitle==3) strcpy(t,info.title3)
+#     if(vb>15) print("write inside title <%s>\n", t)
+#     if(strlen(t)==0) return
+#
+#     bskip(cfmt.subtitlefont.size+0.2*CM)
+#     set_font(fp, cfmt.subtitlefont, 0)
+#
+#     if(cfmt.titlecaps) cap_str(t)
+#     PUT0("(")
+#     put_str(t)
+#     if(cfmt.titleleft) PUT0(") 0 0 M rshow\n")
+#     else PUT1(") %.1f 0 M cshow\n", cfmt.staffwidth/2)
+#     bskip(cfmt.musicspace+0.2*CM)
+#
+# }
 
-# ----- write_tempo ----- 
-void write_tempo(FILE *fp, char *tempo, struct METERSTR meter)
-{
-    char *r, *q
-    char text[STRLINFO]
-    int top,bot,value,len,i,err,fac,dig,div
-    struct SYMBOL s
-    float stem,dotx,doty,sc,dx
-
-    if(vb>15) print("write tempo <%s>\n", info.tempo)
-    r=tempo
-    set_font(fp,cfmt.tempofont,0)
-    PUT0(" 18 0 M\n")
-
-    for(;;) {
-        while(*r==' ') r++;                                        # skip blanks 
-        if(*r=='\0') break
-
-        if(*r=='"') {                                                    # write string 
-            r++
-            q=text
-            while(*r!='"' && *r!='\0') { *q=*r; r++; q++; }
-            if(*r=='"') r++
-            *q='\0'
-            if(strlen(text)>0) {         
-                PUT0("6 0 rmoveto(")
-                put_str(text)
-                PUT0(") rshow 12 0 \n")
-            }
-        }
-        else {                                                                    # write tempo denotation 
-            q=text
-            while(*r!=' ' && *r!='\0') { *q=*r; r++; q++; }
-            *q='\0'
-            
-            q=text
-            len=QUARTER
-            value=0
-            err=0
-            if(strchr(q,'=')) {
-                if(*q=='C' || *q=='c') {
-                    q++
-                    len=meter.dlen;    
-                    div=0
-                    if(*q=='/') { div=1; q++; }
-                    fac=0
-                    while(isdigit(*q)) { dig=*q-'0'; fac=10*fac+dig; q++; }
-
-                    if(div) {
-                        if(fac==0) fac=2
-                        if(len%fac) print("Bad length divisor in tempo: %s", text)
-                        len=len/fac
-                    }
-                    else    
-                        if(fac>0) len=len*fac
-                    if(*q!='=') err=1
-                    q++
-                    if(!isdigit(*q)) err=1
-                    sscanf(q,"%d", &value)
-                }
-                elifisdigit(*q)) {
-                    sscanf(q,"%d/%d=%d", &top,&bot,&value)
-                    len=(BASE*top)/bot
-                }
-                else err=1
-            } 
-            else {
-                if(isdigit(*q))
-                    sscanf(q,"%d", &value)
-                else err=1
-            }
-            
-            if(err)                                                            # draw note=value 
-                printf("\n+++ invalid tempo specifier: %s\n", text)
-            else {
-                s.len=len
-                identify_note(&s,r)
-                sc=0.55*cfmt.tempofont.size/10.0
-                PUT2("gsave %.2f %.2f scale 15 3 rmoveto currentpoint\n", sc,sc)
-                if(s.head==H_OVAL)    PUT0("HD")
-                if(s.head==H_EMPTY) PUT0("Hd")
-                if(s.head==H_FULL)    PUT0("hd")
-                dx=4.0
-                if(s.dots) {            
-                    dotx=8; doty=0
-                    if(s.flags>0) dotx=dotx+4
-                    if(s.head==H_EMPTY) dotx=dotx+1
-                    if(s.head==H_OVAL)    dotx=dotx+2
-                    for(i=0;i<s.dots;i++) {
-                        PUT2(" %.1f %.1f dt", dotx, doty)
-                        dx=dotx
-                        dotx=dotx+3.5
-                    }
-                }
-                stem=16.0
-                if(s.flags>1) stem=stem+3*(s.flags-1)
-                if(s.len<WHOLE) PUT1(" %.1f su",stem)
-                if(s.flags>0) PUT2(" %.1f f%du",stem,s.flags)
-                if((s.flags>0) &&(dx<6.0)) dx=6.0
-                dx=(dx+18)*sc
-                PUT2(" grestore %.2f 0 rmoveto( = %d) rshow\n", dx,value)
-            }
-        }
-    }
-}
 
 
-# ----- write_inside_tempo    ----- 
-void write_inside_tempo(FILE *fp)
-{
-    # print metronome marks only when wished 
-    if(tempo_is_metronomemark(info.tempo) && !cfmt.printmetronome)
-        return; 
+def write_tunetop(fp):
+    put(f"\n\n%% --- tune {common.tunenum+1} {info.titles[0]}\n")
+    if not common.epsf:
+        common.bskip(cfmt.topspace)
 
-    bskip(cfmt.partsfont.size)
-    write_tempo(fp,info.tempo,voice[ivc].meter)
-    bskip(0.1*CM)
-}
+# # ----- tempo_is_metronomemark -----
+# #
+#  * checks whether a tempostring is a metronome mark("1/4=100")
+#  * or a verbose text(eg. "Andante"). In abc, verbose tempo texts
+#  * must start with double quotes
+#
+# int tempo_is_metronomemark(char* tempostr)
+# {
+#     char* p
+#     for(p=tempostr; *p; p++) {
+#         if(isspace(*p)) continue
+#         if(*p == '"')
+#             return 0
+#         else
+#             break
+#     }
+#     if(*p)
+#         return 1; # only when actually text found
+#     else
+#         return 0
+# }
+#
+# # ----- write_tempo -----
+# void write_tempo(FILE *fp, char *tempo, struct METERSTR meter)
+# {
+#     char *r, *q
+#     char text[STRLINFO]
+#     int top,bot,value,len,i,err,fac,dig,div
+#     struct SYMBOL s
+#     float stem,dotx,doty,sc,dx
+#
+#     if(vb>15) print("write tempo <%s>\n", info.tempo)
+#     r=tempo
+#     set_font(fp,cfmt.tempofont,0)
+#     PUT0(" 18 0 M\n")
+#
+#     for(;;) {
+#         while(*r==' ') r++;                                        # skip blanks
+#         if(*r=='\0') break
+#
+#         if(*r=='"') {                                                    # write string
+#             r++
+#             q=text
+#             while(*r!='"' && *r!='\0') { *q=*r; r++; q++; }
+#             if(*r=='"') r++
+#             *q='\0'
+#             if(strlen(text)>0) {
+#                 PUT0("6 0 rmoveto(")
+#                 put_str(text)
+#                 PUT0(") rshow 12 0 \n")
+#             }
+#         }
+#         else {                                                                    # write tempo denotation
+#             q=text
+#             while(*r!=' ' && *r!='\0') { *q=*r; r++; q++; }
+#             *q='\0'
+#
+#             q=text
+#             len=QUARTER
+#             value=0
+#             err=0
+#             if(strchr(q,'=')) {
+#                 if(*q=='C' || *q=='c') {
+#                     q++
+#                     len=meter.dlen;
+#                     div=0
+#                     if(*q=='/') { div=1; q++; }
+#                     fac=0
+#                     while(isdigit(*q)) { dig=*q-'0'; fac=10*fac+dig; q++; }
+#
+#                     if(div) {
+#                         if(fac==0) fac=2
+#                         if(len%fac) print("Bad length divisor in tempo: %s", text)
+#                         len=len/fac
+#                     }
+#                     else
+#                         if(fac>0) len=len*fac
+#                     if(*q!='=') err=1
+#                     q++
+#                     if(!isdigit(*q)) err=1
+#                     sscanf(q,"%d", &value)
+#                 }
+#                 elifisdigit(*q)) {
+#                     sscanf(q,"%d/%d=%d", &top,&bot,&value)
+#                     len=(BASE*top)/bot
+#                 }
+#                 else err=1
+#             }
+#             else {
+#                 if(isdigit(*q))
+#                     sscanf(q,"%d", &value)
+#                 else err=1
+#             }
+#
+#             if(err)                                                            # draw note=value
+#                 printf("\n+++ invalid tempo specifier: %s\n", text)
+#             else {
+#                 s.len=len
+#                 identify_note(&s,r)
+#                 sc=0.55*cfmt.tempofont.size/10.0
+#                 PUT2("gsave %.2f %.2f scale 15 3 rmoveto currentpoint\n", sc,sc)
+#                 if(s.head==H_OVAL)    PUT0("HD")
+#                 if(s.head==H_EMPTY) PUT0("Hd")
+#                 if(s.head==H_FULL)    PUT0("hd")
+#                 dx=4.0
+#                 if(s.dots) {
+#                     dotx=8; doty=0
+#                     if(s.flags>0) dotx=dotx+4
+#                     if(s.head==H_EMPTY) dotx=dotx+1
+#                     if(s.head==H_OVAL)    dotx=dotx+2
+#                     for(i=0;i<s.dots;i++) {
+#                         PUT2(" %.1f %.1f dt", dotx, doty)
+#                         dx=dotx
+#                         dotx=dotx+3.5
+#                     }
+#                 }
+#                 stem=16.0
+#                 if(s.flags>1) stem=stem+3*(s.flags-1)
+#                 if(s.len<WHOLE) PUT1(" %.1f su",stem)
+#                 if(s.flags>0) PUT2(" %.1f f%du",stem,s.flags)
+#                 if((s.flags>0) &&(dx<6.0)) dx=6.0
+#                 dx=(dx+18)*sc
+#                 PUT2(" grestore %.2f 0 rmoveto( = %d) rshow\n", dx,value)
+#             }
+#         }
+#     }
+# }
+#
+#
+# # ----- write_inside_tempo    -----
+# void write_inside_tempo(FILE *fp)
+# {
+#     # print metronome marks only when wished
+#     if(tempo_is_metronomemark(info.tempo) && !cfmt.printmetronome)
+#         return;
+#
+#     bskip(cfmt.partsfont.size)
+#     write_tempo(fp,info.tempo,voice[ivc].meter)
+#     bskip(0.1*CM)
+# }
 
-# ----- write_heading    ----- 
-def write_heading(fp):
-
-    # float lwidth,down1,down2
-    # int i,ncl
-    # char t[STRLINFO]
-
-    lwidth = cfmt.staffwidth
-
-    # write the main title 
-    bskip(cfmt.titlefont.size + cfmt.titlespace)
-    cfmt.titlefont.set_font(fp, True)
-    if cfmt.withxrefs:
-        fp.write(f"{xrefnum}. ")
-    t = info.titles[0]
-    if(cfmt.titlecaps) cap_str(t)
-    put_str(t)
-    if cfmt.titleleft:
-        put(") 0 0 M rshow")
-    else:
-        put(f") {lwidth/2:.1f} 0 M cshow\n", )
-
-    # write second title 
-    if len(info.titles) >=2:
-        util.bskip(cfmt.subtitlespace + cfmt.subtitlefont.size)
-        set_font(fp,cfmt.subtitlefont,1)
-        strcpy(t,info.title2)
-        if(cfmt.titlecaps) cap_str(t)
-        put_str(t)
-        if(cfmt.titleleft) PUT0(") 0 0 M rshow\n")
-        else PUT1(") %.1f 0 M cshow\n", lwidth/2)
-    }
-
-    # write third title 
-    if(numtitle>=3) {
-        bskip(cfmt.subtitlespace+cfmt.subtitlefont.size)
-        set_font(fp,cfmt.subtitlefont,1)
-        strcpy(t,info.title3)
-        if(cfmt.titlecaps) cap_str(t)
-        put_str(t)
-        if(cfmt.titleleft) PUT0(") 0 0 M rshow\n")
-        else PUT1(") %.1f 0 M cshow\n", lwidth/2)
-    }
-
-    # write composer, origin 
-    if((info.ncomp>0) ||(strlen(info.orig)>0)) {
-        set_font(fp,cfmt.composerfont,0)
-        bskip(cfmt.composerspace)
-        ncl=info.ncomp
-        if((strlen(info.orig)>0) &&(ncl<1)) ncl=1
-        for(i=0;i<ncl;i++) {
-            bskip(cfmt.composerfont.size)
-            PUT1("%.1f 0 M(", lwidth)
-            put_str(info.comp[i])
-            if((i==ncl-1)&&(strlen(info.orig)>0)) {
-                put_str("(")
-                put_str(info.orig)
-                put_str(")")
-            }
-            PUT0(") lshow\n")
-        }
-        down1=cfmt.composerspace+cfmt.musicspace+ncl*cfmt.composerfont.size
-    }
-    else {
-        bskip(cfmt.composerfont.size+cfmt.composerspace)
-        down1=cfmt.composerspace+cfmt.musicspace+cfmt.composerfont.size
-    }
-    bskip(cfmt.musicspace)
-
-    # decide whether we need extra shift for parts and tempo 
-    down2=cfmt.composerspace+cfmt.musicspace
-    if(strlen(info.parts)>0) down2=down2+cfmt.partsspace+cfmt.partsfont.size
-    if(strlen(info.tempo)>0) down2=down2+cfmt.partsspace+cfmt.partsfont.size
-    if(down2>down1) bskip(down2-down1)
-
-    # write tempo and parts 
-    if(strlen(info.parts)>0 || strlen(info.tempo)>0) {
-        int printtempo =(strlen(info.tempo)>0)
-        if(printtempo && 
-                tempo_is_metronomemark(info.tempo) && !cfmt.printmetronome)
-            printtempo = 0
-
-        if(printtempo) {
-            bskip(-0.2*CM)
-            PUT1(" %.2f 0 T ", cfmt.indent*cfmt.scale)
-            write_tempo(fp, info.tempo, default_meter)
-            PUT1(" %.2f 0 T ", -cfmt.indent*cfmt.scale)
-            bskip(-cfmt.tempofont.size)
-        }
-        
-        if(strlen(info.parts)>0) {
-            bskip(-cfmt.partsspace)
-            set_font(fp,cfmt.partsfont,0)
-            PUT0("0 0 M(")
-            put_str(info.parts)
-            PUT0(") rshow\n")
-            bskip(cfmt.partsspace)
-        }
-
-        if(printtempo) bskip(cfmt.tempofont.size+0.3*CM)
-        
-    }
-    
-
-}
+# # ----- write_heading    -----
+# def write_heading(fp):
+#
+#     # float lwidth,down1,down2
+#     # int i,ncl
+#     # char t[STRLINFO]
+#
+#     lwidth = cfmt.staffwidth
+#
+#     # write the main title
+#     common.bskip(cfmt.titlefont.size + cfmt.titlespace)
+#     cfmt.titlefont.set_font(fp, True)
+#     if cfmt.withxrefs:
+#         fp.write(f"{xrefnum}. ")
+#     t = info.titles[0]
+#     if(cfmt.titlecaps) cap_str(t)
+#     put_str(t)
+#     if cfmt.titleleft:
+#         put(") 0 0 M rshow")
+#     else:
+#         put(f") {lwidth/2:.1f} 0 M cshow\n", )
+#
+#     # write second title
+#     if len(info.titles) >=2:
+#         util.bskip(cfmt.subtitlespace + cfmt.subtitlefont.size)
+#         set_font(fp,cfmt.subtitlefont,1)
+#         strcpy(t,info.title2)
+#         if(cfmt.titlecaps) cap_str(t)
+#         put_str(t)
+#         if(cfmt.titleleft) PUT0(") 0 0 M rshow\n")
+#         else PUT1(") %.1f 0 M cshow\n", lwidth/2)
+#     }
+#
+#     # write third title
+#     if(numtitle>=3) {
+#         bskip(cfmt.subtitlespace+cfmt.subtitlefont.size)
+#         set_font(fp,cfmt.subtitlefont,1)
+#         strcpy(t,info.title3)
+#         if(cfmt.titlecaps) cap_str(t)
+#         put_str(t)
+#         if(cfmt.titleleft) PUT0(") 0 0 M rshow\n")
+#         else PUT1(") %.1f 0 M cshow\n", lwidth/2)
+#     }
+#
+#     # write composer, origin
+#     if((info.ncomp>0) ||(strlen(info.orig)>0)) {
+#         set_font(fp,cfmt.composerfont,0)
+#         bskip(cfmt.composerspace)
+#         ncl=info.ncomp
+#         if((strlen(info.orig)>0) &&(ncl<1)) ncl=1
+#         for(i=0;i<ncl;i++) {
+#             bskip(cfmt.composerfont.size)
+#             PUT1("%.1f 0 M(", lwidth)
+#             put_str(info.comp[i])
+#             if((i==ncl-1)&&(strlen(info.orig)>0)) {
+#                 put_str("(")
+#                 put_str(info.orig)
+#                 put_str(")")
+#             }
+#             PUT0(") lshow\n")
+#         }
+#         down1=cfmt.composerspace+cfmt.musicspace+ncl*cfmt.composerfont.size
+#     }
+#     else {
+#         bskip(cfmt.composerfont.size+cfmt.composerspace)
+#         down1=cfmt.composerspace+cfmt.musicspace+cfmt.composerfont.size
+#     }
+#     bskip(cfmt.musicspace)
+#
+#     # decide whether we need extra shift for parts and tempo
+#     down2=cfmt.composerspace+cfmt.musicspace
+#     if(strlen(info.parts)>0) down2=down2+cfmt.partsspace+cfmt.partsfont.size
+#     if(strlen(info.tempo)>0) down2=down2+cfmt.partsspace+cfmt.partsfont.size
+#     if(down2>down1) bskip(down2-down1)
+#
+#     # write tempo and parts
+#     if(strlen(info.parts)>0 || strlen(info.tempo)>0) {
+#         int printtempo =(strlen(info.tempo)>0)
+#         if(printtempo &&
+#                 tempo_is_metronomemark(info.tempo) && !cfmt.printmetronome)
+#             printtempo = 0
+#
+#         if(printtempo) {
+#             bskip(-0.2*CM)
+#             PUT1(" %.2f 0 T ", cfmt.indent*cfmt.scale)
+#             write_tempo(fp, info.tempo, default_meter)
+#             PUT1(" %.2f 0 T ", -cfmt.indent*cfmt.scale)
+#             bskip(-cfmt.tempofont.size)
+#         }
+#
+#         if(strlen(info.parts)>0) {
+#             bskip(-cfmt.partsspace)
+#             set_font(fp,cfmt.partsfont,0)
+#             PUT0("0 0 M(")
+#             put_str(info.parts)
+#             PUT0(") rshow\n")
+#             bskip(cfmt.partsspace)
+#         }
+#
+#         if(printtempo) bskip(cfmt.tempofont.size+0.3*CM)
+#
+#     }
+#
+#
+# }
 
 
 def write_parts(fp):
@@ -963,8 +924,11 @@ def write_parts(fp):
         fp.write("0 0 M(")
         put_str(info.parts)
         fp.write(") rshow\n")
-        bskip(cfmt.partsspace)
-'''
+        common.bskip(cfmt.partsspace)
 
 if __name__ == '__main__':
-    pass
+    xref_str = '1'
+    assert is_xrefstr(xref_str)
+    m = 'ABCD'
+    a, b = tex_str(m)
+    print(a, b)
