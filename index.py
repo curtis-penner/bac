@@ -3,20 +3,19 @@
 import datetime
 import getpass
 
-import log
+from log import log
 import cmdline
 import pssubs
 import syms
 import format
-import fields
-import parse_
+import voice
+import parse_0
 import common
 import constants
 
-log = log.log()
 args = cmdline.options()
 cfmt = format.Format()
-info = fields.info.info()
+info = voice.Field()
 
 
 class Index:
@@ -44,12 +43,8 @@ class Index:
 
     def close_index_file(self):
         log.info(f'Close index file {self.fp.name}')
-        self.close_index_page(self.fp)
+        close_index_page(self.fp)
         self.fp.close()
-
-    @staticmethod
-    def close_index_page(fp):
-        fp.write("\n%%PageTrailer\ngrestore\nshowpage\n")
 
     def init_index_file(self, findex):
         findex.write("%!PS-Adobe-3.0\n")
@@ -126,9 +121,9 @@ class Index:
         info = fields.info.Field()
 
         for line in self.fp.readlines():
-            if parse_.is_comment(line):
+            if parse_0.is_comment(line):
                 continue
-            line = parse_.decomment_line(line)
+            line = parse_0.decomment_line(line)
             f_type = fields.info.info_field(line)
             if f_type == constants.XREF:
                 if within_block:
@@ -149,7 +144,7 @@ class Index:
         self.posy = self.posy - 1.2 * cfmt.indexfont.size
 
         if self.posy-cfmt.indexfont.size < cfmt.botmargin:
-            self.close_index_page(self.fp)
+            close_index_page(self.fp)
             self.init_index_page(self.fp)
 
         dx1 = 1.8*cfmt.indexfont.size
@@ -174,6 +169,11 @@ class Index:
 
         if info.composer[0]:
             self.fp.write(f'(   - {info.composer[0]}) S\n')
+
+
+def close_index_page(fp):
+    fp.write("\n%%PageTrailer\ngrestore\nshowpage\n")
+
 
 """
 
