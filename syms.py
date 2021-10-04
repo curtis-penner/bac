@@ -2,10 +2,9 @@
 import math
 
 from constants import GSTEM_XOFF
-import format
+from common import cfmt
 import tab
 
-cfmt = format.Format()
 temp_switch = False
 
 STEM_XOFF = 3.5
@@ -13,18 +12,16 @@ STEM_YOFF = 1.0
 
 
 def def_misc(fp):
-    fp.write(
-        "\n/cshow [ % string cshow - center at current pt\n"
-        "   dup stringwidth pop 2 div neg 0 rmoveto\n"
-        "   bx [box] if show\n"
-        "] bind def\n"
-        "\n/lshow [ % string lshow - show left-aligned\n"
-        "   dup stringwidth pop neg 0 rmoveto bx [box] if show\n"
-        "] bind def\n"
-        "\n/rshow [ % string rshow - show right-aligned\n"
-        "   bx [box] if show\n"
-        "] bind def\n"
-        )
+    fp.write("\n/cshow [ % string cshow - center at current pt\n"
+             "   dup stringwidth pop 2 div neg 0 rmoveto\n"
+             "   bx [box] if show\n"
+             "] bind def\n"
+             "\n/lshow [ % string lshow - show left-aligned\n"
+             "   dup stringwidth pop neg 0 rmoveto bx [box] if show\n"
+             "] bind def\n"
+             "\n/rshow [ % string rshow - show right-aligned\n"
+             "   bx [box] if show\n"
+             "] bind def\n")
 
     fp.write(
         "\n/box [ % str box - draw box around string\n"
@@ -1453,3 +1450,38 @@ def define_symbols(fp):
 
     # tablature stuff
     tab.def_tabsyms(fp)
+
+
+if __name__ == '__main__':
+    with open('hello', 'w') as fp:
+        # def_misc(fp)
+        # def_gclef(fp)
+        # def_t8clef(fp)
+        def_fclef(fp)
+        # def_cclef(fp)
+        # def_hd1(fp)
+        # def_hd2(fp)
+        # def_hd3(fp)
+        # def_historic(fp)
+        # def_stems(fp)
+        # def_beam(fp)
+        # def_sl(fp)
+        # def_dot(fp)
+        # def_deco(fp)
+        # def_deco1(fp)
+        # def_hl(fp)
+        # def_flags1(fp)
+        # def_flags2(fp)
+        # def_xflags(fp)
+        # def_acc(fp)
+        # def_gchord(fp)
+        # def_rests(fp)
+        # def_bars(fp)
+        # def_ends(fp)
+        # def_gnote(fp)
+        # def_csg(fp)
+        # def_sep(fp)
+        # def_tsig(fp)
+        # def_staff(fp)
+        # def_brace(fp)
+        # def_typeset(fp)
