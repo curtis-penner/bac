@@ -2,14 +2,11 @@
 
 import argparse
 
-import common
 from constants import (DEFAULT_FDIR, OUTPUTFILE, G_FILL, S_TITLE)
 
 version = '0.1'
 revision = 'a'
 format_dir = ''
-
-s_field = [common.search_field0]
 
 
 def options():
@@ -95,9 +92,9 @@ def options():
                               'xref numbers selector1 [selector2 ...]. '
                               'Optionally, the search can be done on other '
                               'fields using in place of -e the flags -R '
-                              '(seaches the rhythm field), -C (searches '
+                              '(searches the rhythm field), -C (searches '
                               'the composer field), -S (searches the '
-                              'source field), -T (seaches the title field '
+                              'source field), -T (searches the title field '
                               '(default)).'))
     parser.add_argument('-E',
                         dest='epsf',
@@ -303,7 +300,7 @@ def options():
                              'with option -t), in case you use guitar '
                              'chords actually for chord letters')
     parser.add_argument('-V',
-                        dest='voices',
+                        dest='vcselstr',
                         nargs='?',
                         type=str,
                         default='',
