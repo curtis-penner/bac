@@ -188,13 +188,13 @@ cfmt=dfmt;
                     continue
                 continue
 
-            line = self.decomment(line)   # todo
+            line = self.decomment(line)
             if not do_music:
                 self.line(fpout, line, xref_str,
                           pat, sel_all, search_field)
                 continue
             if not voices:
-                voice = info.Voice()  # todo
+                voice = info.Voice()
                 voice('1')
 
             if is_tab_line(line):
