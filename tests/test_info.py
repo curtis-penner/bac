@@ -1,20 +1,20 @@
 import unittest
 
-import info
+import voice
 
 
 class TestXRef(unittest.TestCase):
     field = None
 
     def setUp(self):
-        self.field = info.Info()
+        self.field = voice.Info()
 
     def tearDown(self):
         del self.field
 
     def test_00(self):
         s = 'X: 1'
-        self.assertTrue(info.is_field_line(s))
+        self.assertTrue(voice.is_field_line(s))
         self.field.process(s)
         self.assertEqual(self.field.X.xref_str, '1')
         self.assertEqual(self.field.X.xref, 1)
@@ -22,42 +22,42 @@ class TestXRef(unittest.TestCase):
 
     def test_01(self):
         s = 'X: 1a'
-        self.assertTrue(info.is_field_line(s))
+        self.assertTrue(voice.is_field_line(s))
         self.assertEqual(self.field.X.xref, 0)
         self.assertIsNone(self.field.X.xref_str)
         self.assertFalse(self.field.X.do_tune)
 
     def test_02(self):
         s = 'X: jh'
-        self.assertTrue(info.is_field_line(s))
+        self.assertTrue(voice.is_field_line(s))
         self.assertEqual(self.field.X.xref, 0)
         self.assertIsNone(self.field.X.xref_str)
         self.assertFalse(self.field.X.do_tune)
 
     def test_03(self):
         s = 'X: 1.0'
-        self.assertTrue(info.is_field_line(s))
+        self.assertTrue(voice.is_field_line(s))
         self.assertEqual(self.field.X.xref, 0)
         self.assertIsNone(self.field.X.xref_str)
         self.assertFalse(self.field.X.do_tune)
 
     def test_04(self):
         s = 'X: 0'
-        self.assertTrue(info.is_field_line(s))
+        self.assertTrue(voice.is_field_line(s))
         self.assertEqual(self.field.X.xref, 0)
         self.assertIsNone(self.field.X.xref_str)
         self.assertFalse(self.field.X.do_tune)
 
     def test_05(self):
         s = 'X: -2'
-        self.assertTrue(info.is_field_line(s))
+        self.assertTrue(voice.is_field_line(s))
         self.assertEqual(self.field.X.xref, 0)
         self.assertIsNone(self.field.X.xref_str)
         self.assertFalse(self.field.X.do_tune)
 
     def test_06(self):
         s = 'X:14'
-        self.assertTrue(info.is_field_line(s))
+        self.assertTrue(voice.is_field_line(s))
         self.field.process(s)
         self.assertEqual(self.field.X.xref_str, '14')
         self.assertEqual(self.field.X.xref, 14)
@@ -65,7 +65,7 @@ class TestXRef(unittest.TestCase):
 
     def test_07(self):
         s = 'X:1234567890'
-        self.assertTrue(info.is_field_line(s))
+        self.assertTrue(voice.is_field_line(s))
         self.field.process(s)
         self.assertEqual(self.field.X.xref_str, '1234567890')
         self.assertEqual(self.field.X.xref, 1234567890)
@@ -77,22 +77,22 @@ class TestSingleField(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        cls.field = info.Info()
+        cls.field = voice.Info()
 
     @classmethod
     def tearDownClass(cls):
         del cls.field
 
     def test_00(self):
-        area = info.SingleField()
+        area = voice.SingleField()
         lines = ['X: 1', 'A: England']
-        self.assertTrue(info.is_field_line(lines[0]))
-        self.assertTrue(info.is_field_line(lines[1]))
+        self.assertTrue(voice.is_field_line(lines[0]))
+        self.assertTrue(voice.is_field_line(lines[1]))
         area('England')
         self.assertEqual('England', area.field)
 
     def test_01(self):
-        book = info.SingleField()
+        book = voice.SingleField()
         book('Russia')
         self.assertEqual('Russia', book.field)
         book('France')
@@ -104,7 +104,7 @@ class TestTitle(unittest.TestCase):
     field = None
 
     def setUp(self):
-        self.field = info.Info()
+        self.field = voice.Info()
 
     def tearDown(self):
         del self.field
@@ -114,9 +114,9 @@ class TestTitle(unittest.TestCase):
 
     def test_01(self):
         s = 'X:1'
-        self.assertTrue(info.is_field_line(s))
+        self.assertTrue(voice.is_field_line(s))
         s = 'T: title first'
-        self.assertTrue(info.is_field_line(s))
+        self.assertTrue(voice.is_field_line(s))
 
 
 class TestMeter(unittest.TestCase):
@@ -124,7 +124,7 @@ class TestMeter(unittest.TestCase):
     field = None
 
     def setUp(self):
-        self.m = info.Meter()
+        self.m = voice.Meter()
 
     def tearDown(self):
         del self.m
@@ -146,7 +146,7 @@ class TestVoice(unittest.TestCase):
     v = None
 
     def setUp(self):
-        self.v = info.Voice()
+        self.v = voice.Voice()
 
     def tearDown(self):
         del self.v
