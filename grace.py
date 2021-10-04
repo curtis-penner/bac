@@ -22,22 +22,18 @@ the last length holds (see the last example above).
 When the following note is a chord, appogiaturas and accacciaturas are tied
 to the first note given in the chord.
 """
-
-import log
+import parse
+from log import log
 from util import put
 import constants
-from music.symbol import Symbol, is_note
-from key import Key
-import format
-
-cfmt = format.Format()
-
-log = log.log
-key = Key()
-voices = list()
+from common import voices, ivc, cfmt, key
+from parse import is_note
 
 
-class Grace(Symbol):
+
+
+
+class Grace():
     max_grace = 30  # maximum number of grace notes
     d_grace = 1  # codes for decoration
 
@@ -107,12 +103,12 @@ class Grace(Symbol):
                 self.pgr[n] -= 7
                 p += 1
 
-            self.pgr[n], self.agr[n] = key.do_transpose(voices[ivc].key.)
+            self.pgr[n], self.agr[n] = key.do_transpose(voices[ivc].key)
 
             # parse_length() returns default length when no length specified
             # => we may only call it when explicit length specified
             if gs[p] == '/' or gs[p].isdigit():
-                self.lgr = parse.parse_length()
+                self.lgr = parse.parse_length(gs, p)
         return line[n + 1:]
 
     def draw_gracenotes(self, x, w, d):
