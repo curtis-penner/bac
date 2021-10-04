@@ -1,7 +1,8 @@
-# Copyright (c) Curtis Penner
-
+# Copyright (c) 2021 Curtis Penner
+import style
 from constants import (BASE, NOTE, REST, BREST, INVISIBLE, CLEF, KEYSIG, TIMESIG)
-from constants import VOCPRE
+from constants import VOCPRE, DEFVOICE, MWORDS
+from constants import (CM, IN, PT)
 from constants import (H_OVAL, H_EMPTY)
 from constants import (STEM, STEM_CH, BNUMHT)
 from constants import (BAR,  B_SNGL, B_DBL, B_LREP, B_RREP, B_DREP, B_FAT1, B_FAT2)
@@ -18,23 +19,21 @@ from constants import (COMMENT, MUSIC, TO_BE_CONTINUED, E_O_F, INFO,
 from constants import (WHOLE, HALF)
 from constants import (BRUTTO, ALMOSTBRUTTO)
 from constants import (RHNONE)
+from common import (cfmt, voices, verbose)
 import common
 import subs
+import cmdline
+from log import log
 from key import Key
 from style import (f0p, f0x, f5p, f5x, f1p, f1x)
+import parse
+import pssubs
 import util
 import tab
-import info
-from format import Format
 from symbol import Symbol
 from meter import Meter
 
-
-
-cfmt = Format()
-
-voice = list()
-
+args = cmdline.options()
 #    subroutines connected with output of music
 maxSyms = 800
 
@@ -75,38 +74,6 @@ class Music:
         else:
             util.put("%.1f (%s) (%d) tsig\n", [x, self.text, self.v])
 
-    @staticmethod
-    def set_yad(t, v):
-        """
-        set shift for accidentals in points(one tone = 3 points)
-
-        :return:
-        """
-        yad = 0
-        if v.key.ktype == BASS:
-            yad = -6
-        if v.key.ktype == ALTO:
-            yad = -3
-        if v.key.ktype == TENOR:
-            yad = +3
-        if v.key.ktype == SOPRANO:
-            yad = +6
-        if v.key.ktype == MEZZOSOPRANO:
-            yad = -9
-        if v.key.ktype == BARITONE:
-            yad = -12
-        if v.key.ktype == VARBARITONE:
-            yad = -12
-        if v.key.ktype == SUBBASS:
-            yad = 0
-        if v.key.ktype == FRENCHVIOLIN:
-            yad = -6
-        if t == Key.A_FT and yad < -12:
-            yad += 21
-        if t == Key.A_SH and yad > 0:
-            yad -= 21
-        return yad
-
     def draw_keysig(self, x, v):
         """
 
@@ -121,7 +88,7 @@ class Music:
             print(f"+++ Keysig seems to have {self.v} music ???")
             return False
 
-        yad = self.set_yad(self.t, v)
+        yad = set_yad(self.t, v)
 
         # octave corrections for outbreaking positions
         for i in range(8):
@@ -151,6 +118,38 @@ class Music:
         else:
             util.bug("wrong type in draw_keysig", False)
         return sf
+
+
+def set_yad(t, v):
+    """
+    set shift for accidentals in points(one tone = 3 points)
+
+    :return:
+    """
+    yad = 0
+    if v.key.ktype == BASS:
+        yad = -6
+    if v.key.ktype == ALTO:
+        yad = -3
+    if v.key.ktype == TENOR:
+        yad = +3
+    if v.key.ktype == SOPRANO:
+        yad = +6
+    if v.key.ktype == MEZZOSOPRANO:
+        yad = -9
+    if v.key.ktype == BARITONE:
+        yad = -12
+    if v.key.ktype == VARBARITONE:
+        yad = -12
+    if v.key.ktype == SUBBASS:
+        yad = 0
+    if v.key.ktype == FRENCHVIOLIN:
+        yad = -6
+    if t == Key.A_FT and yad < -12:
+        yad += 21
+    if t == Key.A_SH and yad > 0:
+        yad -= 21
+    return yad
 
 
 def nwid(dur):
@@ -234,7 +233,7 @@ def preceded_by_note(k: int, n: int, symb: list):
     return -1
 
 
-def set_head_directions(s: Symbol):
+def set_head_directions(s: Symbol) -> None:
     # int i, n, nx, sig, d, da, shift, nac, i1, i2, m
     # float dx, xx, xmn
 
@@ -955,20 +954,18 @@ def print_linetype(t):
     else:
         print("UNKNOWN LINE TYPE")
 
-# ----- print_vsyms: print music for all voices -----
-# void print_vsyms (void)
-# {
-#     int i
-#
-#     printf("");
-#     for (i=0;i<nvoice;i++) {
-#         if (nvoice>1)
-#             print("Voice <%s> (%d of %d)", v[i].id,i,nvoice);
-#         print_syms (0,v[i].nsym,symv[i]);
-#     }
-# }
-#
-#
+
+def print_vsyms():
+    """ print music for all voices """
+    # int i
+    nvoice = len(voices)
+    print("")
+    for i in range(nvoice):
+        if nvoice > 1:
+            print(f"Voice <{v[i].id}> ({i} of {nvoice})")
+        print_syms(0,nv[i].nsym,nsymv[i])
+
+
 # # ----- set_head_directions -----------
 #
 # # decide whether to shift heads to other side of stem on chords
@@ -1860,76 +1857,77 @@ def print_linetype(t):
 #     return newel;
 #
 # }
-#
-# # ----- set_poslist: make list of horizontal posits to align voices ---
-# void set_poslist (void)
-# {
-#     int i,n,v,vv,typ,nok,nins;
-#     float tol=0.01;
-#     float d,tim;
-#
-#     # initialize xp with data from top nonempty v, ivc0
-#     v=ivc0;
-#     n=0;
-#     xp[0].next=1;
-#     for (i=0;i<v[v].nsym;i++) {
-#         n++;
-#         xp[n].prec=n-1;
-#         xp[n].next=n+1;
-#         symv[v][i].p=n;
-#         for (vv=0;vv<nvoice;vv++) xp[n].p[vv]=-1;
-#         xp[n].p[v]=i;
-#         typ=symv[v][i].type;
-#         if ((typ==REST) and (typ==BREST)) typ=NOTE;
-#         xp[n].type = typ;
-#         xp[n].time = symv[v][i].time;
-#         xp[n].dur = xp[n].tfac = 0;
-#         xp[n].shrink = xp[n].space = xp[n].stretch =0;
-#         xp[n].wl = xp[n].wr = 0;
-#         xp[n].eoln=symv[v][i].eoln;
-#     }
-#     xp[n].next=0; #mark end of list and set previous of start on end
-#     xp[0].prec=n; #some functions assume last==xp[xp[last].next].prec
-#     ixpfree=n+1;
-#
-#     # find or insert syms for other voices
-#     for (v=0;v<nvoice;v++) {
-#         if (v[v].draw && v!=ivc0) {
-#             n=XP_START;
-#             for (i=0;i<v[v].nsym;i++) {
-#                 tim=symv[v][i].time;
-#                 typ=symv[v][i].type;
-#                 if ((typ==REST) and (typ==BREST)) typ=NOTE;
-#                 nok=-1;
-#                 nins=n;
-#                 for (n=xp[n].next; n; n=xp[n].next) {
-#                     d=xp[n].time-tim;
-#                     if (xp[n].time<tim-tol) nins=n;
-#                     if (d*d<tol*tol && xp[n].type==typ) {
-#                         nok=n;
-#                         break;
-#                     }
-#                     if (xp[n].time>tim+tol) break;
-#                 }
-#                 if (nok>0)
-#                     n=nok;
-#                 else {
-#                     n=insert_poslist (nins);
-#                     xp[n].type=typ;
-#                     xp[n].time=tim;
-#                     xp[n].dur = xp[n].tfac = 0;
-#                     xp[n].shrink = xp[n].space = xp[n].stretch =0;
-#                     xp[n].wl = xp[n].wr = 0;
-#                     xp[n].eoln=0;
-#                 }
-#                 symv[v][i].p=n;
-#                 xp[n].p[v]=i;
-#             }
-#         }
-#     }
-#
-# #|     print_poslist (); |
-# }
+
+def set_poslist():
+    """ make list of horizontal posits to align voices """
+    # int i,n,v,vv,typ,nok,nins;
+    tol = 0.01
+
+    # float d,tim;
+
+    # initialize xp with data from top nonempty v, ivc0
+    n = 0
+    common.xp[0].next = 1
+
+    for i in range(len(common.voices[common.ivc0].sym)):
+        n += 1
+        common.xp[n].prec = n-1
+        common.xp[n].next = n+1
+        common.voices[common.ivc0].sym[i] = n
+        # symv[v][i].p = n
+        for vv in range(len(voices)):
+            common.xp[n].p.append(-1)
+        common.xp[n].p[v] = i
+        typ = common.voices[common.ivc0].sym[i].type
+        if typ == REST and typ == BREST:
+            typ=NOTE
+        common.xp[n].type = typ
+        common.xp[n].time = common.voices[common.ivc0].sym[i].time
+        common.xp[n].dur = common.xp[n].tfac = 0
+        common.xp[n].shrink = common.xp[n].space = common.xp[n].stretch = 0
+        common.xp[n].wl = common.xp[n].wr = 0
+        common.xp[n].eoln = common.voices[common.ivc0].sym[i].eoln
+
+    common.xp[n].next = 0  #mark end of list and set previous of start on end
+    common.xp[0].prec = n #some functions assume last==xp[xp[last].next].prec
+    ixpfree = n+1
+
+    # find or insert syms for other voices
+    for voice in voices:
+        if voice.draw and voice.label != common.ivc0:
+            n = XP_START
+            for i in range(nsym;i++) {
+                tim=symv[v][i].time;
+                typ=symv[v][i].type;
+                if ((typ==REST) and (typ==BREST)) typ=NOTE;
+                nok=-1;
+                nins=n;
+                for (n=xp[n].next; n; n=xp[n].next) {
+                    d=xp[n].time-tim;
+                    if (xp[n].time<tim-tol) nins=n;
+                    if (d*d<tol*tol && xp[n].type==typ) {
+                        nok=n;
+                        break;
+                    }
+                    if (xp[n].time>tim+tol) break;
+                }
+                if (nok>0)
+                    n=nok;
+                else {
+                    n=insert_poslist (nins);
+                    xp[n].type=typ;
+                    xp[n].time=tim;
+                    xp[n].dur = xp[n].tfac = 0;
+                    xp[n].shrink = xp[n].space = xp[n].stretch =0;
+                    xp[n].wl = xp[n].wr = 0;
+                    xp[n].eoln=0;
+                }
+                symv[v][i].p=n;
+                xp[n].p[v]=i;
+            }
+        }
+    }
+}
 #
 #
 # # ----- set_xpwid: set symbol widths and tfac in xp list -----
@@ -4918,49 +4916,35 @@ def print_linetype(t):
 #     return ok;
 # }
 #
-# # ----- vc_select: set flags for v selection from -V option ---
-# int vc_select (void)
-# {
-#     char *s;
-#     int i,a,b,n;
-#
-#     if (strlen(vcselstr)==0) return nvoice;
-#
-#     for (i=0;i<nvoice;i++) v[i].select=0;
-#     s=vcselstr;
-#     for (;;) {
-#         if (*s==0) break;
-#         if (!sscanf(s,"%d%n",&a,&n)) break;
-#         s+=n;
-#         b=a;
-#         if (*s=='-') {
-#             s++;
-#             if (*s==0) break;
-#             if (!sscanf(s,"%d%n",&b,&n)) break;
-#             s+=n;
-#         }
-#         for (i=a-1;i<b;i++)
-#             if (i>=0 && i<nvoice) v[i].select=1;
-#
-#
-#         if (*s==0) {
-#             n=0;
-#             for (i=0;i<nvoice;i++) if (v[i].select) n++;
-#             if (verbose>=4) {
-#                 printf ("Selection <%s>     selected voices:",vcselstr);
-#                 for (i=0;i<nvoice;i++) if (v[i].select) printf(" %d",i+1);
-#                 printf ("\n");
-#             }
-#             return n;
-#         }
-#         if (*s==',') s++;
-#         else break;
-#     }
-#
-#     rx ("Bad v selection: -V ", vcselstr);
-#     return 0;
-# }
-#
+# # ----- vc_select:---
+def vc_select() -> int:
+    """ set flags for v selection from -V option """
+    if not args.vcselstr:
+        return 0
+
+    for voice in voices:
+        voice.select = False
+
+    a = args.vcselstr.split(',')
+    a = set(a)
+    if not a:
+        return 0
+    for s in a:
+        if s == '-':
+            n1, n2 = s.split('-')
+            for n in range(n1, n2+1):
+                a.add(n)
+    for i in a:
+        voices[i].select = True
+
+    if verbose >= 4:
+        log.info(f"Selection <{args.vcselstr}> selected voices:")
+        for i, voice in enumerate(voices):
+            if voice.select:
+                log.info(f" {i} {voices[i].name}")
+    return len(a)
+
+
 # # ----- voice_label: label v, or just return length if job==0 --
 # float voice_label (FILE *fp, char *label, float h, float xc, float dx0, int job)
 # {
@@ -5132,217 +5116,216 @@ def print_linetype(t):
 #
 # }
 #
-# import format
-# voices = list()
-# file_initialized = False
-# epsf = False
-# cfmt = format.Format()
-# do_meter = False
-#
-# def output_music(fp):
-#     """
-#     output for parsed symbol list
-#
-#     :param fp:
-#     :return:
-#     """
-#     ip1 = ip2 = mv = is_top = nsel = b = bnum = 0
-#     realwidth = staffwidth = wid0 = widv = lscale = lwidth = bpos = 0.0
-#     spa1 = spa2 = hsys = extra = indent = spax = 0.0
-#     htap = list()   # size: 40 of 0.0
-#
-#     # save current meter and key, to continue after P: or T: field
-#     for v in voices:
-#         v.meter1 = v.meter1
-#         v.key1 = v.key
-#
-#     if not file_initialized and not epsf:
-#         pssubs.init_ps(fp, infostr)
-#         pssubs.init_page(fp)
-#
-#     if len(v) ==0:
-#         format.init_parse_params()
-#         return
-#     if verbose>=10:
-#         print_vsyms ()
-#
-#     alfa_last=0.1
-#     beta_last=0.0
-#     lwidth=cfmt.staffwidth
-#     lscale=cfmt.scale
-#     check_margin(cfmt.leftmargin)
-#
-#     # initialize meter and key for voices
-#     for v in voices:
-#         v.meter = v.meter0
-#         v.key = v.key0
-#         if not do_meter:
-#             v.meter.display = 0
-#
-#     # setup for horizontal positioning, decide which voices to draw
-#     nsel = vc_select()
-#
-#     for v in voices:
-#         if not v.select:
-#             v.sym = list()
-#
-#     mvoice = False
-#     bnum = 0
-#     ivc0 = -1
-#     for v in voices:
-#         v.draw=0;
-#         if len(v.sym) > 0:
-#             mvoice = True
-#             v.draw=1;
-#
-#     if mvoice:
-#         init_parse_params()
-#         return
-#
-#     for v in voices:
-#         if v.draw:
-#             set_sym_chars(0,v.nsym, symv)
-#             set_beams(0,v.nsym, symv, is_tab_key(v.key))
-#             if not is_tab_key(v.key):
-#                 set_stems(0,v.nsym,symv)
-#
-#             b = set_sym_times(0,len(v.sym), symv, v.meter0,
-#                               v.timeinit)
-#             set_sym_widths(0, len(v.nsym), symv, ivc)
-#             if ivc == ivc0:
-#                 bnum=b
-#     barinit=bnum;
-#
-#     if (mvoice==1)
-#         set_style_pars (cfmt.strict1);
-#     else
-#         set_style_pars (cfmt.strict2);
-#
-#     set_poslist ();
-#     set_xpwid ();
-#     set_spaces ();
-#
-#     # loop over pieces to output
-#     ip1=xp[XP_START].next;
-#     for (;;) {
-#         mline++;
-#         ip1=contract_keysigs (ip1);
-#         wid0=0;
-#         for (ivc=0;ivc<nvoice;ivc++) {
-#             nsym_st[ivc]=set_initsyms (ivc, &widv);
-#             if (widv>wid0) wid0=widv;
-#         }
-#         indent = (do_indent==1) ? cfmt.indent : 0.0;
-#
-#         ip2=select_piece (ip1);
-#         ip2=check_overflow (ip1,ip2,lwidth/lscale-wid0-indent);
-#         if (verbose>5) printf ("output posits %d to %d\n",ip1,ip2-1);
-#         realwidth=set_glue (ip1,ip2,lwidth/lscale-wid0-indent);
-#         check_bars1 (ip1,ip2);
-#         check_bars2 (ip1,ip2);
-#
-#         spa1=spa2=cfmt.staffsep;
-#         if (mvoice>1) {
-#             spa1=cfmt.systemsep;
-#             spa2=cfmt.sysstaffsep;
-#         }
-#
-#         hsys=0;
-#         mv=0;
-#
-#         for (ivc=0;ivc<nvoice;ivc++) {
-#             if (v[ivc].draw) {
-# 		if (!is_tab_key(&v[ivc].key)) {
-# 		    # draw music
-# 		    mv++;
-# 		    nsym=copy_vsyms (ivc,ip1,ip2,wid0);
-# 		    PUT2("\n%% --- ln %d vc %d \n", mline,ivc+1);
-# 		    if (mv==1) bskip(lscale*(0.5*spa1+24.0));
-# 		    else             bskip(lscale*(0.5*spa2+24.0));
-# 		    PUT3("gsave %.3f %.3f scale %.2f setlinewidth\n",
-# 			     lscale, lscale, BASEWIDTH);
-# 		    if (do_indent) PUT1(" %.2f 0 T ",indent);
-# 		    staffwidth=realwidth+wid0;
-# 		    PUT1("%.2f staff\n", staffwidth);
-# 		    htab[ivc]=hsys;
-# 		    spax=spa2+v[ivc].sep;
-# 		    if (v[ivc].sep>1000.0) spax=v[ivc].sep-2000.0;
-#
-# 		    is_top=is_topvc(ivc);
-#                     draw_symbols (fp,0.5*spa2+spax-spa2,&bpos,is_top);
-#
-# 		    if (mv==mvoice) mstave_deco (fp,ip1,ip2,wid0,hsys,htab,STAFFHEIGHT);
-#
-# 		    PUT0("grestore\n");
-# 		    bskip(-lscale*bpos);
-# 		    hsys=hsys+0.5*spa2+24.0-bpos;
-# 		} else {
-# 		    # draw tablature
-# 		    mv++;
-# 		    nsym=copy_vsyms (ivc,ip1,ip2,wid0);
-# 		    PUT2("\n%% --- ln %d vc %d \n", mline,ivc+1);
-#                     if (mv==1) bskip(lscale*(0.5*spa1+get_staffheight(ivc,ALMOSTBRUTTO)));
-#                     else             bskip(lscale*(0.5*spa2+get_staffheight(ivc,ALMOSTBRUTTO)));
-#
-# 		    PUT3("gsave %.3f %.3f scale %.2f setlinewidth\n",
-# 			     lscale, lscale, BASEWIDTH);
-# 		    if (do_indent) PUT1(" %.2f 0 T ",indent);
-# 		    staffwidth=realwidth+wid0;
-# 		    htab[ivc]=hsys;
-# 		    spax=spa2+v[ivc].sep;
-# 		    if (v[ivc].sep>1000.0) spax=v[ivc].sep-2000.0;
-#
-# 		    is_top=is_topvc(ivc);
-# 		    draw_tab_symbols (fp,0.5*spa2+spax-spa2,&bpos,is_top);
-#
-# 		    if (mv==mvoice)
-#                         mstave_deco (fp,ip1,ip2,wid0,hsys,htab,get_staffheight(ivc,ALMOSTBRUTTO));
-#                     if (v[ivc].key.ktype != GERMANTAB)
-#                         PUT2("%.2f %d tabN\n", staffwidth, tab_numlines(&v[ivc].key));
-# 		    PUT0("grestore\n");
-#                     bskip(-lscale*bpos);
-#                     if (v[ivc].key.ktype == GERMANTAB && tabfmt.germansepline) {
-#                         # separator line between German tab systems
-#                         PUT2("%.2f %.2f tab1\n", staffwidth*lscale,
-#                                  lscale*tabfont.size*0.75);
-#                     }
-#                     hsys=hsys+0.5*spa2+get_staffheight(ivc,ALMOSTBRUTTO)-bpos;
-#                     # do not count flagheight for top v in system height
-#                     if (is_highestvc(ivc)) {
-#                         hsys = hsys -
-#                             (get_staffheight(ivc,ALMOSTBRUTTO) - get_staffheight(ivc,NETTO));
-#                     }
-# 		}
-# 	    }
-#         }
-#
-#         extra=-bpos-0.5*spa2;
-#         if (mvoice>1) bskip(lscale*(spa1+bpos-0.5*spa1+extra));
-#         buffer_eob (fp);
-#
-#         do_meter=do_indent=0;
-#         ip1=ip2;
-#         if (!ip1) break; #last symbol in xp[]
-#     }
-#
-#
-#     # set things to continue parsing
-#     for v in voices:
-#         v.sym = list()
-#         v.meter0 = v.meter = v.meter1
-#         v.key0 = v.key = v.key1
-#
-#     init_parse_params ();
 
-# def check_selected(fp, xref_str, pat, sel_all, search_field, info):
-#     """
-#     :param fp:
-#     :param xref_str:
-#     :param pat:
-#     :param sel_all:
-#     :param search_field:
-#     """
-#     if not info.do_this_tune:
-#         if is_selected(xref_str, len(pat), pat, sel_all, search_field):
-#             info.do_this_tune = True
-#             write_tunetop(fp)
+infostr = 'filename'   # latest input filename
+
+def output_music(fp):
+    """
+    output for parsed symbol list
+
+    :param fp:
+    :return:
+    """
+    # ip1 = ip2 = mv = is_top = nsel = b = bnum = 0
+    # realwidth = staffwidth = wid0 = widv = lscale = lwidth = bpos = 0.0
+    # spa1 = spa2 = hsys = extra = indent = spax = 0.0
+    # htap = list()   # size: 40 of 0.0
+
+    # save current meter and key, to continue after P: or T: field
+    global voices, cfmt
+
+    for voice in voices:
+        voice.meter1 = voice.meter
+        voice.key1 = voice.key
+
+    if not common.file_initialized and not common.epsf:
+        pssubs.init_ps(fp, infostr)
+        pssubs.init_page(fp)
+
+    if len(voices) == 0:
+        parse.init_parse_params()
+        return
+    if common.verbose >= 10:
+        print_vsyms ()
+
+    alfa_last = 0.1
+    beta_last = 0.0
+    lwidth = cfmt.staffwidth
+    lscale = cfmt.scale
+    subs.check_margin(cfmt.leftmargin)
+
+    # initialize meter and key for voices
+    for voice in voices:
+        voice.meter = voice.meter0
+        voice.key = voice.key0
+        if not voice.meter.do_meter:
+            voice.meter.display = 0
+
+    # setup for horizontal positioning, decide which voices to draw
+    nsel = vc_select()
+
+    for voice in voices:
+        if not voice.select:
+            voice.sym = list()
+
+    mvoice = False
+    bnum = 0
+    ivc0 = -1
+    for voice in voices:
+        voice.draw = False
+        if len(voice.sym) > 0:
+            mvoice = True
+            voice.draw = True
+
+    if mvoice:
+        parse.init_parse_params()
+        return
+
+    for voice in voices:
+        if voice.draw:
+            set_sym_chars(0,len(voice.sym), voice.sym)
+            set_beams(0,len(voice.sym), voice.sym)
+            if not voice.key.is_tab_key():
+                set_stems(0,len(voice.sym),voice.sym)
+
+            b = set_sym_times(0,len(voice.sym), voice.sym, voice.meter0,
+                              voice.timeinit)
+            set_sym_widths(0, len(voice.nsym), voice.sym, common.ivc)
+            if common.ivc == ivc0:
+                bnum=b
+    barinit = bnum
+
+    if mvoice:
+        style.set_style_pars(cfmt.strict1)
+    else:
+        style.set_style_pars(cfmt.strict2)
+
+    set_poslist ();
+    set_xpwid ();
+    set_spaces ();
+
+    # loop over pieces to output
+    ip1=xp[XP_START].next;
+    for (;;) {
+        mline++;
+        ip1=contract_keysigs (ip1);
+        wid0=0;
+        for (ivc=0;ivc<nvoice;ivc++) {
+            nsym_st[ivc]=set_initsyms (ivc, &widv);
+            if (widv>wid0) wid0=widv;
+        }
+        indent = (do_indent==1) ? cfmt.indent : 0.0;
+
+        ip2=select_piece (ip1);
+        ip2=check_overflow (ip1,ip2,lwidth/lscale-wid0-indent);
+        if (verbose>5) printf ("output posits %d to %d\n",ip1,ip2-1);
+        realwidth=set_glue (ip1,ip2,lwidth/lscale-wid0-indent);
+        check_bars1 (ip1,ip2);
+        check_bars2 (ip1,ip2);
+
+        spa1=spa2=cfmt.staffsep;
+        if (mvoice>1) {
+            spa1=cfmt.systemsep;
+            spa2=cfmt.sysstaffsep;
+        }
+
+        hsys=0;
+        mv=0;
+
+        for (ivc=0;ivc<nvoice;ivc++) {
+            if (v[ivc].draw) {
+		if (!is_tab_key(&v[ivc].key)) {
+		    # draw music
+		    mv++;
+		    nsym=copy_vsyms (ivc,ip1,ip2,wid0);
+		    PUT2("\n%% --- ln %d vc %d \n", mline,ivc+1);
+		    if (mv==1) bskip(lscale*(0.5*spa1+24.0));
+		    else             bskip(lscale*(0.5*spa2+24.0));
+		    PUT3("gsave %.3f %.3f scale %.2f setlinewidth\n",
+			     lscale, lscale, BASEWIDTH);
+		    if (do_indent) PUT1(" %.2f 0 T ",indent);
+		    staffwidth=realwidth+wid0;
+		    PUT1("%.2f staff\n", staffwidth);
+		    htab[ivc]=hsys;
+		    spax=spa2+v[ivc].sep;
+		    if (v[ivc].sep>1000.0) spax=v[ivc].sep-2000.0;
+
+		    is_top=is_topvc(ivc);
+                    draw_symbols (fp,0.5*spa2+spax-spa2,&bpos,is_top);
+
+		    if (mv==mvoice) mstave_deco (fp,ip1,ip2,wid0,hsys,htab,STAFFHEIGHT);
+
+		    PUT0("grestore\n");
+		    bskip(-lscale*bpos);
+		    hsys=hsys+0.5*spa2+24.0-bpos;
+		} else {
+		    # draw tablature
+		    mv++;
+		    nsym=copy_vsyms (ivc,ip1,ip2,wid0);
+		    PUT2("\n%% --- ln %d vc %d \n", mline,ivc+1);
+                    if (mv==1) bskip(lscale*(0.5*spa1+get_staffheight(ivc,ALMOSTBRUTTO)));
+                    else             bskip(lscale*(0.5*spa2+get_staffheight(ivc,ALMOSTBRUTTO)));
+
+		    PUT3("gsave %.3f %.3f scale %.2f setlinewidth\n",
+			     lscale, lscale, BASEWIDTH);
+		    if (do_indent) PUT1(" %.2f 0 T ",indent);
+		    staffwidth=realwidth+wid0;
+		    htab[ivc]=hsys;
+		    spax=spa2+v[ivc].sep;
+		    if (v[ivc].sep>1000.0) spax=v[ivc].sep-2000.0;
+
+		    is_top=is_topvc(ivc);
+		    draw_tab_symbols (fp,0.5*spa2+spax-spa2,&bpos,is_top);
+
+		    if (mv==mvoice)
+                        mstave_deco (fp,ip1,ip2,wid0,hsys,htab,get_staffheight(ivc,ALMOSTBRUTTO));
+                    if (v[ivc].key.ktype != GERMANTAB)
+                        PUT2("%.2f %d tabN\n", staffwidth, tab_numlines(&v[ivc].key));
+		    PUT0("grestore\n");
+                    bskip(-lscale*bpos);
+                    if (v[ivc].key.ktype == GERMANTAB && tabfmt.germansepline) {
+                        # separator line between German tab systems
+                        PUT2("%.2f %.2f tab1\n", staffwidth*lscale,
+                                 lscale*tabfont.size*0.75);
+                    }
+                   hsys=hsys+0.5*spa2+get_staffheight(ivc,ALMOSTBRUTTO)-bpos;
+                    # do not count flagheight for top voice in system height
+                    if (is_highestvc(ivc)) {
+                        hsys = hsys -
+                            (get_staffheight(ivc,ALMOSTBRUTTO) - get_staffheight(ivc,NETTO));
+                    }
+		}
+	    }
+        }
+
+        extra=-bpos-0.5*spa2;
+        if (mvoice>1) bskip(lscale*(spa1+bpos-0.5*spa1+extra));
+        buffer_eob (fp);
+
+        do_meter=do_indent=0;
+        ip1=ip2;
+        if (!ip1) break; #last symbol in xp[]
+    }
+
+
+    # set things to continue parsing
+    for voice in voices:
+        voice.sym = list()
+        voice.meter0 = voice.meter = voice.meter1
+        voice.key0 = voice.key = voice.key1
+
+    init_parse_params ();
+
+def check_selected(fp, xref_str, pat, sel_all, search_field):
+    """
+    :param fp:
+    :param xref_str:
+    :param pat:
+    :param sel_all:
+    :param search_field:
+    """
+    if not common.do_this_tune:
+        if parse.is_selected(xref_str, len(pat), pat, sel_all, search_field):
+            common.do_this_tune = True
+            subs.write_tunetop(fp)
+
