@@ -213,4 +213,4 @@ def write_pagebreak(fp):
     init_page(fp)
     if len(common.page_init) > 0:
         fp.print(f"{common.page_init}\n")
-    common.posy = cfmt.pageheight - cfmt.topmargin
+    common.posy = common.cfmt.pageheight - common.cfmt.topmargin
