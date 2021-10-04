@@ -1,453 +1,18 @@
-# Copyright 2019 Curtis Penner
 
-
-"""
-Multi stave music
-abctab2ps supports multi stave music (scores). There are two different
-ways for the notation of scores. You can either define the different voices
-in V: lines at the end of the header just before the first music line
-and use inline V: references "[V:...]" to associate music lines with specific
-voices, as in the following example:
-
-X:1
-T:Sonata II
-C:B. Marcello, 1712
-M:C
-L:1/8
-K:DDorian
-%
-V:F clef=treble    name=Flauto space=+5pt
-V:B clef=bass      name=Basso
-%
-Q:"Adagio"
-[V:F] ad fe/d/ eA z A | dd d/e/f/g/ aA z a |
-[V:B] d2 d'2 ^c'2 =c'2 | =b2 _b2 aa/g/ fd |
-
-Alternatively, you can write all music of a specific v immediately
-after its v definition. In this notation the above example reads:
-
-X:1
-T:Sonata II
-C:B. Marcello, 1712
-M:C
-L:1/8
-K:DDorian
-%
-Q:"Adagio"
-V:F clef=treble    name=Flauto space=+5pt
-ad fe/d/ eA z A | dd d/e/f/g/ aA z a |
-%
-V:B clef=bass      name=Basso
-d2 d'2 ^c'2 =c'2 | =b2 _b2 aa/g/ fd |
-
-"""
 
 from log import log
-import music
-from meter import Meter, DefaultLength
+from parse import Meter, DefaultLength
 from key import Key
-# from constants import (SYMBOL, KEYSTR, GchordList)
-from symbol import Symbol
-import log
-import format
-import constants
-
-voices = list()
-max_vc = 5
+from voice import Voice
+from common import (within_block)
 
 
-class Voice:   # struct to characterize a v
-    def __init__(self):
-        self.label = ''   # identifier string, eg. a number
-        self.name = ''   # full name of this v
-        self.sname = ''   # short name
-        self.meter = Meter()   # meter
-        self.meter0 = Meter()   # meter
-        self.meter1 = Meter()   # meter
-        self.key = Key()   # keysig
-        self.key0 = Key()   # keysig
-        self.key1 = Key()   # keysig
-        self.stems = 0   # +1 or -1 to force stem direction
-        self.staves = 0
-        self.brace = 0
-        self.bracket = 0
-        self.do_gch = 0   # 1 to output gchords for this v
-        self.sep = 0.0   # for space to next v below
-        self.syms = list()    # number of music
-        self.draw = False   # flag if want to draw this v
-        self.select = True   # flag if selected for output
-        self.insert_btype = constants.B_INVIS
-        self.insert_num = 0   # to split bars over linebreaks
-        self.insert_bnum = 0   # same for bar number
-        self.insert_space = 0.0   # space to insert after init syms
-        self.end_slur = 0   # for a-b slurs
-        self.insert_text = ''   # string over inserted barline
-        self.timeinit = 0.0   # carryover time between parts
-
-    def __call__(self, line, header):
-        if len(voices) >= max_vc:
-            log.error(f"Too many voices; use -maxv to increase limit. "
-                      f"Its now {max_vc}")
-        self.switch_voice(line)
-        log.warning(f'Make new v with id "{self.label}"')
-
-    def add_sym(self, s_type) -> int:
-        """
-        Add an empty symbol instance to the syms list.
-        Returns index for new symbol at end of list. This may not be
-        necessary when using python.
-
-        :param str s_type:
-        """
-        max_syms = 800
-        k = len(self.syms)
-        if k >= max_syms:
-            # realloc_structs(maxSyms+allocSyms, maxVc)
-            return k
-        t_sym = Symbol()
-        t_sym.type = s_type
-        self.syms.append(t_sym)
-        return len(self.syms)
-
-    @staticmethod
-    def find_voice(vc):
-        """
-        This is not correct!
-
-        :param vc:
-        :return:
-        """
-        for voice in voices:
-            if vc == voice.label:
-                return True
-        return False
-
-    def switch_voice(self, line):
-        """
-        Also known as switch_voice
-        read spec for a v, return v number
-        example of a string:
-
-         The syntax of a v definition is
-
-        V: <label> <par1>=<value1> <par2>=<value2>  ...
-
-        where <label> is used to switch to the v in later V: lines.
-        Each <par> = <value> pair sets one parameter for the current v.
-        <par> can be any of the following parameters or abbreviations:
+def is_field(s: str) -> bool:
+    """ Validate a field type """
+    return len(s) > 2 and s[1] == ':' and s[0] in 'ABCDEFGHKLMNOPQRSTVWwXZ'
 
 
-        :param line:
-        :param header:
-        :return:
-        """
-
-        def parse_voice(line):
-            ok = True
-            v_spec = list()
-            spec = ''
-            p = line.split(' ')
-            print(line)
-            label = p[0]
-            del p[0]
-            for i in p:
-                if not i:
-                    continue
-                if '"' not in i and ok:
-                    v_spec.append(i)
-                    continue
-                if '"' in i and ok:
-                    ok = False
-                    spec = i
-                elif '"' not in i and not ok:
-                    spec = ' '.join([spec, i])
-                elif '"' in i and not ok:
-                    ok = True
-                    spec = ' '.join([spec, i])
-                    v_spec.append(spec)
-            return label, v_spec
-
-        if not line:
-            exit(0)
-        self.label, voice_fields = parse_voice(line)
-        for field in voice_fields:
-            if '=' not in field:
-                continue
-            else:
-                k, v = field.split('=')
-                if k == 'name' or k == 'nm':
-                    setattr(self, 'name', v)
-                elif k == 'sname' or k == 'snm':
-                    setattr(self, 'sname', v)
-                elif k == 'staves' or k == 'stv':
-                    setattr(self, 'staves', int(v))
-                elif k == 'brace' or k == 'brc':
-                    setattr(self, 'brace', int(v))
-                elif k == 'bracket' or k == 'brk':
-                    setattr(self, 'bracket', int(v))
-                elif k == 'gchords' or k == 'gch':
-                    setattr(self, 'do_gch', format.g_logv(v))
-                elif k == 'space' or k == 'spc':
-                    if not v.startswith('') or not v.startswith('-'):
-                        setattr(self, 'sep', format.g_unum(v) + 2000)
-                    else:
-                        setattr(self, k, format.g_unum(v))
-                    setattr(self, 'bracket', int(v))
-                elif k == 'clef' or k == 'cl':
-                    if not field.key.set_clef(v):
-                        log.error(f'Unknown clef in v spec: {v}')
-                elif k == 'strms' or k == 'stm':
-                    if v == 'up':
-                        setattr(self, k, 1)
-                    elif v == 'down':
-                        setattr(self, k, -1)
-                    elif v == 'free':
-                        setattr(self, k, 0)
-                    else:
-                        log.error(f'Unknown stem setting in v spec: {v}')
-                elif k == 'octave':
-                    pass   # ignore abc2midi parameter for compatibility
-                else:
-                    log.error(f'Unknown option in v spec: {k}')
-        voices.append(self)
-
-
-"""
-/* ----- find_voice ----- */
-int find_voice (char *vid, int *newv)
-{
-  int i;
-
-  for (i=0;i<nvoice;i++)
-    if (!strcmp(vid,v[i].id)) {
-      *newv=0;
-      return i;
-    }
-
-  i=nvoice;
-  if (i>=maxVc) {
-    realloc_structs(maxSyms,maxVc+allocVc);
-  }
-
-  strcpy(v[i].id,    vid);
-  strcpy(v[i].name,  "");
-  strcpy(v[i].sname, "");
-  v[i].meter = default_meter;
-  v[i].key   = default_key;
-  v[i].stems    = 0;
-  v[i].staves = v[i].brace = v[i].bracket = 0;
-  v[i].do_gch   = 1;
-  v[i].sep      = 0.0;
-  v[i].nsym     = 0;
-  v[i].select   = 1;
-  // new systems must start with invisible bar as anchor for barnumbers
-  //v[i].insert_btype = v[i].insert_num = 0;
-  //v[i].insert_bnum = 0;
-  v[i].insert_btype = B_INVIS;
-  v[i].insert_num = 0;
-  v[i].insert_bnum = barinit;
-  v[i].insert_space = 0.0;
-  v[i].end_slur = 0;
-  v[i].timeinit = 0.0;
-  strcpy(v[i].insert_text, "");
-  nvoice++;
-  if (verbose>5)
-    printf ("Make new v %d with id \"%s\"\n", i,v[i].id);
-  *newv=1;
-  return i;
-
-}
-
-/* ----- switch_voice: read spec for a v, return v number ----- */
-int switch_voice (std::string str)
-{
-    int j,np,newv;
-    const char *r;
-    char *q;
-    char t1[STRLINFO],t2[STRLINFO];
-
-    if (!do_this_tune) return 0;
-
-    j=-1;
-
-    /* start loop over v options: parse t1=t2 */
-    r = str.c_str();
-    np=newv=0;
-    for (;;) {
-        while (isspace(*r)) r++;
-        if (*r=='\0') break;
-        strcpy(t1,"");
-        strcpy(t2,"");
-        q=t1;
-        while (!isspace(*r) && *r!='\0' && *r!='=') { *q=*r; r++; q++; }
-        *q='\0';
-        if (*r=='=') {
-            r++;
-            q=t2;
-            if (*r=='"') {
-                r++;
-                while (*r!='"' && *r!='\0') { *q=*r; r++; q++; }
-                if (*r=='"') r++;
-            }
-            else {
-                while (!isspace(*r) && *r!='\0') { *q=*r; r++; q++; }
-            }
-            *q='\0';
-        }
-        np++;
-
-        /* interpret the parsed option. First case is identifier. */
-        if (np==1) {
-            j=find_voice (t1,&newv);
-        } else {                         /* interpret option */
-            if (j<0) bug("j invalid in switch_voice", true);
-            if      (!strcmp(t1,"name")    || !strcmp(t1,"nm"))
-                strcpy(v[j].name,  t2);
-
-            else if (!strcmp(t1,"sname")   || !strcmp(t1,"snm"))
-                strcpy(v[j].sname, t2);
-
-            else if (!strcmp(t1,"staves")  || !strcmp(t1,"stv"))
-                v[j].staves  = atoi(t2);
-
-            else if (!strcmp(t1,"brace")   || !strcmp(t1,"brc"))
-                v[j].brace   = atoi(t2);
-
-            else if (!strcmp(t1,"bracket") || !strcmp(t1,"brk"))
-                v[j].bracket = atoi(t2);
-
-            else if (!strcmp(t1,"gchords") || !strcmp(t1,"gch"))
-                g_logv (str.c_str(),t2,&v[j].do_gch);
-
-            /* for sspace: add 2000 as flag if not incremental */
-            else if (!strcmp(t1,"space")   || !strcmp(t1,"spc")) {
-                g_unum (str.c_str(),t2,&v[j].sep);
-                if (t2[0]!='+' && t2[0]!='-') v[j].sep += 2000.0;
-            }
-
-            else if (!strcmp(t1,"clef")    || !strcmp(t1,"cl")) {
-                if (!set_clef(t2,&v[j].key))
-                    std::cerr << "Unknown clef in v spec: " << t2 << std::endl;
-            }
-            else if (!strcmp(t1,"stems") || !strcmp(t1,"stm")) {
-                if      (!strcmp(t2,"up"))    v[j].stems=1;
-                else if (!strcmp(t2,"down"))  v[j].stems=-1;
-                else if (!strcmp(t2,"free"))  v[j].stems=0;
-                else std::cerr << "Unknown stem setting in v spec: " << t2 << std::endl;
-            }
-            else if (!strcmp(t1,"octave")) {
-                ; /* ignore abc2midi parameter for compatibility */
-            }
-            else std::cerr << "Unknown option in v spec: " << t1 << std::endl;
-        }
-
-    }
-
-    /* if new v was initialized, save settings im meter0, key0 */
-    if (newv) {
-        v[j].meter0 = v[j].meter;
-        v[j].key0   = v[j].key;
-    }
-
-    if (verbose>7)
-        printf ("Switch to v %d  <%s> <%s> <%s>  clef=%d\n",
-                j,v[j].id,v[j].name,v[j].sname,
-                v[j].key.ktype);
-
-    nsym0=v[j].nsym;  /* set nsym0 to decide about eoln later.. ugly */
-    return j;
-
-}
-
-
-/* ----- parse_vocals: parse words below a line of music ----- */
-/* Use '^' to mark a '-' between syllables - hope nobody needs '^' ! */
-int parse_vocals (char *line)
-{
-    int isym;
-    char *c,*c1,*w;
-    char word[81];
-
-    if ((line[0]!='w') || (line[1]!=':')) return 0;
-    p0=line;
-
-    /* increase vocal line counter in first symbol of current line */
-    symv[ivc][nsym0].wlines++;
-
-    isym=nsym0-1;
-    c=line+2;
-    for (;;) {
-        while(*c==' ') c++;
-        if (*c=='\0') break;
-        c1=c;
-        if ((*c=='_') || (*c=='*') || (*c=='|') || (*c=='-')) {
-            word[0]=*c;
-            if (*c=='-') word[0]='^';
-            word[1]='\0';
-            c++;
-        }
-        else {
-            w=word;
-            *w='\0';
-            while ((*c!=' ') && (*c!='\0')) {
-                if ((*c=='_') || (*c=='*') || (*c=='|')) break;
-                if (*c=='-') {
-                    if (*(c-1) != '\\') break;
-                    w--;
-                    *w='-';
-                }
-                *w=*c; w++; c++;
-            }
-            if (*c=='-') { *w='^' ; w++; c++; }
-            *w='\0';
-        }
-
-        /* now word contains a word, possibly with trailing '^',
-           or one of the special characters * | _ -               */
-
-        if (!strcmp(word,"|")) {               /* skip forward to next bar */
-            isym++;
-            while ((symv[ivc][isym].type!=BAR) && (isym<v[ivc].nsym)) isym++;
-            if (isym>=v[ivc].nsym)
-            { syntax("Not enough bar lines for |",c1); break; }
-        }
-
-        else {                                 /* store word in next note */
-            w=word;
-            while (*w!='\0') {                   /* replace * and ~ by space */
-                /* cd: escaping with backslash possible */
-                /* (does however not yet work for '*') */
-                if ( ((*w=='*') || (*w=='~')) && !(w>word && *(w-1)=='\\') ) *w=' ';
-                w++;
-            }
-            isym++;
-            while ((symv[ivc][isym].type!=NOTE) && (isym<v[ivc].nsym)) isym++;
-            if (isym>=v[ivc].nsym)
-            { syntax ("Not enough notes for words",c1); break; }
-            symv[ivc][isym].wordp[nwline]=add_wd(word);
-        }
-
-        if (*c=='\0') break;
-    }
-
-    nwline++;
-    return 1;
-}
-
-
-"""
-
-
-music = music.Music()
-cfmt = format.Format()
-
-
-def is_field(line):
-    return len(line) > 2 and line[1] == ':' \
-           and line[0] in 'ABCDEFGHIKLMNOPQRSTVWwXYZ'
-
-
-def end_of_file(filename):
+def end_of_file(filename) -> None:
     log.warning(f'end_of_filename: {filename}')
 
 
@@ -468,6 +33,8 @@ class Composers:
     def __call__(self, value):
         if len(self.composers) <= self.size:
             self.composers.append(value)
+        else:
+            log.warning("Too many composer lines")
 
     def __len__(self):
         return len(self.composers)
@@ -532,13 +99,8 @@ class XRef:
             self.xref_str = ''
             return False
 
-    def get_xref(self, line):
-        """
-        get xref from string
-
-        :param line:
-        :return:
-        """
+    def get_xref(self, line: str) -> int:
+        """ get xref from string """
         if not line:
             log.error("xref string is empty")
             return 0
@@ -547,35 +109,6 @@ class XRef:
             log.error(f"xref string has invalid symbols: {line}")
             return 0
         self.xref = int(line)
-
-    """
-    /* ----- get_xref: get xref from string ----- */
-    int get_xref (char *str)
-    {
-
-      int a,ok;
-      char *q;
-
-      if (strlen(str)==0) {
-          std::cerr << "xref string is empty" << std::endl;
-        return 0;
-      }
-      q=str;
-      ok=1;
-      while (*q != '\0') {
-        if (!isdigit(*q)) ok=0;
-        q++;
-      }
-      if (!ok) {
-         std::cerr << "xref string has invalid symbols: " << str << std::endl;
-        return 0;
-      }
-
-      sscanf (str, "%d", &a);
-
-      return a;
-    }
-    """
 
 
 class Parts:
@@ -595,11 +128,15 @@ class Tempo:
 
 
 class Words:
-    def __init__(self):
-        self.parts = ''
+    def __init__(self, appendable=False):
+        self.appendable = appendable
+        self.line = ''
 
     def __call__(self, line):
-        self.parts = line
+        if self.appendable:
+            self.line = ' '.join([self.line, line])
+        else:
+            self.line = line
 
 
 class Lyrics:
@@ -618,43 +155,9 @@ class LayoutParams:
         print(line)
 
 
-#
-# void reset_info (struct ISTRUCT *inf)
-# {
-#
-#     # reset all info fields except info.xref
-#
-#     strcpy(inf.parts,    "");
-#     strcpy(inf.area,     "");
-#     strcpy(inf.book,     "");
-#     inf.ncomp = 0;
-#     strcpy(inf.disc,     "");
-#     strcpy(inf.file,     "");
-#     strcpy(inf.group,    "");
-#     strcpy(inf.hist,     "");
-#     strcpy(inf.info,     "");
-#     strcpy(inf.key,        "C");
-#     strcpy(inf.meter,    "none");
-#     strcpy(inf.notes,    "");
-#     strcpy(inf.orig,     "");
-#     strcpy(inf.rhyth,    "");
-#     strcpy(inf.src,        "");
-#     strcpy(inf.title,    "");
-#     strcpy(inf.title2, "");
-#     strcpy(inf.title3, "");
-#     strcpy(inf.trans,    "");
-#     strcpy(inf.tempo,    "");
-# }
-
-
-
 class Field:
     header = False
     body = False
-
-    do_tune = False
-    do_music = False
-    within_block = False
 
     def __init__(self):
         self.area = Single()
@@ -686,8 +189,8 @@ class Field:
         key = key.strip()
         value = value.strip()
 
-        if self.is_field(key) and Field.header:
-            if not self.within_block:
+        if is_field(key) and Field.header:
+            if not within_block:
                 if key == 'X':
                     ret_val = self.xref(value)
                     if ret_val:
@@ -754,187 +257,178 @@ class Field:
             elif key == 'W':
                 self.words(value)
 
-    @staticmethod
-    def is_field(s):
-        """
-        Validate a field type
-
-        :param s:
-        :return bool:
-        """
-        return len(s) > 2 and s[1] == ':' and s[0] in 'ABCDEFGHKLMNOPQRSTVWwXZ'
-
     def get_default_info(self):
         """ set info to default, except xref field """
         savestr = self.xref
         # default_info = default_info.Field()
         self.xref = savestr
 
-    # def process_line(self, fp, type, xref_str, pat, sel_all, search_field):
-    #     """
-    #
-    #     :param fp: filename or pointer?
-    #     :param type: won't be using
-    #     :param xref_str:
-    #     :param pat: list of strings
-    #     :param sel_all: bool
-    #     :param search_field: int
-    #     """
-    #     fnm = ''
-    #     finf = list()
-    #     feps = None
-    #
-    #     if common.within_block:
-    #         log.info(f"process_line, type {type} ")
-    #         print_linetype(type)
-    #
-    #     if self.xref:   # start of new block
-    #         if not epsf:
-    #             write_buffer (fp)   # flush stuff left from %% lines
-    #         if within_block:
-    #             log.error("\n+++ Last tune not closed properly\n");
-    #         get_default_info ();
-    #         within_block    = True
-    #         within_tune     = False
-    #         do_this_tune    = False
-    #         self.Title = list()
-    #         init_pdims();
-    #         cfmt = Format()
-    #         return
-    #     elif self.titles:
-    #         if not within_block:
-    #             return
-    #         if within_tune:   # title within tune
-    #             if (do_this_tune ):
-    #                 output_music(fp)
-    #                 write_inside_title(fp);
-    #                 do_meter = do_indent = True
-    #                 barinit = cfmt.barinit
-    #         else:
-    #             check_selected(fp, xref_str, npat, pat, sel_all,
-    #                            search_field)
-    #         return
-    #     elif self.tempo:
-    #         if not within_block:
-    #             return
-    #         if within_tune:   # tempo within tune
-    #             if do_this_tune:
-    #                 output_music(fp)
-    #                 write_inside_tempo(fp)
-    #         else:
-    #             check_selected(fp, xref_str, npat, pat, sel_all, search_field);
-    #         return
-    #     elif self.key:
-    #         if not within_block:
-    #             break;
-    #         if within_tune:
-    #             if do_this_tune:
-    #                 handle_inside_field(type);
-    #         else:   # end of header.. start now
-    #             check_selected(fp, xref_str, npat, pat, sel_all, search_field);
-    #             if do_this_tune:
-    #                 tunenum++;
-    #                 if verbose >= 3:
-    #                     log.warning(f"---- start {xrefnum} ({info.title}) "
-    #                                 f"----\n")
-    #                 set_keysig(info.key, default_key, True);
-    #                 halftones=get_halftones(default_key, transpose);
-    #                 set_transtab(halftones, default_key);
-    #                 set_meter(info.meter, default_meter);
-    #                 set_dlen(info.len, default_meter);
-    #                 check_margin(cfmt.leftmargin);
-    #                 write_heading(fp);
-    #                 nvoice=0
-    #                 init_parse_params();
-    #                 # insert is now set in set_meter (for invisible meter)
-    #                 default_meter.insert=1;
-    #
-    #                 mline=0;
-    #                 do_indent=do_meter=1;
-    #                 barinit=cfmt.barinit;
-    #                 writenum=0;
-    #         within_tune = 1;
-    #         break;
-    #     elif self.meter:
-    #         if not within_block:
-    #             break;
-    #         if do_this_tune and within_tune:
-    #             handle_inside_field(type);
-    #         break;
-    #         case
-    #         DLEN:
-    #         if (!within_block) break;
-    #         if (do_this_tune & & within_tune) handle_inside_field(type);
-    #         break;
-    #
-    #         case
-    #         PARTS:
-    #         if (!within_block) break;
-    #         if (do_this_tune & & within_tune) {
-    #         output_music (fp);
-    #         write_parts(fp);
-    #         }
-    #         break;
-    #
-    #         case
-    #         VOICE:
-    #         if (do_this_tune & & within_block) {
-    #         if (!within_tune)
-    #         printf ("+++ Voice field not allowed in header: V:%s\n", lvoiceid);
-    #         else
-    #         ivc=switch_voice (lvoiceid);
-    #         }
-    #         break;
-    #
-    #         case
-    #         BLANK:  # end of block or file
-    #         case
-    #         E_O_F:
-    #         if (do_this_tune) {
-    #         output_music (fp);
-    #         put_words (fp);
-    #         if (cfmt.writehistory) put_history (fp);
-    #         if (epsf) {
-    #         close_output_file ();
-    #         if (choose_outname) {
-    #         epsf_title (info.title, fnm);
-    #         strcat (fnm, ".eps");
-    #         }
-    #         else {
-    #         nepsf++;
-    #         sprintf (fnm, "%s%03d.eps", outf, nepsf);
-    #         }
-    #         sprintf (finf, "%s (%d)", in_file[0], xrefnum);
-    #         if ((feps = fopen (fnm, "w")) == NULL)
-    #         rx ("Cannot open output file ", fnm);
-    #         init_ps (feps, finf, 1,
-    #         cfmt.leftmargin-5, posy+bposy-5,
-    #         cfmt.leftmargin+cfmt.staffwidth+5,
-    #         cfmt.pageheight-cfmt.topmargin);
-    #         init_epsf (feps);
-    #         write_buffer (feps);
-    #         printf ("\n[%s] %s", fnm, info.title);
-    #         close_epsf (feps);
-    #         fclose (feps);
-    #         in_page=0;
-    #         init_pdims ();
-    #         }
-    #         else {
-    #         buffer_eob (fp);
-    #         write_buffer (fp);
-    #         if ((verbose == 0) & & (tunenum % 10 == 0)) printf (".");
-    #         if (verbose == 2) printf ("%s - ", info.title);
-    #         }
-    #         verbose=0;
-    #         }
-    #         info = default_info;
-    #         if (within_block & & !within_tune)
-    #             printf("\n+++ Header not closed in tune %d\n", xrefnum);
-    #         within_tune = within_block = do_this_tune = 0;
-    #         break;
-    #
-    #         }
-    #         }
+def process_line(self, fp, type, xref_str, pat, sel_all, search_field):
+    pass
+#     """
+#
+#     :param fp: filename or pointer?
+#     :param type: won't be using
+#     :param xref_str:
+#     :param pat: list of strings
+#     :param sel_all: bool
+#     :param search_field: int
+#     """
+#     fnm = ''
+#     finf = list()
+#     feps = None
+#
+#     if common.within_block:
+#         log.info(f"process_line, type {type} ")
+#         print_linetype(type)
+#
+#     if self.xref:   # start of new block
+#         if not epsf:
+#             write_buffer (fp)   # flush stuff left from %% lines
+#         if within_block:
+#             log.error("\n+++ Last tune not closed properly\n");
+#         get_default_info ();
+#         within_block    = True
+#         within_tune     = False
+#         do_this_tune    = False
+#         self.Title = list()
+#         init_pdims();
+#         cfmt = Format()
+#         return
+#     elif self.titles:
+#         if not within_block:
+#             return
+#         if within_tune:   # title within tune
+#             if (do_this_tune ):
+#                 output_music(fp)
+#                 write_inside_title(fp);
+#                 do_meter = do_indent = True
+#                 barinit = cfmt.barinit
+#         else:
+#             check_selected(fp, xref_str, npat, pat, sel_all,
+#                            search_field)
+#         return
+#     elif self.tempo:
+#         if not within_block:
+#             return
+#         if within_tune:   # tempo within tune
+#             if do_this_tune:
+#                 output_music(fp)
+#                 write_inside_tempo(fp)
+#         else:
+#             check_selected(fp, xref_str, npat, pat, sel_all, search_field);
+#         return
+#     elif self.key:
+#         if not within_block:
+#             break;
+#         if within_tune:
+#             if do_this_tune:
+#                 handle_inside_field(type);
+#         else:   # end of header.. start now
+#             check_selected(fp, xref_str, npat, pat, sel_all, search_field);
+#             if do_this_tune:
+#                 tunenum++;
+#                 if verbose >= 3:
+#                     log.warning(f"---- start {xrefnum} ({info.title}) "
+#                                 f"----\n")
+#                 set_keysig(info.key, default_key, True);
+#                 halftones=get_halftones(default_key, transpose);
+#                 set_transtab(halftones, default_key);
+#                 set_meter(info.meter, default_meter);
+#                 set_dlen(info.len, default_meter);
+#                 check_margin(cfmt.leftmargin);
+#                 write_heading(fp);
+#                 nvoice=0
+#                 init_parse_params();
+#                 # insert is now set in set_meter (for invisible meter)
+#                 default_meter.insert=1;
+#
+#                 mline=0;
+#                 do_indent=do_meter=1;
+#                 barinit=cfmt.barinit;
+#                 writenum=0;
+#         within_tune = 1;
+#         break;
+#     elif self.meter:
+#         if not within_block:
+#             break;
+#         if do_this_tune and within_tune:
+#             handle_inside_field(type);
+#         break;
+#         case
+#         DLEN:
+#         if (!within_block) break;
+#         if (do_this_tune & & within_tune) handle_inside_field(type);
+#         break;
+#
+#         case
+#         PARTS:
+#         if (!within_block) break;
+#         if (do_this_tune & & within_tune) {
+#         output_music (fp);
+#         write_parts(fp);
+#         }
+#         break;
+#
+#         case
+#         VOICE:
+#         if (do_this_tune & & within_block) {
+#         if (!within_tune)
+#         printf ("+++ Voice field not allowed in header: V:%s\n", lvoiceid);
+#         else
+#         ivc=switch_voice (lvoiceid);
+#         }
+#         break;
+#
+#         case
+#         BLANK:  # end of block or file
+#         case
+#         E_O_F:
+#         if (do_this_tune) {
+#         output_music (fp);
+#         put_words (fp);
+#         if (cfmt.writehistory) put_history (fp);
+#         if (epsf) {
+#         close_output_file ();
+#         if (choose_outname) {
+#         epsf_title (info.title, fnm);
+#         strcat (fnm, ".eps");
+#         }
+#         else {
+#         nepsf++;
+#         sprintf (fnm, "%s%03d.eps", outf, nepsf);
+#         }
+#         sprintf (finf, "%s (%d)", in_file[0], xrefnum);
+#         if ((feps = fopen (fnm, "w")) == NULL)
+#         rx ("Cannot open output file ", fnm);
+#         init_ps (feps, finf, 1,
+#         cfmt.leftmargin-5, posy+bposy-5,
+#         cfmt.leftmargin+cfmt.staffwidth+5,
+#         cfmt.pageheight-cfmt.topmargin);
+#         init_epsf (feps);
+#         write_buffer (feps);
+#         printf ("\n[%s] %s", fnm, info.title);
+#         close_epsf (feps);
+#         fclose (feps);
+#         in_page=0;
+#         init_pdims ();
+#         }
+#         else {
+#         buffer_eob (fp);
+#         write_buffer (fp);
+#         if ((verbose == 0) & & (tunenum % 10 == 0)) printf (".");
+#         if (verbose == 2) printf ("%s - ", info.title);
+#         }
+#         verbose=0;
+#         }
+#         info = default_info;
+#         if (within_block & & !within_tune)
+#             printf("\n+++ Header not closed in tune %d\n", xrefnum);
+#         within_tune = within_block = do_this_tune = 0;
+#         break;
+#
+#         }
+#         }
 
 
 #
@@ -1142,5 +636,4 @@ def get_default_info(info):
 #         if (*p=='"') {if (inquotes) inquotes=0; else inquotes=1;}
 #         if ((*p=='%') && !inquotes) *p='\0';
 #     }
-# }
-
+#
