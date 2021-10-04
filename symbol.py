@@ -1,18 +1,12 @@
+import time
+import grace
 
 
-class Grace(object):   # describes grace notes
+class Deco(object):  # describes decorations
     def __init__(self):
-        self.n = 0   # number of grace notes
-        self.len = 0   # note length when zero(default), treated as accacciatura
-        self.p = list()   # MAXGRACE pitches
-        self.a = list()   # MAXGRACE accidentals
-
-
-class Deco(object):   # describes decorations
-    def __init__(self):
-        self.n = 0   # number of decorations
-        self.top = 0.0   # max height needed
-        self.t = list()   # type of deco 30
+        self.n = 0  # number of decorations
+        self.top = 0.0  # max height needed
+        self.t = list()  # type of deco 30
 
     def clear(self):
         self.n = 0
@@ -31,9 +25,10 @@ class Gchord(object):
     def __init__(self):
         self.text = ''
         self.x = 0.0
+        self.list = list()
 
 
-class Beam(object):   # packages info about one beam
+class Beam(object):  # packages info about one beam
     def __init__(self):
         self.i1 = 0
         self.i2 = 0
@@ -45,7 +40,7 @@ class Beam(object):   # packages info about one beam
         self.stem = 0
 
 
-class Endings(object):   # where to draw endings
+class Endings(object):  # where to draw endings
     def __init__(self):
         self.a = 0.0
         self.b = 0.0
@@ -55,107 +50,140 @@ class Endings(object):   # where to draw endings
         self.type = 0
 
 
-class Symbol(object):   # struct for a drawable symbol
+GchordList = list()
+
+prep_gch_list = GchordList  # guitar chords for preparsing
+prep_deco = Deco()  # decorations for preparsing
+
+
+class Symbol(object):  # struct for a drawable symbol
     def __init(self):
-        self.type = 0   # type of symbol
-        self.pits = [0]*8   # pitches for notes
-        self.lens = [0]*8   # note lengths as multiple of BASE
-        self.accs = [0]*8   # code for accidentals
-        self.sl1 = [0]*8   # which slur start on this head
-        self.sl2 = [0]*8   # which slur ends on this head
-        self.ti1 = [0]*8   # flag to start tie here
-        self.ti2 = [0]*8   # flag to end tie here
-        self.ten1 = [0]*8   # flag to start tenuto here(only tab)
-        self.ten2 = [0]*8   # flag to end tenuto here(only tab)
-        self.lig1 = 0   # ligatura starts here
-        self.lig2 = 0   # ligatura ends here
-        self.shhd = [0]*8   # horizontal shift for heads
-        self.shac = [0]*8   # horizontal shift for accidentals
-        self.npitch = 0   # number of note heads
-        self.len = 0   # basic note length
-        self.fullmes = 0   # flag for full-measure rests
-        self.word_st = 0   # 1 if word starts here
-        self.word_end = 0   # 1 if word ends here
-        self.slur_st = 0   # how many slurs starts here
-        self.slur_end = 0   # how many slurs ends here
-        self.ten_st = 0   # how many tenuto strokes start(only tab)
-        self.ten_end = 0   # how many tenuto strokes end(only tab)
-        self.yadd = 0   # shift for treble/bass etc clefs
+        self.type = 0  # type of symbol
+        self.pits = [0]*8  # pitches for notes
+        self.lens = [0]*8  # note lengths as multiple of BASE
+        self.accs = [0]*8  # code for accidentals
+        self.sl1 = [0]*8  # which slur start on this head
+        self.sl2 = [0]*8  # which slur ends on this head
+        self.ti1 = [0]*8  # flag to start tie here
+        self.ti2 = [0]*8  # flag to end tie here
+        self.ten1 = [0]*8  # flag to start tenuto here(only tab)
+        self.ten2 = [0]*8  # flag to end tenuto here(only tab)
+        self.lig1 = 0  # ligatura starts here
+        self.lig2 = 0  # ligatura ends here
+        self.shhd = [0]*8  # horizontal shift for heads
+        self.shac = [0]*8  # horizontal shift for accidentals
+        self.npitch = len(self.pits)  # number of note heads
+        self.len = 0  # basic note length
+        self.fullmes = 0  # flag for full-measure rests
+        self.word_st = 0  # 1 if word starts here
+        self.word_end = 0  # 1 if word ends here
+        self.slur_st = 0  # how many slurs starts here
+        self.slur_end = 0  # how many slurs ends here
+        self.ten_st = 0  # how many tenuto strokes start(only tab)
+        self.ten_end = 0  # how many tenuto strokes end(only tab)
+        self.yadd = 0  # shift for treble/bass etc clefs
         self.x = 0
-        self.y = 0   # position
+        self.y = 0  # position
         self.ymn = 0
         self.ymx = 0
-        self.yav = 0   # min,mav,avg note head height
+        self.yav = 0  # min,mav,avg note head height
         self.ylo = 0
-        self.yhi = 0   # bounds for this object
+        self.yhi = 0  # bounds for this object
         self.xmn = 0
-        self.xmx = 0   # min,max h-pos of a head rel to top
-        self.stem = 0   # 0,1,-1 for no stem, up, down
-        self.flags = 0   # number of flags or bars
-        self.dots = 0   # number of dots
-        self.head = 0   # type of head
-        self.eoln = 0   # flag for last symbol in line
-        self.grcpit = 0   # pitch to which grace notes apply
-        self.gr = Grace()   # grace notes
-        self.dc = Deco()   # decoration music
+        self.xmx = 0  # min,max h-pos of a head rel to top
+        self.stem = 0  # 0,1,-1 for no stem, up, down
+        self.flags = 0  # number of flags or bars
+        self.dots = 0  # number of dots
+        self.head = 0  # type of head
+        self.eoln = 0  # flag for last symbol in line
+        self.grcpit = 0  # pitch to which grace notes apply
+        self.gr = Grace()  # grace notes
+        self.dc = Deco()  # decoration music
         self.xs = 0
-        self.ys = 0   # position of stem end
+        self.ys = 0  # position of stem end
         self.u = 0
         self.v = 0
         self.w = 0
         self.t = 0
-        self.q = 0   # auxillary information
-        self.invis = 0   # mark note as invisible
+        self.q = 0  # auxillary information
+        self.invis = 0  # mark note as invisible
         self.wl = 0
-        self.wr = 0   # left,right min width
+        self.wr = 0  # left,right min width
         self.pl = 0
         self.pr = 0  # left,right preferred width
         self.xl = 0
-        self.xr = 0   # left,right expanded width
+        self.xr = 0  # left,right expanded width
         self.p_plet = 0
         self.q_plet = 0
-        self.r_plet = 0   # data for n-plets
-        self.gchy = 0   # height of guitar chord
-        self.text = ''   # for guitar chords(no longer) etc.
-        self.gchords = GchordList   # guitar chords above symbol
+        self.r_plet = 0  # data for n-plets
+        self.gchy = 0  # height of guitar chord
+        self.text = ''  # for guitar chords(no longer) etc.
+        self.gchords = GchordList  # guitar chords above symbol
         # number of vocal lines(only stored in first symbol per line)
-        self.wlines = 0   
-        self.wordp = ''   # pointers to wpool for vocals
-        self.p = 0   # pointer to entry in posit table
-        self.time = 0   # time for symbol start
-        self.tabdeco = list()   # tablature decorations inside chord
+        self.wlines = 0
+        self.wordp = [0]*16   # pointers to wpool for vocals
+        self.p = 0  # pointer to entry in posit table
+        self.time = 0  # time for symbol start
+        self.tabdeco = [0]*10   # tablature decorations inside chord
 
 
-class XPos(object):       # struct for a horizontal position
+class XPos(object): # struct for a horizontal position
     def __init__(self):
-        self.type = 0   # type of music here
-        self.next = 0   # pointers for linked list
+        self.type = None # type of music here
+        self.next = 0 # pointers for linked list
         self.prec = 0
-        self.elon = 0   # flag for line break
-        self.p = None               # pointers to associated syms
+        self.elon = 0 # flag for line break
+        self.p = None # pointers to associated syms
         self.time = 0.0
-        self.dur = 0.0              # start time, duration
+        self.dur = 0.0 # start time, duration
         self.wl = 0.0
-        self.wr = 0.0   # right and left widths
+        self.wr = 0.0 # right and left widths
         self.space = 0.0
         self.shrink = 0.0
-        self.stretch = 0.0   # glue before this position
-        self.tfac = 0.0   # factor to tune spacings
-        self.x = 0.0   # final horizontal position
+        self.stretch = 0.0 # glue before this position
+        self.tfac = 0.0 # factor to tune spacings
+        self.x = 0.0 # final horizontal position
 
 
-GchordList = list()
-
-prep_gch_list = GchordList   # guitar chords for preparsing
-prep_deco = Deco()   # decorations for preparsing
-
-ixpfree = 0   # first free element in xp array
+ixpfree = 0 # first free element in xp array
 
 # things to alloc:
-sym = Symbol()   # symbol list
-symv = Symbol()   # music for voices
-xp = XPos()   # shared horizontal positions
+sym = Symbol() # symbol list
+symv = Symbol() # music for voices
+xp = XPos() # shared horizontal positions
 
-sym_st = Symbol()   # music a staff start
+sym_st = Symbol() # music a staff start
 nsym_st = 0
 
+# this is only used once in set_xpwid
+WIDTH_MIN = 1.0
+
+XP_START = 0
+
+
+xpos = dict(type=None,
+            time=time.time(),
+            dur=0.0,
+            wl=0.0,
+            wr=0.0,
+            space=0.0,
+            shrink=0.0,
+            stretch=0.0,
+            tune_fac=0.0,
+            x=0.0)
+
+xps = list()   # of XPos()
+
+def set_xpwid(xp):
+    """
+    In every element xp set tune_fac = 1.0 and wl and wr to WIDTH_MIN
+    For every v that has syms:
+        k1 is the first symbol
+        k2 is the last symbol
+        if k1.wl > xp[0].wl: xp[0].wl = k1.wl
+        if k2.wl > xp[-1].wl: xp[-1].wl = k2.wl
+
+
+
+    :return:
+    """
