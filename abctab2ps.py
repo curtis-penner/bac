@@ -1,3 +1,5 @@
+# Copyright 2022 Curtis Penner
+
 import os.path
 import sys
 import signal
@@ -5,6 +7,7 @@ import signal
 import cmdline
 import common
 import format
+import info
 import parse
 import voice
 import pssubs
@@ -14,6 +17,7 @@ import subs
 import tab
 from format import Format
 from constants import (VERSION, REVISION, INDEXFILE)
+from constants import (HISTORY, MWORDS, DEFVOICE)
 from constants import (OBEYLINES, OBEYRIGHT, OBEYCENTER, ALIGN, SKIP, RAGGED)
 
 from log import log
@@ -170,26 +174,17 @@ def process_pscomment(fpin, fp, line):
             cfmt = dfmt
 
 
-def process_file(fpin, fpout, xref_str, pat, sel_all, search_field, info=None):
-    # char * line;
-    # string linestr;
+def process_file(fp_in, fp_out, xref_str, pat, sel_all, search_field, info=None):
     # int type;
-
-    from constants import (HISTORY, MWORDS, DEFVOICE)
-
     common.within_tune = False
     common.within_block = False
     common.do_this_tune = False
-    common.linenum = 0
-    common.numtitle = 0
-    # reset_info(default_info)
-    info = info.Field()
-    common.verbose = 0
-    if common.vb >= 20:
-        common.db = 3
-    if common.vb >= 25:
-        common.db = 5
-    with open(fpin) as f:
+
+    # This is where there is the statements of verbose.
+    # Just need to understand what the verbose number means to
+    #  debug, warning, info, error, critical
+
+    with open(fp_in) as f:
         lines = f.readlines()
     if parse.is_cmdline(lines[0].strip()):
         subs.process_cmdline(lines[0])
@@ -199,21 +194,23 @@ def process_file(fpin, fpout, xref_str, pat, sel_all, search_field, info=None):
         if not line:
             continue
         if parse.is_pseudocomment(line):
-            process_pscomment(fpin, fpout, line)
+            process_pscomment(fp_in, fp_out, line)
             continue
         if parse.is_comment(line):
             continue
 
         parse.decomment_line(line)
 
-        if info.is_field(line):
+        # reset_info(default_info)
+        field = info.Field()
+        if field.is_field(line):
             # skip after history field. Nightmarish syntax, that.
             k, v = line.split(':', 1)
-            if k != HISTORY:
-                return type
-            else:
-                # add historics
+            if k != 'H':
                 pass
+            else:
+                field.history(v)
+
         if not common.do_music:
             return
         if voice.parse_vocals(line):
@@ -231,15 +228,13 @@ def process_file(fpin, fpout, xref_str, pat, sel_all, search_field, info=None):
         else:
             parse.parse_music_line(line)
 
-        if common.db > 1:
-            print(f"  parsed music symbols {nsym0} to"
+        log.debug(f"  parsed music symbols {nsym0} to"
                   f" {len(common.voices[common.ivc].syms)-1} for voice {common.ivc}")
-        else:
-            info.process_line(fpout, xref_str, pat, sel_all, search_field)
+        field.process_line(fp_out, xref_str, pat, sel_all, search_field)
 
     if not common.epsf:
-        buffer.buffer_eob(fpout)
-        buffer.write_buffer(fpout)
+        buffer.buffer_eob(fp_out)
+        buffer.write_buffer(fp_out)
 
 
 def main():
@@ -249,111 +244,70 @@ def main():
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
 
-    # set default options and parse arguments
-    # common.allocVc = 800
-    # common.allocSyms = 800
-    # common.maxVc = 3
-    # common.allocVc = 3
-
-    # init_ops(true)   # do_output = false
-    if common.do_output:
-        print(f"This is abctab2ps, version {VERSION}.{REVISION}")
-
-    # Adjust the filenames
-    args.filenames = args.filenames[0]
-    if args.filename:
-        args.filenames.append(args.filename)
-    log.info(args.filenames)
-    # set the page format
-    if not cfmt.set_page_format():
-        exit(3)
-    if args.help_me == 2:
-        print(cfmt)
-        exit(0)
-
     # help printout
     if args.help_me == 1:
         cmdline.write_help()
         exit(0)
+
+    log.info(f"do_output: {common.do_output}")
+    if common.do_output:
+        print(f"This is abctab2ps, version {VERSION}.{REVISION}")
+
+    if args.filename:
+        args.filenames.append(args.filename)
+    log.info(args.filenames)
+    # set the page format
+    cfmt.set_page_format()
 
     common.search_field0 = args.select_field0   # default for interactive mode
     # if args.epsf:
     #     for filename in args.filename.split():
     #         name, extension = os.path.splitext(filename)
 
-    # initialize
-    common.pagenum = 0
-    common.tunenum = 0
-    common.tnum1 = 0
-    common.tnum2 = 0
-    common.verbose = 0
-    common.file_open = False
-    common.file_initialized = False
-    common.nepsf = 0
-    common.bposy = 0
-    common.posx = cfmt.leftmargin
-    common.posy = cfmt.pageheight - cfmt.topmargin
+    if not args.filenames:
+        # no input file specified: open stdin
+        log.error("++++ No input files, read from stdin")
+        sys.exit(2)
 
-    common.page_init = ""
-
-    print(f"do_output: {common.do_output}")
-    print(f"make_index: {args.make_index}")
     if common.do_output and args.make_index:
+        log.info(f"make_index: {args.make_index}")
         index = index.Index()
         index.open_index_file(INDEXFILE)
 
     # loop over files in list
-    if len(args.filenames) == 0:
-        # no input file specified: open stdin
-        print("++++ No input files, read from stdin\n")
-        common.in_file[0] = "stdin"
-        sys.exit(2)
-
-    fout = None
-
     pat, xref_str = parse.rehash_selectors(args.filenames)
+    global fout
     for filename in args.filenames:
-        # process list of input files
+        # process list of input files and skip.ps and.eps files
         name, ext = os.path.splitext(filename)
-
-        # skip.ps and.eps files
         if ext != ".ps" or ext != ".eps":
             continue
-
         elif not ext and not os.path.exists(name):
             filename = name + '.abc'
-
-        if not os.path.exists(filename):
-            log.error(f'{filename} not found')
-            continue
-
-        fin = open(filename, 'r')
-
-        # The code in broken here as do_output is forever true.
-        if not common.do_output:
-            print(f"{filename}:")
-            parse.do_index(fin, xref_str, pat, common.select_all, args.search_field0)
-        else:
-            name, ext = os.path.splitext(filename)
-
-        fout = open(name + '.ps', 'a')
+            if not os.path.exists(filename):
+                log.error(f'{filename} not found')
+                continue
 
         log.info(f"{filename}:")
-        process_file(fin, fout, xref_str,
-                     pat, common.select_all, args.search_field0)
-        print()
+        if args.output:
+            fout = open(args.output)
+        else:
+            fout = open(name + '.ps', 'a')
+        fin = open(filename, 'r')
+        if not common.do_output:
+            log.info(f"{filename}:")
+            parse.do_index(fin, xref_str, pat, common.select_all, args.search_field0)
 
+        # this is the start of the process
+        process_file(fin, fout, xref_str, pat, common.select_all, args.search_field0)
+
+    # The rest just closes everything up
     if not common.do_output:
         print(f"Selected {common.tnum1} title {common.tnum1} of {common.tnum2}")
 
     if common.do_output and common.make_index:
         subs.close_index_file()
-    rc = subs.close_output_file(fout)
-
-    if common.do_output and rc:
-        return 1
-    else:
-        return 0
+    subs.close_output_file(fout)
 
 
 if __name__ == '__main__':

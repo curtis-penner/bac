@@ -5,26 +5,23 @@ The purpose of this module is to have a common place to keep global
 variable. I know it is not elegant but for now this is how I will work
 this.
 """
-from constants import (S_TITLE, VERBOSE0, DEBUG_LV)
+import constants
 from format import Format
 from parse import Key
+
 cfmt = Format()
 
-
 bagpipe = False
-bposy = 0.0
 buf = ''   # output buffer.. should hold one tune
 
 # choose_outname = args.outf
 do_music = False
-do_output = False
+do_output = True
 do_mode = 0
 do_this_tune = False
 
 epsf = False
 
-file_initialized = False
-file_open = False
 output = 'out.ps'
 fp = open(output, 'a')
 
@@ -37,35 +34,23 @@ istab = False
 key = Key()
 
 ln_num = 0   # number of lines in buffer
-ln_pos = list()   # vertical positions of buffered lines float
-ln_buf = list()   # buffer location of buffered lines int
+ln_pos: list = list()   # vertical positions of buffered lines float
+ln_buf: list = list()   # buffer location of buffered lines int
 
 nbuf = 0   # number of bytes buffered
-notab = Tr
+notab = 0   # ???
 
 maxSyms = 800
 
-nepsf = 0
 nsym0 = 0   # nsym at start of parsing a line
 
-page_init = ''
-pagenum = 0
-posx = 0.0
-posy = 0.0
-
-search_field0 = S_TITLE
+search_field0 = constants.S_TITLE
 
 text = list()  # pool for history, words, etc. lines char
 text_type = list()   # type of each text line int NTEXT
-tunenum = 0
-tnum1 = 0
-tnum2 = 0
 
 use_buffer = False   # 1 if lines are being accumulated
 
-vb = 0
-verbose = 0
-vg = VERBOSE0
 voices = list()
 
 within_block = False
@@ -94,11 +79,8 @@ class XPOS:            # struct for a horizontal position
 
 xp: list[XPOS] = []
 
+
 # definitions of global variables
-
-db = DEBUG_LV   # debug control
-
-
 
 # information fields
 # info = Field()
@@ -143,23 +125,24 @@ words_of_text = ''           # for output of text
 #
 # char mbf[501]                 # mini-buffer for one line 
 # char buf[BUFFSZ]              # output buffer.. should hold one tune 
-# float bposy                   # current position in buffered data
+bposy: float = 0.0                  # current position in buffered data
 
 # float ln_pos[BUFFLN]          # vertical positions of buffered lines 
 # int   ln_buf[BUFFLN]          # buffer location of buffered lines 
 # char text [NTEXT][STRLINFO]   # pool for history, words, etc. lines
 # int text_type[NTEXT]          # type of each text line 
 # int ntext                     # number of text lines 
-# char page_init[201]           # initialization string after page break 
+page_init: str = ''   # initialization string after page break
 escseq = ''               # escape sequence string
-linenum = 0                  # current line number in input file
-# int tunenum                   # number of current tune 
-# int tnum1,tnum2
-# int numtitle                  # how many titles were read 
+linenum: int = 0                  # current line number in input file
+tunenum: int = 0                  # number of current tune
+tnum1: int = 0
+tnum2: int = 0
+numtitle: int = 0                  # how many titles were read
 # int mline                     # number music lines in current tune 
 # int nsym                      # number of symbols in line 
 # int nsym0                     # nsym at start of parsing a line 
-# int pagenum                   # current page in output file 
+pagenum: int = 0                   # current page in output file
 # int xrefnum                   # xref number of current tune
 # int do_meter, do_indent       # how to start next block 
 #
@@ -172,7 +155,8 @@ GchordList = list()   # prep_gchlst          # guitar chords for preparsing
 # int bagpipe                     # switch for HP mode 
 # int within_tune, within_block   # where we are in the file 
 # int do_this_tune                # are we typesetting the current one ? 
-# float posx,posy                 # overall scale, position on page 
+posx: float = cfmt.leftmargin
+posy: float = cfmt.pageheight - cfmt.topmargin   # overall scale, position on page
 # int barinit                     # carryover bar number between parts 
 #
 # char *p, *p0                    # global pointers for parsing music line 
@@ -240,10 +224,10 @@ number_input_files = 0   # number of input file names
 # char styd[STRLFILE]             # layout style directory 
 # char infostr[STRLFILE]          # title string in PS file 
 #
-# int  file_open                  # for output file 
-# int  file_initialized           # for output file 
+file_open: bool = False                  # for output file
+file_initialized: bool = False           # for output file
 # FILE *fout,*findex              # for output file 
-# int nepsf                       # counter for epsf output files 
+nepsf: int = 0                       # counter for epsf output files
 #
 # char sel_str[MAXINF][STRLFILE]  # list of selector strings 
 # int  s_field[MAXINF]            # type of selection for each file 
@@ -251,16 +235,17 @@ number_input_files = 0   # number of input file names
 #
 # int temp_switch
 
+# most likely will not need these but just safe keeping
+# allocVc: int = 800
+# allocSyms: int = 800
+# maxVc: int = 3
+# maxSymx: int = 3
 
-def bskip(h):
-    """
-    translate down by h points in output buffer
 
-    :param h:
-    :return:
-    """
+def bskip(h: float) -> None:
+    """ translate down by h points in output buffer """
     global bposy
 
-    if (h*h>0.0001):
-        fp.write("0 %.2f T\n", -h)
+    if h*h > 0.0001:
+        fp.write(f'0 {-h:.2f} T\n')
         bposy = bposy - h

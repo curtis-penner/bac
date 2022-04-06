@@ -5,6 +5,7 @@ import os
 from log import (console, log)
 import cmdline
 import common
+import constants
 
 args = cmdline.options()
 
@@ -220,17 +221,17 @@ class Format:
         self.barnumfont = Font("Times-Roman", 11.0, True)
         self.barlabelfont = Font("Times-Bold", 18.0, True)
 
-    def set_page_format(self):
+    def set_page_format(self) -> bool:
         """
         The intent here is to create a page format from the option
         taken from the commandline for from a file.
         """
+        if constants.DEFAULT_FDIR or args.styf != 'fonts.fmt':
+            self.read_fmt_file(args.styf, args.styd)
         if args.pretty == 1:
             self.set_pretty_format()
         elif args.pretty == 2:
             self.set_pretty2_format()
-
-        self.read_fmt_file(args.styf, args.styd)
         self.ops_into_fmt()
         log.warning(f'used format file: {args.styf}')
         log.debug(f'Format file is {args.styf}')
@@ -238,10 +239,6 @@ class Format:
     def read_fmt_file(self, filename, dirname):
         """
         Read format information from format file (default fonts.fmt)
-
-        :param str filename:
-        :param str dirname:
-        :return bool:
         """
         if not os.path.isfile(filename):
             new_filename = os.path.join(dirname, filename)

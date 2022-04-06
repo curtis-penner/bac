@@ -128,11 +128,13 @@ def options():
                               'useful when changing the layout parameters, '
                               'to see what effect the changes have for '
                               'each mode separately.'))
+
     parser.add_argument('-Help',
                         dest='help_me',
                         default=False,
                         action='store_true',
                         help='show the default format parameters.')
+
     parser.add_argument('-I',
                         dest='make_index',
                         default=False,

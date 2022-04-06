@@ -155,6 +155,14 @@ class LayoutParams:
         print(line)
 
 
+class History:
+    def __init__(self):
+        pass
+
+    def __call__(self, line, header):
+        print(line)
+
+
 class Field:
     header = False
     body = False
@@ -167,7 +175,7 @@ class Field:
         self.layout_parameter = LayoutParams()
         self.file_name = Single(True)
         self.group = Single()
-        self.history = Single(True)
+        self.history = History()
         self.key_clef = Key()
         self.default_note_length = DefaultLength()
         self.meter = Meter()

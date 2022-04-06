@@ -262,16 +262,12 @@ def epsf_title(title):
     return title
 
 
-def close_output_file(fp):
+def close_output_file(fp) -> None:
     """
     This should not have to exist with python.  Using context switches the
-    output will always be closed, even with errors.
-
-    RC: 0 = output file is kept
-        1 = output file is removed(because it is empty)
-    """
+    output will always be closed, even with errors. """
     if fp.closed:
-        return True
+        return
 
     filename = fp.name
     pssubs.close_page(fp)
