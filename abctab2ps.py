@@ -7,7 +7,6 @@ import signal
 import cmdline
 import common
 import format
-import info
 import parse
 import voice
 import pssubs
@@ -17,7 +16,7 @@ import subs
 import tab
 from format import Format
 from constants import (VERSION, REVISION, INDEXFILE)
-from constants import (HISTORY, MWORDS, DEFVOICE)
+from constants import (MWORDS, DEFVOICE)
 from constants import (OBEYLINES, OBEYRIGHT, OBEYCENTER, ALIGN, SKIP, RAGGED)
 
 from log import log
@@ -34,7 +33,7 @@ def signal_handler():
     exit(130)
 
 
-def process_textblock(fpin, fp, job: bool) -> None:
+def process_text_block(fp_in, fp, job: bool) -> None:
     add_final_nl = False
     if job == OBEYLINES:
         add_final_nl = True
@@ -43,12 +42,11 @@ def process_textblock(fpin, fp, job: bool) -> None:
     common.cfmt.textfont.set_font(fp, False)
     common.words_of_text = ""
     for i in range(100):
-        ln = fpin.read()
+        ln = fp_in.read()
         if ln == '':
             log.error("EOF reached scanning text block")
         common.linenum += 1
-        if common.verbose >= 5 or common.vb >= 10:
-            print(f"{common.linenum:3d}  {ln} \n")
+        log.warning(f"{common.linenum:3d}  {ln} \n")
         if ln.startswith('%%'):
             del ln[0:1]
 
@@ -65,17 +63,14 @@ def process_textblock(fpin, fp, job: bool) -> None:
         subs.write_text_block(fp, job)
 
 
-def process_pscomment(fpin, fp, line):
-    # char w[81], fstr[81], unum1[41], unum2[41], unum3[41];
-    # float h1, h2, len, lwidth;
-    # int i, nch, job;
+def process_ps_comment(fp_in, fp, line):
     global cfmt
 
     from constants import CM
 
     dfmt = Format()
 
-    lwidth = cfmt.staffwidth
+    l_width = cfmt.staffwidth
 
     line = line.replace('%', ' ').strip()
     if ' ' in line:
@@ -105,7 +100,7 @@ def process_pscomment(fpin, fp, line):
 
         if common.within_block and not common.do_this_tune:
             job = SKIP
-        process_textblock(fpin, fp, job)
+        process_text_block(fp_in, fp, job)
         return
 
     if w == "text" or w == "center" or w == "right":
@@ -145,7 +140,7 @@ def process_pscomment(fpin, fp, line):
         if s_len * s_len < 0.0001:
             s_len = 3.0 * CM
         common.bskip(h1)
-        fp.write(f"{lwidth / 2 - s_len / 2:.1f} {lwidth / 2 + s_len / 2:.1f} sep0\n")
+        fp.write(f"{l_width / 2 - s_len / 2:.1f} {l_width / 2 + s_len / 2:.1f} sep0\n")
         common.bskip(h2)
         buffer.buffer_eob(fp)
     elif w == "vskip":
@@ -194,7 +189,7 @@ def process_file(fp_in, fp_out, xref_str, pat, sel_all, search_field, info=None)
         if not line:
             continue
         if parse.is_pseudocomment(line):
-            process_pscomment(fp_in, fp_out, line)
+            process_ps_comment(fp_in, fp_out, line)
             continue
         if parse.is_comment(line):
             continue
@@ -220,7 +215,7 @@ def process_file(fp_in, fp_out, xref_str, pat, sel_all, search_field, info=None)
         if not common.voices:
             common.ivc = voice.switch_voice(DEFVOICE)
 
-        nsym0 = len(common.voices[common.ivc].syms)
+        n_sym_0 = len(common.voices[common.ivc].syms)
 
         # music or tablature?
         if tab.is_tab_line(line):
@@ -228,7 +223,7 @@ def process_file(fp_in, fp_out, xref_str, pat, sel_all, search_field, info=None)
         else:
             parse.parse_music_line(line)
 
-        log.debug(f"  parsed music symbols {nsym0} to"
+        log.debug(f"  parsed music symbols {n_sym_0} to"
                   f" {len(common.voices[common.ivc].syms)-1} for voice {common.ivc}")
         field.process_line(fp_out, xref_str, pat, sel_all, search_field)
 
@@ -276,7 +271,7 @@ def main():
 
     # loop over files in list
     pat, xref_str = parse.rehash_selectors(args.filenames)
-    global fout
+    fout = None
     for filename in args.filenames:
         # process list of input files and skip.ps and.eps files
         name, ext = os.path.splitext(filename)

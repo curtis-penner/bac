@@ -2823,36 +2823,24 @@ def rehash_selectors(sel_str: list[str]) -> tuple:
     return pat, xref_str
 
 def decomment_line(ln: str) -> str:
-    """
-    cut off after %
-
-    :param ln:
-    :return:
-    """
-    inquotes = False   # do not remove inside double quotes
+    """ cut off after % """
+    in_quotes = False   # do not remove inside double quotes
     for i, p in enumerate(list(ln)):
         if p == '"':
-            if inquotes:
-                    inquotes = False
+            if in_quotes:
+                    in_quotes = False
             else:
-                inquotes = True
-        if p == '%' and not inquotes:
+                in_quotes = True
+        if p == '%' and not in_quotes:
             return ln[0:i]
     return ln
 
 
 def do_index(filename, xref_str: str, pat: list, select_all: bool, search_field: int) -> None:
-    """ print index of abc file """
-    # int type,within_tune
-    # string linestr
-    # static char* line = NULL
-    from constants import (XREF, KEY)
+    """ index of abc file """
+    import constants
     import info
 
-    linenum = 0
-    verbose = common.vb
-    numtitle = 0
-    write_history = 0
     common.within_tune = False
     common.within_block = False
     common.do_this_tune = False
@@ -2866,47 +2854,46 @@ def do_index(filename, xref_str: str, pat: list, select_all: bool, search_field:
         line = decomment_line(line)
         f_type = info.get_default_info()   # todo this right?
                 
-        if f_type == XREF:
+        if f_type == constants.XREF:
             if common.within_block:
-                print(f"+++ Tune {info.xref.xref} not closed properly ")
-            numtitle = 0
+                log.info(f"+++ Tune {info.xref.xref} not closed properly ")
+            common.number_of_titles = 0
             common.within_tune = False
             common.within_block = True
             ntext = 0
             break
             
-        elif f_type == KEY:
+        elif f_type == constants.KEY:
             if not common.within_block:
                 break
             if not common.within_tune:
                 common.tnum2 += 1
                 if is_selected(xref_str, pat, select_all, search_field):
-                    print(f"    {info.xref.xref:-4d} {info.key_clef.key_type:-5s} {info.meter:-4s}")
+                    log.info(f"    {info.xref.xref:-4d} {info.key_clef.key_type:-5s} {info.meter:-4s}")
                     if search_field == S_SOURCE:
-                        print(f"    {info.source:-15s}")
+                        log.info(f"    {info.source:-15s}")
 
                     elif search_field == S_RHYTHM:
-                        print(f"    {info.rhythm:-8s}")
+                        log.info(f"    {info.rhythm:-8s}")
                     elif search_field == S_COMPOSER:
-                        print(f"    {info.composer[0]:-15s}")
-                    if numtitle == 3:
-                        print(f"    {info.titles[0]} - {info.titles[1]} - {info.titles[2]}")
-                    if numtitle == 2:
-                        print(f"    {info.titles[0]} - {info.titles[1]}")
-                    if numtitle==1:
-                        print(f"    {info.titles[0]}")
-                    
-                    print()
+                        log.info(f"    {info.composer[0]:-15s}")
+                    if common.number_of_titles == 3:
+                        log.info(f"    {info.titles[0]} - {info.titles[1]} - {info.titles[2]}")
+                    if common.number_of_titles == 2:
+                        log.info(f"    {info.titles[0]} - {info.titles[1]}")
+                    if common.number_of_titles == 1:
+                        log.info(f"    {info.titles[0]}")
+
                     common.tnum1 += 1
                 common.within_tune=1
             break
 
         if not line:
             if common.within_block and not common.within_tune:
-                print(f"+++ Header not closed in tune {info.xref.xref}")
+                log.info(f"+++ Header not closed in tune {info.xref.xref}")
             common.within_tune = False
             common.within_block = False
             info = info.Field()
     if common.within_block and not common.within_tune:
-        print(f"+++ Header not closed in for tune {info.xref.xref}", )
+        log.info(f"+++ Header not closed in for tune {info.xref.xref}", )
 

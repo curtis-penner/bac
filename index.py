@@ -9,13 +9,14 @@ import pssubs
 import syms
 import format
 import voice
-import parse_0
+import parse
+import info
 import common
 import constants
 
 args = cmdline.options()
 cfmt = format.Format()
-info = voice.Field()
+info = info.Field()
 
 
 class Index:
@@ -23,7 +24,7 @@ class Index:
         self.make_index = args.make_index
         self.initialized = False
         self.do_index = False
-        self.pagenum = 0
+        self.page_number = 0
         self.fp = None
         self.posx = 0.0
         self.posy = 0.0
@@ -118,12 +119,11 @@ class Index:
         within_tune = False
         within_block = False
         do_this_tune = False
-        info = fields.info.Field()
 
         for line in self.fp.readlines():
-            if parse_0.is_comment(line):
+            if parse.is_comment(line):
                 continue
-            line = parse_0.decomment_line(line)
+            line = parse.decomment_line(line)
             f_type = fields.info.info_field(line)
             if f_type == constants.XREF:
                 if within_block:
@@ -139,7 +139,7 @@ class Index:
     def write_index_entry(self):
         if not self.initialized:
             self.init_index_file(self.fp)
-        log.info(f'Write index entry: {self.pagenum} <{info.title}>')
+        log.info(f'Write index entry: {self.page_number} <{info.title}>')
         # Spacing determined here
         self.posy = self.posy - 1.2 * cfmt.indexfont.size
 
@@ -154,7 +154,7 @@ class Index:
         if not s:
             s = 'No title'
         self.fp.write(f'{self.posx+dx1:.2f} {self.posy:2f} '
-                      f'M ({self.pagenum}) lshow\n')
+                      f'M ({self.page_number}) lshow\n')
         self.fp.write(f'{self.posx+dx2:.2f} {self.posy:2f} '
                       f'M ({s}) S\n')
         if info.rhyth or info.orig:

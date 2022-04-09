@@ -138,11 +138,11 @@ linenum: int = 0                  # current line number in input file
 tunenum: int = 0                  # number of current tune
 tnum1: int = 0
 tnum2: int = 0
-numtitle: int = 0                  # how many titles were read
+number_of_titles: int = 0                  # how many titles were read
 # int mline                     # number music lines in current tune 
 # int nsym                      # number of symbols in line 
 # int nsym0                     # nsym at start of parsing a line 
-pagenum: int = 0                   # current page in output file
+page_number: int = 0                   # current page in output file
 # int xrefnum                   # xref number of current tune
 # int do_meter, do_indent       # how to start next block 
 #
@@ -186,7 +186,7 @@ last_real_note = 0
 # int include_xrefs                 # to include xref numbers in title 
 # int one_per_page                  # new page for each tune ? 
 # int pagenumbers                   # write page numbers ? 
-# int write_history                 # write history and notes ? 
+write_history: bool = False                 # write history and notes ?
 help_me = 0   # need help ?
 select_all = False    # select all tunes?
 # int epsf                          # for EPSF postscript output 

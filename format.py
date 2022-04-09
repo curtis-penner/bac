@@ -2,7 +2,7 @@
 
 import os
 
-from log import (console, log)
+from log import log
 import cmdline
 import common
 import constants
