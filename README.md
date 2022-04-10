@@ -14,4 +14,4 @@ name
 This is a translation project, taking the existing copy of abctab2ps
 and translating it from C language to the Python language.  
 
-## Sturctural changes
+## Structural changes
