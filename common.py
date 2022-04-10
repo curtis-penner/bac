@@ -155,8 +155,8 @@ GchordList = list()   # prep_gchlst          # guitar chords for preparsing
 # int bagpipe                     # switch for HP mode 
 # int within_tune, within_block   # where we are in the file 
 # int do_this_tune                # are we typesetting the current one ? 
-posx: float = cfmt.leftmargin
-posy: float = cfmt.pageheight - cfmt.topmargin   # overall scale, position on page
+posx: float = cfmt.left_margin
+posy: float = cfmt.page_height - cfmt.top_margin   # overall scale, position on page
 # int barinit                     # carryover bar number between parts 
 #
 # char *p, *p0                    # global pointers for parsing music line 

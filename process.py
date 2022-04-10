@@ -33,7 +33,7 @@ class Process:
         #
         # int i, nch, job;
 
-        lwidth = cfmt.staffwidth
+        lwidth = cfmt.staff_width
         line[0] = ' '
         line[1] = ' '
         for (i=0;i < strlen(line);i++) { if (line[i] == '%') line[i]='\0';}
@@ -219,7 +219,7 @@ void process_textblock(FILE *fpin, FILE *fp, int job)
     parskip    = cfmt.textfont.size * cfmt.parskipfac;
     add_final_nl=0;
     if (job==OBEYLINES) add_final_nl=1;
-    lwidth=cfmt.staffwidth;
+    lwidth=cfmt.staff_width;
     output_music (fp);
     buffer_eob (fp);
     set_font (fp, cfmt.textfont, 0);

@@ -210,7 +210,7 @@ TEXT_Z = 3
 TEXT_N = 4
 TEXT_D = 5
 
-DO_INDEX = 1   # what program does
+
 DO_OUTPUT = 2
 
 SWFAC = 0.50   # factor to estimate width of string

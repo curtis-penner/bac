@@ -7,15 +7,12 @@ from log import log
 import cmdline
 import pssubs
 import syms
-import format
-import voice
 import parse
 import info
 import common
 import constants
 
 args = cmdline.options()
-cfmt = format.Format()
 info = info.Field()
 
 
@@ -72,7 +69,7 @@ class Index:
         if pssubs.PS_LEVEL < 2:
             pssubs.level1_fix(findex)
 
-        syms.define_font(findex, cfmt.indexfont.name, 1)
+        syms.define_font(findex, common.cfmt.indexfont.name, 1)
         findex.write("\n/T {translate} bind def\n/M {moveto} bind def\n")
         findex.write("/S {show} bind def\n")
         syms.def_misc(findex)
@@ -90,44 +87,39 @@ class Index:
                  f"%%Page: {common.page_number} {common.page_number}\n"
                  "%%BeginPageSetup\n")
 
-        if cfmt.landscape:
+        if common.cfmt.landscape:
             fp.write("%%PageOrientation: Landscape\n")
         fp.write("gsave\n")
-        if cfmt.landscape:
-            fp.write(f"90 rotate 0 {-cfmt.pageheight:.1f} translate ")
+        if common.cfmt.landscape:
+            fp.write(f"90 rotate 0 {-common.cfmt.page_height:.1f} translate ")
         fp.write("%%EndPageSetup\n\n")
 
-        index_posx = cfmt.leftmargin
-        index_posy = cfmt.pageheight - cfmt.topmargin
+        index_posx = common.cfmt.left_margin
+        index_posy = common.cfmt.page_height - common.cfmt.top_margin
         # extra space at top..
-        index_posy = index_posy - 2 * cfmt.indexfont.size
+        index_posy = index_posy - 2 * common.cfmt.indexfont.size
 
         # write heading
         if common.page_number == 1:
-            hsize = 1.5 * cfmt.indexfont.size
+            hsize = 1.5 * common.cfmt.indexfont.size
             index_posy = index_posy - hsize
-            fp.write(f"{hsize:.1f} {cfmt.indexfont.box} F1 \n")
+            fp.write(f"{hsize:.1f} {common.cfmt.indexfont.box} F1 \n")
             fp.write(f"{index_posx:.2f} {index_posy:.2f} M (Contents) S\n")
-            self.index_posy = self.index_posy - cfmt.indexfont.size
+            self.index_posy = self.index_posy - common.cfmt.indexfont.size
 
-        fp.write(f"{cfmt.indexfont.size:.1f} {cfmt.indexfont.box} F1 \n", )
+        fp.write(f"{common.cfmt.indexfont.size:.1f} {common.cfmt.indexfont.box} F1 \n", )
 
-    def do_index(self, *args, **kwargs):
-        linenum = 0
-        numtitle = 0
-        write_history = False
-        within_tune = False
-        within_block = False
-        do_this_tune = False
-
-        for line in self.fp.readlines():
+    def do_index(self, fp, xref_str: str, pat: list, selct_all, search_field0):
+        field = info.Field()
+        for line in fp.readlines():
             if parse.is_comment(line):
                 continue
             line = parse.decomment_line(line)
-            f_type = fields.info.info_field(line)
-            if f_type == constants.XREF:
-                if within_block:
-                    log.warning(f"+++ Tune {fields.info.XRef.xref} not closed properly\n")
+            if info.is_field(line):
+                f_type = field(line)
+            if isinstance(f_type, field.XRef):
+                if common.within_block:
+                    log.warning(f"+++ Tune {field.XRef.xref} not closed properly\n")
                 numtitle = 0
                 within_tune = False
                 within_block = True
@@ -141,22 +133,22 @@ class Index:
             self.init_index_file(self.fp)
         log.info(f'Write index entry: {self.page_number} <{info.title}>')
         # Spacing determined here
-        self.posy = self.posy - 1.2 * cfmt.indexfont.size
+        self.posy = self.posy - 1.2 * common.cfmt.indexfont.size
 
-        if self.posy-cfmt.indexfont.size < cfmt.botmargin:
+        if self.posy-common.cfmt.indexfont.size < common.cfmt.bot_margin:
             close_index_page(self.fp)
             self.init_index_page(self.fp)
 
-        dx1 = 1.8*cfmt.indexfont.size
-        dx2 = dx1 + cfmt.indexfont.size
+        dx1 = 1.8*common.cfmt.indexfont.size
+        dx2 = dx1 + common.cfmt.indexfont.size
 
-        s = info.title
-        if not s:
-            s = 'No title'
+        t = info.Titles()
+        if not t.titles:
+            t.titles.append('No title')
         self.fp.write(f'{self.posx+dx1:.2f} {self.posy:2f} '
                       f'M ({self.page_number}) lshow\n')
         self.fp.write(f'{self.posx+dx2:.2f} {self.posy:2f} '
-                      f'M ({s}) S\n')
+                      f'M ({t.titles[0]}) S\n')
         if info.rhyth or info.orig:
             self.fp.write('(  (')
             if info.rhyth:

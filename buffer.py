@@ -35,7 +35,7 @@ def write_buffer(fp) -> None:
 
         b2 = common.ln_buf[i]
         dp = common.ln_pos[i]-p1
-        if common.posy+dp < common.cfmt.botmargin and not common.epsf:
+        if common.posy+dp < common.cfmt.bot_margin and not common.epsf:
             write_pagebreak(fp)
 
         fp.write(common.buf[b1:b2])

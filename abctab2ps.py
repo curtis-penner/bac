@@ -14,21 +14,16 @@ import buffer
 import music
 import subs
 import tab
+import index
 from format import Format
 from constants import (VERSION, REVISION, INDEXFILE)
 from constants import (MWORDS, DEFVOICE)
-from constants import (OBEYLINES, OBEYRIGHT, OBEYCENTER, ALIGN, SKIP, RAGGED)
-
+from constants import OBEYLINES, OBEYRIGHT, OBEYCENTER, ALIGN, SKIP, RAGGED
 from log import log
-
-args = cmdline.options()
-cfmt = Format()
-voice = voice.Voice()
 
 
 def signal_handler():
     """ signal handler for premature termination """
-    subs.close_output_file(args.outfile)
     log.critical('could not install signal handler for SIGTERM and SIGINT')
     exit(130)
 
@@ -64,13 +59,10 @@ def process_text_block(fp_in, fp, job: bool) -> None:
 
 
 def process_ps_comment(fp_in, fp, line):
-    global cfmt
-
     from constants import CM
 
     dfmt = Format()
-
-    l_width = cfmt.staffwidth
+    l_width = common.cfmt.staff_width
 
     line = line.replace('%', ' ').strip()
     if ' ' in line:
@@ -110,7 +102,7 @@ def process_ps_comment(fp_in, fp, line):
         if common.within_block and not common.do_this_tune:
             return
         music.output_music(fp)
-        cfmt.textfont.set_font(fp, False)
+        common.cfmt.textfont.set_font(fp, False)
         common.words_of_text = ''
         if fstr:
             subs.add_to_text_block(fstr, True)
@@ -233,7 +225,7 @@ def process_file(fp_in, fp_out, xref_str, pat, sel_all, search_field, info=None)
 
 
 def main():
-    import index
+    args = cmdline.options()
 
     # cleanup on premature termination
     signal.signal(signal.SIGINT, signal_handler)
@@ -244,15 +236,15 @@ def main():
         cmdline.write_help()
         exit(0)
 
-    log.info(f"do_output: {common.do_output}")
+    log.debug(f"do_output: {common.do_output}")
     if common.do_output:
-        print(f"This is abctab2ps, version {VERSION}.{REVISION}")
-
+        log.info(f"This is abctab2ps, version {VERSION}.{REVISION}")
+    # consolidate the filenames
     if args.filename:
         args.filenames.append(args.filename)
-    log.info(args.filenames)
+    log.debug(args.filenames)
     # set the page format
-    cfmt.set_page_format()
+    common.cfmt.set_page_format()
 
     common.search_field0 = args.select_field0   # default for interactive mode
     # if args.epsf:

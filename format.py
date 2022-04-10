@@ -5,13 +5,9 @@ import os
 from log import log
 import cmdline
 import common
-import constants
+from constants import (CM, PT, IN, DEFAULT_FDIR)
 
 args = cmdline.options()
-
-CM = 28.35   # factor to transform cm to pt
-PT = 1.00   # factor to transform pt to pt
-IN = 72.00   # factor to transform inch to pt
 
 
 class Font:
@@ -24,7 +20,7 @@ class Font:
         self._add_font()
 
     def _add_font(self):
-        """ checks font list, adds font if new font to Font.names """
+        """ checks font list, adds font if new font """
         log.info("Adding fonts from format..")
         if self.name in Font.names:
             log.info(f"Font {self.name} "
@@ -75,11 +71,11 @@ class Font:
         font_index = 0
         if self.name in Font.names:
             font_index = Font.names.index(self.name)
-        console.debug(f"{self.size:.1f} {self.box:d} F{font_index}")
+        log.debug(f"{self.size:.1f} {self.box:d} F{font_index}")
 
 
 class Papersize:
-    # name: [pagewidth, pageheight, leftmargin, staffwidth]
+    # name: [page width, page height, left margin, staff width]
     papersizes = {
         "a4": [21.0 * CM, 29.7 * CM, 1.8 * CM, 17.4 * CM],
         "letter": [21.6 * CM, 27.9 * CM, 1.8 * CM, 18.0 * CM],
@@ -93,10 +89,10 @@ class Papersize:
     def __init__(self, name='letter'):
         """ Default papaersize name is 'letter' """
         self.name = name.lower()
-        self.pagewidth = Papersize.papersizes[self.name][0]
-        self.pageheight = Papersize.papersizes[self.name][1]
-        self.leftmargin = Papersize.papersizes[self.name][2]
-        self.staffwidth = Papersize.papersizes[self.name][3]
+        self.page_width = Papersize.papersizes[self.name][0]
+        self.page_height = Papersize.papersizes[self.name][1]
+        self.left_margin = Papersize.papersizes[self.name][2]
+        self.staff_width = Papersize.papersizes[self.name][3]
 
 
 class Format:
@@ -105,11 +101,11 @@ class Format:
         ppsz = Papersize(name)
 
         self.name = "standard"
-        self.pageheight = ppsz.pageheight
-        self.staffwidth = ppsz.staffwidth
-        self.leftmargin = ppsz.leftmargin
-        self.topmargin = 1.0*CM
-        self.botmargin = 1.0*CM
+        self.page_height = ppsz.page_height
+        self.staff_width = ppsz.staff_width
+        self.left_margin = ppsz.left_margin
+        self.top_margin = 1.0 * CM
+        self.bot_margin = 1.0 * CM
         self.topspace = 0.8*CM
         self.titlespace = 0.2*CM
         self.subtitlespace = 0.1*CM
@@ -166,9 +162,6 @@ class Format:
         self.barlabelfont = Font("Times-Bold", 18.0, False)
         self.indexfont = Font("Times-Roman", 11.0, False)
 
-        # Make adjustment to the standard format
-        self.set_page_format()
-
     def set_pretty_format(self):
         self.name = "pretty"
         self.titlespace = 0.4*CM
@@ -221,12 +214,10 @@ class Format:
         self.barnumfont = Font("Times-Roman", 11.0, True)
         self.barlabelfont = Font("Times-Bold", 18.0, True)
 
-    def set_page_format(self) -> bool:
-        """
-        The intent here is to create a page format from the option
-        taken from the commandline for from a file.
-        """
-        if constants.DEFAULT_FDIR or args.styf != 'fonts.fmt':
+    def set_page_format(self) -> None:
+        """ The intent here is to create a page format from the option
+        taken from the commandline for from a file. """
+        if DEFAULT_FDIR or args.styf != 'fonts.fmt':
             self.read_fmt_file(args.styf, args.styd)
         if args.pretty == 1:
             self.set_pretty_format()
@@ -259,11 +250,11 @@ class Format:
 
     def __str__(self):
         return f'''Format: {self.name}
-    pageheight         {self.pageheight/CM:.2f}cm
-    staffwidth         {self.staffwidth/CM:.2f}cm
-    topmargin          {self.topmargin/CM:.2f}cm
-    botmargin          {self.botmargin/CM:.2f}cm
-    leftmargin         {self.leftmargin/CM:.2f}cm
+    pageheight         {self.page_height / CM:.2f}cm
+    staffwidth         {self.staff_width / CM:.2f}cm
+    topmargin          {self.top_margin / CM:.2f}cm
+    botmargin          {self.bot_margin / CM:.2f}cm
+    leftmargin         {self.left_margin / CM:.2f}cm
     topspace           {self.topspace/CM:.2f}cm
     titlespace         {self.titlespace/CM:.2f}cm
     subtitlespace      {self.subtitlespace/CM:.2f}cm
@@ -461,8 +452,8 @@ class Format:
         """
         if common.in_page:
             return
-        common.posx = self.leftmargin
-        common.posy = self.pageheight - self.topmargin
+        common.posx = self.left_margin
+        common.posy = self.page_height - self.top_margin
 
 
 def g_unum(s):

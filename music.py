@@ -5150,9 +5150,9 @@ def output_music(fp):
 
     alfa_last = 0.1
     beta_last = 0.0
-    lwidth = cfmt.staffwidth
+    lwidth = cfmt.staff_width
     lscale = cfmt.scale
-    subs.check_margin(cfmt.leftmargin)
+    subs.check_margin(cfmt.left_margin)
 
     # initialize meter and key for voices
     for voice in voices:

@@ -429,7 +429,7 @@ def write_text_block(fp, job: int, words_of_text='') -> None:
             put(") rshow\n")
 
         elif job == OBEYCENTER:
-            put(f"{cfmt.staffwidth/2:.1f} 0 M(")
+            put(f"{cfmt.staff_width / 2:.1f} 0 M(")
             for i in range(i1, i2):
                 line, wwidth = tex_str(words_of_text[i])
                 put(f"{line}")
@@ -438,7 +438,7 @@ def write_text_block(fp, job: int, words_of_text='') -> None:
             put(") cshow\n")
 
         elif job == OBEYRIGHT:
-            put(f"{cfmt.staffwidth:.1f} 0 M(")
+            put(f"{cfmt.staff_width:.1f} 0 M(")
             for i in range(i1, i2):
                 line, wwidth = tex_str(words_of_text[i])
                 put(f"{line}")
@@ -461,18 +461,18 @@ def write_text_block(fp, job: int, words_of_text='') -> None:
                     put("\n")
                 put(f"({line})")
                 if job == RAGGED:
-                    put(" %.1f P1\n",cfmt.staffwidth)
+                    put(" %.1f P1\n", cfmt.staff_width)
                 else:
-                    put(" %.1f P2\n",cfmt.staffwidth)
+                    put(" %.1f P2\n", cfmt.staff_width)
                     # first estimate:(total textwidth)/(available width)
                     textwidth=wtot*swfac*cfmt.textfont.size
             if "Courier" in cfmt.textfont.name:
                 textwidth = 0.60 * mc * cfmt.textfont.size
-            ftline0 = textwidth / cfmt.staffwidth
+            ftline0 = textwidth / cfmt.staff_width
             # revised estimate: assume some chars lost at each line end
             nbreak = int(ftline0)
             textwidth = textwidth + 5 * nbreak * util.cwid('a') * swfac * cfmt.textfont.size
-            ftline = textwidth/cfmt.staffwidth
+            ftline = textwidth/cfmt.staff_width
             ntline = (int)(ftline+1.0)
             if common.vb >= 10:
                 print(f"first estimate {ftline0:.2f}, revised {ftline:.2f}")

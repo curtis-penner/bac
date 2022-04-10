@@ -175,9 +175,9 @@ def init_page(fp):
         fp.write("%%PageOrientation: Landscape\n")
     fp.write("gsave ")
     if cfmt.landscape:
-        fp.write(f"90 rotate 0 {-cfmt.pageheight:.1f} translate ")
-    fp.write(f"{cfmt.leftmargin:.2f} "
-             f"{cfmt.pageheight-cfmt.topmargin:.2f} translate\n")
+        fp.write(f"90 rotate 0 {-cfmt.page_height:.1f} translate ")
+    fp.write(f"{cfmt.left_margin:.2f} "
+             f"{cfmt.page_height - cfmt.top_margin:.2f} translate\n")
     fp.write( "%%EndPageSetup\n")
 
     # write page number
@@ -185,7 +185,7 @@ def init_page(fp):
         fp.write( "/Times-Roman 12 selectfont ")
 
         # page numbers always at right
-        fp.write(f"{cfmt.staffwidth:.1f} {cfmt.topmargin - 30.0:.1f} "
+        fp.write(f"{cfmt.staff_width:.1f} {cfmt.top_margin - 30.0:.1f} "
                  f"moveto ({common.page_number:d}) /bx false def lshow\n")
 
 
@@ -198,8 +198,8 @@ def close_page(fp):
 
 
 def init_epsf(fp):
-    px = cfmt.leftmargin
-    py = cfmt.pageheight-cfmt.topmargin
+    px = cfmt.left_margin
+    py = cfmt.page_height - cfmt.top_margin
     fp.write(f"{px:.2f} {py:.2f} translate\n")
 
 
@@ -213,4 +213,4 @@ def write_pagebreak(fp):
     init_page(fp)
     if len(common.page_init) > 0:
         fp.print(f"{common.page_init}\n")
-    common.posy = common.cfmt.pageheight - common.cfmt.topmargin
+    common.posy = common.cfmt.page_height - common.cfmt.top_margin

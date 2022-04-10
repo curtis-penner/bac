@@ -1,8 +1,8 @@
 # Copyright 2019 Curtis
 
 import argparse
-
-from constants import (DEFAULT_FDIR, OUTPUTFILE, G_FILL, S_TITLE)
+from log import log
+import constants
 
 version = '0.1'
 revision = 'a'
@@ -55,9 +55,9 @@ def options():
                         help='try to typeset with bars per staff bars '
                              'on each line.')
     parser.add_argument('-C',
-                        dest='select_composer',
-                        default=False,
-                        action='store_true',
+                        dest='s_field',
+                        action='append',
+                        default=constants.S_COMPOSER,
                         help='Select composer')
     parser.add_argument('-c',
                         dest='continue_all',
@@ -80,7 +80,7 @@ def options():
                         help='set staff distance to distance (cm/in/pt).')
     parser.add_argument('-D',
                         dest='styd',
-                        default=DEFAULT_FDIR,
+                        default=constants.DEFAULT_FDIR,
                         type=str,
                         help='look for format files in directory fmtdir.')
     parser.add_argument('-e',
@@ -121,7 +121,7 @@ def options():
 
     parser.add_argument('-g',
                         dest='gmode',
-                        default=G_FILL,
+                        default=constants.G_FILL,
                         choices=['shrink', 'space', 'stretch', 'fill'],
                         help=('sets the "glue mode". The default mode is '
                               'fill, which fills the staff. This flag is '
@@ -223,7 +223,7 @@ def options():
                         help='output filename')
     parser.add_argument('-O',
                         dest='outfile',  # change this to choose_output
-                        default=OUTPUTFILE,
+                        default=constants.OUTPUTFILE,
                         action='store_true',
                         help=('in PS (EPS) mode, the output is written to outfile.ps '
                               '(outfile001.eps). If the parameter to -O is "=", output '
@@ -257,9 +257,9 @@ def options():
                               'print the default papersize on '
                               'your system.'))
     parser.add_argument('-R',
-                        dest='select_rhythm',
-                        default=False,
-                        action='store_true',
+                        dest='s_field',
+                        action='append',
+                        default=constants.S_RHYTHM,
                         help='Select rhythm')
     parser.add_argument('-S',
                         dest='select_source',
@@ -272,8 +272,9 @@ def options():
                         type=float,
                         help='scales the music output by factor scale.')
     parser.add_argument('-T',
-                        dest='select_field0',
-                        default=S_TITLE,
+                        dest='s_field',
+                        default=constants.S_TITLE,
+                        action='append',
                         help='Select title')
     parser.add_argument('-t',
                         dest='transpose',
@@ -375,7 +376,7 @@ def options():
                         action='store_false',
                         help='turn off historical notes and other stuff.')
     parser.add_argument('+N',
-                        dest='pagenumbers',
+                        dest='page_numbers',
                         default=False,
                         action='store_true',
                         help='write page numbers')
@@ -458,10 +459,10 @@ Tablature:
 
 
 def write_version():
-    print(f"bac {version}.{revision}")
+    log.debug(f"bac {version}.{revision}")
 
     if len(format_dir) > 0:
-        print(f'Default format directory {format_dir}', )
+        log.debug(f'Default format directory {format_dir}', )
 
 
 if __name__ == '__main__':
@@ -469,3 +470,4 @@ if __name__ == '__main__':
     print(m)
     import json
     print(json.dumps(vars(m), indent=4))
+    print(m.s_field)
