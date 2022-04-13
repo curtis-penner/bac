@@ -8,12 +8,13 @@ import cmdline
 import pssubs
 import syms
 import parse
+import util
 import info
 import common
 import constants
 
 args = cmdline.options()
-info = info.Field()
+field = info.Field()
 
 
 class Index:
@@ -96,7 +97,7 @@ class Index:
 
         index_posx = common.cfmt.left_margin
         index_posy = common.cfmt.page_height - common.cfmt.top_margin
-        # extra space at top..
+        # extra space at top
         index_posy = index_posy - 2 * common.cfmt.indexfont.size
 
         # write heading
@@ -109,29 +110,60 @@ class Index:
 
         fp.write(f"{common.cfmt.indexfont.size:.1f} {common.cfmt.indexfont.box} F1 \n", )
 
-    def do_index(self, fp, xref_str: str, pat: list, selct_all, search_field0) -> None:
-        field = info.Field()
+    @staticmethod
+    def do_index(fp, xref_str: str, pat: list, select_all, search_field) -> None:
+        global field
         for line in fp.readlines():
             if parse.is_comment(line):
                 continue
             line = parse.decomment_line(line)
             if info.is_field(line):
                 f_type = field(line)
-            if isinstance(f_type, field.XRef):
-                if common.within_block:
-                    log.warning(f"+++ Tune {field.XRef.xref} not closed properly\n")
-                numtitle = 0
-                within_tune = False
-                within_block = True
-                ntext = 0
-                continue
-            elif f_type == constants.KEY:
-                pass
+                if isinstance(f_type, info.XRef):
+                    field.xref(line)
+                    if common.within_block:
+                        log.warning(f"+++ Tune {field.xref.xref} not closed properly\n")
+                    common.numtitle = 0
+                    common.within_tune = False
+                    common.within_block = True
+                    common.ntext = 0
+                    continue
+                elif f_type == constants.KEY:
+                    if not common.within_block:
+                        break
+                    if not common.within_tune:
+                        common.tnum2 += 1
+                        if parse.is_selected(xref_str, pat, select_all, search_field):
+                            log.info(f"  {field.xref.xref:-4d} {field.key_clef.key_type:-5s}"
+                                     f" {field.meter.meter_str:-4s}")
+                            if search_field == constants.S_SOURCE:
+                                log.info(f"  {field.source.line:-15s}")
+                            elif search_field == constants.S_RHYTHM:
+                                log.info(f"  {field.rhythm.line:-8s}")
+                            elif search_field == constants.S_COMPOSER:
+                                log.info(f"  {field.composer.composers[0]:-15s}")
+                            if field.titles.titles:
+                                log.info(f"  {field.titles.titles[0]} - "
+                                         f"{field.titles.titles[1]} - "
+                                         f"{field.titles.titles[2]}")
+                            common.tnum1 += 1
+                        common.within_tune = True
+                    break
+
+                if util.isblankstr(line):
+                    if common.within_block and not common.within_tune:
+                        log.info(f"+++ Header not closed in tune {field.xref.xref}")
+                    common.within_tune = False
+                    common.within_block = False
+                    field = info.Field()
+
+        if common.within_block and not common.within_tune:
+            log.info(f"+++ Header not closed in tune {field.xref.xref}")
 
     def write_index_entry(self) -> None:
         if not self.initialized:
             self.init_index_file(self.fp)
-        log.info(f'Write index entry: {self.page_number} <{info.title}>')
+        log.info(f'Write index entry: {self.page_number} <{field.titles.titles[0]}>')
         # Spacing determined here
         self.posy = self.posy - 1.2 * common.cfmt.indexfont.size
 
@@ -142,104 +174,29 @@ class Index:
         dx1 = 1.8*common.cfmt.indexfont.size
         dx2 = dx1 + common.cfmt.indexfont.size
 
-        t = info.Titles()
+        t = field.titles
         if not t.titles:
             t.titles.append('No title')
         self.fp.write(f'{self.posx+dx1:.2f} {self.posy:2f} '
                       f'M ({self.page_number}) lshow\n')
         self.fp.write(f'{self.posx+dx2:.2f} {self.posy:2f} '
                       f'M ({t.titles[0]}) S\n')
-        if info.rhyth or info.orig:
+        if field.rhythm.line or field.origin.line:
             self.fp.write('(  (')
-            if info.rhyth:
-                self.fp.write(f'{info.rhyth}')
-            if info.rhyth and info.orig:
+            if field.rhythm.line:
+                self.fp.write(f'{field.rhythm.line}')
+            if field.rhythm.line and field.origin.line:
                 self.fp.write(', ')
-            if info.orig:
-                self.fp.write(f'{info.orig}')
+            if field.origin.line:
+                self.fp.write(f'{field.origin.line}')
             self.fp.write(')) S\n')
 
-        if info.composer[0]:
-            self.fp.write(f'(   - {info.composer[0]}) S\n')
+        if field.composer[0]:
+            self.fp.write(f'(   - {field.composer[0]}) S\n')
 
 
 def close_index_page(fp) -> None:
     fp.write("\n%%PageTrailer\ngrestore\nshowpage\n")
-
-
-"""
-
-/* ----- do_index: print index of abc file ------ */
-void do_index(FILE *fp, char *xref_str, int npat, char (*pat)[STRLFILE], int select_all, int search_field)
-{
-    int type,within_tune;
-    string linestr;
-    static char* line = NULL;
-
-    linenum=0;
-    verbose=vb;
-    numtitle=0;
-    write_history=0;
-    within_tune=within_block=do_this_tune=0;
-    reset_info (&default_info);
-    info=default_info;
-
-  for (;;) {
-    if (!get_line(fp,&linestr)) break;
-    if (is_comment(linestr.c_str())) continue;
-    if (line) free(line);
-    line = strdup(linestr.c_str());
-    decomment_line (line);
-    type=info_field (line);
-
-    switch (type) {
-
-    case XREF:
-      if (within_block)
-        printf ("+++ Tune %d not closed properly \n", xrefnum);
-      numtitle=0;
-      within_tune=0;
-      within_block=1;
-      ntext=0;
-      break;
-
-    case KEY:
-      if (!within_block) break;
-      if (!within_tune) {
-        tnum2++;
-        if (is_selected (xref_str,npat,pat,select_all,search_field)) {
-          printf ("  %-4d %-5s %-4s", xrefnum, info.key, info.meter);
-          if      (search_field==S_SOURCE)   printf ("  %-15s", info.src);
-          else if (search_field==S_RHYTHM)   printf ("  %-8s",  info.rhyth);
-          else if (search_field==S_COMPOSER) printf ("  %-15s", info.comp[0]);
-          if (numtitle==3)
-            printf ("  %s - %s - %s", info.title,info.title2,info.title3);
-          if (numtitle==2) printf ("  %s - %s", info.title, info.title2);
-          if (numtitle==1) printf ("  %s", info.title);
-
-          printf ("\n");
-          tnum1++;
-        }
-        within_tune=1;
-      }
-      break;
-
-    }
-
-    if (isblankstr(line)) {
-      if (within_block && !within_tune)
-        printf ("+++ Header not closed in tune %d\n", xrefnum);
-      within_tune=0;
-      within_block=0;
-      info=default_info;
-    }
-  }
-  if (within_block && !within_tune)
-    printf ("+++ Header not closed in for tune %d\n", xrefnum);
-
-}
-
-"""
 
 
 if __name__ == '__main__':
