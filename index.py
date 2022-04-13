@@ -80,7 +80,7 @@ class Index:
 
         common.index_initialized = True
 
-    def init_index_page(self, fp):
+    def init_index_page(self, fp) -> None:
         common.page_number += 1
 
         fp.write(f"\n% --- page {common.page_number}\n"
@@ -109,7 +109,7 @@ class Index:
 
         fp.write(f"{common.cfmt.indexfont.size:.1f} {common.cfmt.indexfont.box} F1 \n", )
 
-    def do_index(self, fp, xref_str: str, pat: list, selct_all, search_field0):
+    def do_index(self, fp, xref_str: str, pat: list, selct_all, search_field0) -> None:
         field = info.Field()
         for line in fp.readlines():
             if parse.is_comment(line):
@@ -128,7 +128,7 @@ class Index:
             elif f_type == constants.KEY:
                 pass
 
-    def write_index_entry(self):
+    def write_index_entry(self) -> None:
         if not self.initialized:
             self.init_index_file(self.fp)
         log.info(f'Write index entry: {self.page_number} <{info.title}>')
@@ -163,7 +163,7 @@ class Index:
             self.fp.write(f'(   - {info.composer[0]}) S\n')
 
 
-def close_index_page(fp):
+def close_index_page(fp) -> None:
     fp.write("\n%%PageTrailer\ngrestore\nshowpage\n")
 
 

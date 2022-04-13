@@ -15,7 +15,6 @@ import music
 import subs
 import tab
 import index
-from format import Format
 from constants import (VERSION, REVISION, INDEXFILE)
 from constants import (MWORDS, DEFVOICE)
 from constants import OBEYLINES, OBEYRIGHT, OBEYCENTER, ALIGN, SKIP, RAGGED
@@ -61,7 +60,7 @@ def process_text_block(fp_in, fp, job: bool) -> None:
 def process_ps_comment(fp_in, fp, line):
     from constants import CM
 
-    dfmt = Format()
+    dfmt = format.Format()
     l_width = common.cfmt.staff_width
 
     line = line.replace('%', ' ').strip()
@@ -155,10 +154,11 @@ def process_ps_comment(fp_in, fp, line):
         pssubs.write_pagebreak(fp)
     else:
         if common.within_block:
-            cfmt.interpret_format_line(line)
+            common.cfmt.interpret_format_line(line)
         else:
+            dfmt = format.Format()
             dfmt.interpret_format_line(line)
-            cfmt = dfmt
+            common.cfmt = dfmt
 
 
 def process_file(fp_in, fp_out, xref_str, pat, sel_all, search_field, info=None):
@@ -258,8 +258,8 @@ def main():
 
     if common.do_output and args.make_index:
         log.info(f"make_index: {args.make_index}")
-        index = index.Index()
-        index.open_index_file(INDEXFILE)
+        ind = index.Index()
+        ind.open_index_file(INDEXFILE)
 
     # loop over files in list
     pat, xref_str = parse.rehash_selectors(args.filenames)
