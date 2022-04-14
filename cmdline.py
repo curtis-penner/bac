@@ -1,12 +1,24 @@
 # Copyright 2019 Curtis
 
 import argparse
+import sys
 from log import log
 import constants
 
 version = '0.1'
 revision = 'a'
 format_dir = ''
+
+
+def process_cmdline(line: str) -> None:
+    """ parse '%!'-line from input file """
+    if line.startswith('%!'):
+        line = line[2:].strip()
+    else:
+        line = line.strip()
+    params = line.split()
+    sys.argv.extend(params)
+    options()
 
 
 def options():

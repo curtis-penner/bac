@@ -1,7 +1,7 @@
 # Copyright (c) 2021 Curtis Penner
 import style
 from constants import (BASE, NOTE, REST, BREST, INVISIBLE, CLEF, KEYSIG, TIMESIG)
-from constants import VOCPRE, DEFVOICE, MWORDS
+from constants import VOCPRE
 from constants import (CM, IN, PT)
 from constants import (H_OVAL, H_EMPTY)
 from constants import (STEM, STEM_CH, BNUMHT)
@@ -19,7 +19,7 @@ from constants import (COMMENT, MUSIC, TO_BE_CONTINUED, E_O_F, INFO,
 from constants import (WHOLE, HALF)
 from constants import (BRUTTO, ALMOSTBRUTTO)
 from constants import (RHNONE)
-from common import (cfmt, voices, verbose)
+from common import (cfmt, voices)
 import common
 import subs
 import cmdline
@@ -31,7 +31,7 @@ import pssubs
 import util
 import tab
 from symbol import Symbol
-from meter import Meter
+from info import Meter
 
 args = cmdline.options()
 #    subroutines connected with output of music

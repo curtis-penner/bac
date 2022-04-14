@@ -6,6 +6,8 @@ import signal
 
 import cmdline
 import common
+import util
+from common import cfmt
 import format
 import parse
 import voice
@@ -23,21 +25,28 @@ from log import log
 
 def signal_handler():
     """ signal handler for premature termination """
-    log.critical('could not install signal handler for SIGTERM and SIGINT')
+    log.critical('Bad shutdown with signal handler: SIGTERM and SIGINT')
     exit(130)
 
 
+def process_blankline():
+    common.within_tune = False
+    common.do_this_tune = False
+    common.within_block = False
+
+
 def process_text_block(fp_in, fp, job: bool) -> None:
+    # This is needs rework.
     add_final_nl = False
     if job == OBEYLINES:
         add_final_nl = True
     music.output_music(fp)
     buffer.buffer_eob(fp)
-    common.cfmt.textfont.set_font(fp, False)
+    cfmt.textfont.set_font(fp, False)
     common.words_of_text = ""
     for i in range(100):
         ln = fp_in.read()
-        if ln == '':
+        if not ln:
             log.error("EOF reached scanning text block")
         common.linenum += 1
         log.warning(f"{common.linenum:3d}  {ln} \n")
@@ -57,10 +66,14 @@ def process_text_block(fp_in, fp, job: bool) -> None:
         subs.write_text_block(fp, job)
 
 
-def process_ps_comment(fp_in, fp, line):
+def is_pseudo_comment(ps: str) -> bool:
+    return len(str) > 2 and ps.startswith('%%')
+
+
+def process_ps_comment(fp_in, fp, line: str) -> None:
     from constants import CM
 
-    l_width = common.cfmt.staff_width
+    l_width = cfmt.staff_width
 
     line = line.replace('%', ' ').strip()
     if ' ' in line:
@@ -99,8 +112,8 @@ def process_ps_comment(fp_in, fp, line):
 
         if common.within_block and not common.do_this_tune:
             return
-        music.output_music(fp)
-        common.cfmt.textfont.set_font(fp, False)
+        music.output_music(fp)   # todo why go here?
+        cfmt.textfont.set_font(fp, False)
         common.words_of_text = ''
         if fstr:
             subs.add_to_text_block(fstr, True)
@@ -117,7 +130,7 @@ def process_ps_comment(fp_in, fp, line):
     elif w == "sep":
         if common.within_block and not common.do_this_tune:
             return
-        music.output_music(fp)
+        music.output_music(fp)   # todo why go here?
 
         unum1, unum2, unum3 = line.split(maxsplit=3)
         h1 = format.g_unum(unum1)
@@ -129,84 +142,78 @@ def process_ps_comment(fp_in, fp, line):
             h2 = h1
         if s_len * s_len < 0.0001:
             s_len = 3.0 * CM
-        common.bskip(h1)
+        common.bskip(fp, h1)
         fp.write(f"{l_width / 2 - s_len / 2:.1f} {l_width / 2 + s_len / 2:.1f} sep0\n")
-        common.bskip(h2)
+        common.bskip(fp, h2)
         buffer.buffer_eob(fp)
     elif w == "vskip":
         if common.within_block and not common.do_this_tune:
             return
-        music.output_music(fp)
+        music.output_music(fp)   # todo Why go here?
         unum1 = line
 
         h1 = format.g_unum(unum1)
         if h1 * h1 < 0.00001:
             h1 = 0.5 * CM
-        common.bskip(h1)
+        common.bskip(fp, h1)
         buffer.buffer_eob(fp)
     elif w == "newpage":
         if common.within_block and not common.do_this_tune:
             return
-        music.output_music(fp)
+        music.output_music(fp)   # todo Why go here?
         buffer.write_buffer(fp)
         common.use_buffer = False
         pssubs.write_pagebreak(fp)
     else:
         if common.within_block:
-            common.cfmt.interpret_format_line(line)
+            cfmt.interpret_format_line(line)
         else:
             dfmt = format.Format()
             dfmt.interpret_format_line(line)
             common.cfmt = dfmt
 
 
-def process_file(fp_in, fp_out, xref_str, pat, sel_all, search_field, info=None):
-    # int type;
+def process_file(f_in, f_out, xref_str: str, pat: list, sel_all: bool,
+                 search_field: str, info=None):
     common.within_tune = False
     common.within_block = False
     common.do_this_tune = False
 
-    # This is where there is the statements of verbose.
-    # Just need to understand what the verbose number means to
-    #  debug, warning, info, error, critical
+    lines = f_in.readlines()
 
-    with open(fp_in) as f:
-        lines = f.readlines()
     if parse.is_cmdline(lines[0].strip()):
-        subs.process_cmdline(lines[0])
+        cmdline.process_cmdline(lines[0])
         del lines[0]
     for line in lines:
         line = line.strip()
-        if not line:
+        if util.isblankstr(line):
+            process_blankline()
             continue
-        if parse.is_pseudocomment(line):
-            process_ps_comment(fp_in, fp_out, line)
+        if is_pseudo_comment(line):
+            process_ps_comment(f_in, f_out, line)
             continue
         if parse.is_comment(line):
             continue
 
-        parse.decomment_line(line)
+        line = parse.decomment_line(line)
 
-        # reset_info(default_info)
-        field = info.Field()
-        if field.is_field(line):
-            # skip after history field. Nightmarish syntax, that.
-            k, v = line.split(':', 1)
-            if k != 'H':
-                pass
-            else:
-                field.history(v)
+        # # reset_info(default_info)
+        # field = info.Field()
+        # if field.is_field(line):
+        #     # skip after history field. Nightmarish syntax, that.
+        #     k, v = line.split(':', 1)
+        #     if k == 'H':
+        #         field.history(v)
 
         if not common.do_music:
             return
-        if voice.parse_vocals(line):
-            return MWORDS
 
         # now parse a real line of music
         if not common.voices:
             v = voice.Voice()
             common.ivc = v.switch_voice(DEFVOICE)
 
+        # Before
         n_sym_0 = len(common.voices[common.ivc].syms)
 
         # music or tablature?
@@ -215,13 +222,14 @@ def process_file(fp_in, fp_out, xref_str, pat, sel_all, search_field, info=None)
         else:
             parse.parse_music_line(line)
 
+        # After
         log.debug(f"  parsed music symbols {n_sym_0} to"
                   f" {len(common.voices[common.ivc].syms)-1} for voice {common.ivc}")
-        field.process_line(fp_out, xref_str, pat, sel_all, search_field)
+        field.process_line(f_out, xref_str, pat, sel_all, search_field)
 
     if not common.epsf:
-        buffer.buffer_eob(fp_out)
-        buffer.write_buffer(fp_out)
+        buffer.buffer_eob(f_out)
+        buffer.write_buffer(f_out)
 
 
 def main():
@@ -242,13 +250,12 @@ def main():
     # consolidate the filenames
     if args.filename:
         args.filenames.append(args.filename)
-    log.debug(args.filenames)
+    log.debug(f'Files to be processed: {args.filenames}')
     # set the page format
-    common.cfmt.set_page_format()
+    cfmt.set_page_format()
 
-    common.search_field0 = args.select_field0   # default for interactive mode
     # if args.epsf:
-    #     for filename in args.filename.split():
+    #     for filename in args.filenames:
     #         name, extension = os.path.splitext(filename)
 
     if not args.filenames:
@@ -256,14 +263,13 @@ def main():
         log.error("++++ No input files, read from stdin")
         sys.exit(2)
 
+    ind = index.Index()
     if common.do_output and args.make_index:
         log.info(f"make_index: {args.make_index}")
-        ind = index.Index()
         ind.open_index_file(INDEXFILE)
 
     # loop over files in list
     pat, xref_str = parse.rehash_selectors(args.filenames)
-    fout = None
     for filename in args.filenames:
         # process list of input files and skip.ps and.eps files
         name, ext = os.path.splitext(filename)
@@ -275,26 +281,26 @@ def main():
                 log.error(f'{filename} not found')
                 continue
 
-        log.info(f"{filename}:")
+        # Create file pointers
         if args.output:
             fout = open(args.output)
         else:
             fout = open(name + '.ps', 'a')
         fin = open(filename, 'r')
+
         if not common.do_output:
             log.info(f"{filename}:")
-            parse.do_index(fin, xref_str, pat, common.select_all, args.search_field0)
+            ind.do_index(fin, xref_str, pat, common.select_all, args.search_field0)
+        if common.do_output and common.make_index:
+            subs.close_index_file()
 
         # this is the start of the process
         process_file(fin, fout, xref_str, pat, common.select_all, args.search_field0)
 
-    # The rest just closes everything up
+        subs.close_output_file(fout)  # Clean up; close the files gracefully
+
     if not common.do_output:
         print(f"Selected {common.tnum1} title {common.tnum1} of {common.tnum2}")
-
-    if common.do_output and common.make_index:
-        subs.close_index_file()
-    subs.close_output_file(fout)
 
 
 if __name__ == '__main__':

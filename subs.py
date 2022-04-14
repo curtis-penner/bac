@@ -29,17 +29,6 @@ def is_xrefstr(xrefstr: str) -> bool:
     return xrefstr.isdigit() and int(xrefstr) != 0
 
 
-def process_cmdline(line: str) -> args:
-    """ parse '%!'-line from input file """
-    if line.startswith('%!'):
-        line = line[2:].strip()
-    else:
-        line = line.strip()
-    params = line.split()
-    sys.argv.extend(params)
-    cmdline.options()
-
-
 def tex_str(line) -> tuple:    # tex_str(const char *str, string *s, float *wid)
     """
     change string to take care of some tex-style codes
@@ -921,6 +910,7 @@ def write_parts(fp):
         put_str(info.parts)
         fp.write(") rshow\n")
         common.bskip(cfmt.partsspace)
+
 
 if __name__ == '__main__':
     xref_str = '1'

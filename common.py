@@ -23,7 +23,7 @@ do_this_tune = False
 epsf = False
 
 output = 'out.ps'
-fp = open(output, 'a')
+# fp = open(output, 'a')
 
 in_page = False
 in_file = list()
@@ -242,7 +242,7 @@ nepsf: int = 0                       # counter for epsf output files
 # maxSymx: int = 3
 
 
-def bskip(h: float) -> None:
+def bskip(fp, h: float) -> None:
     """ translate down by h points in output buffer """
     global bposy
 

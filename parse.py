@@ -1393,9 +1393,6 @@ def add_text(s: str, t_type: int) -> None:
 # }
 
 
-def is_pseudocomment(ps: str) -> bool:
-    return len(str) > 2 and ps.startswith('%%')
-
 
 def is_comment(comment: str) -> bool:
     return len(comment) > 1 and (comment[0] == '%' or comment[0] == '\\')

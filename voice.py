@@ -1,8 +1,7 @@
 # Copyright 2019 Curtis Penner
 
 
-"""
-Multi stave music
+""" Multi stave music
 abctab2ps supports multi stave music (scores). There are two different
 ways for the notation of scores. You can either define the different voices
 in V: lines at the end of the header just before the first music line
@@ -43,8 +42,7 @@ d2 d'2 ^c'2 =c'2 | =b2 _b2 aa/g/ fd |
 """
 
 from log import log
-import music
-from meter import Meter, DefaultLength
+from info import Meter
 from key import Key
 from symbol import Symbol, Gchord
 import log
