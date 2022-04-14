@@ -111,9 +111,7 @@ class Voice:   # struct to characterize a v
         return len(self.syms)
 
     def switch_voice(self, line):
-        """
-        Also known as switch_voice
-        read spec for a v, return v number
+        """  read spec for a v, return v number
         example of a string:
 
          The syntax of a v definition is
@@ -129,32 +127,6 @@ class Voice:   # struct to characterize a v
         :param header:
         :return:
         """
-
-        def parse_voice(line):
-            ok = True
-            v_spec = list()
-            spec = ''
-            p = line.split(' ')
-            print(line)
-            label = p[0]
-            del p[0]
-            for i in p:
-                if not i:
-                    continue
-                if '"' not in i and ok:
-                    v_spec.append(i)
-                    continue
-                if '"' in i and ok:
-                    ok = False
-                    spec = i
-                elif '"' not in i and not ok:
-                    spec = ' '.join([spec, i])
-                elif '"' in i and not ok:
-                    ok = True
-                    spec = ' '.join([spec, i])
-                    v_spec.append(spec)
-            return label, v_spec
-
         if not line:
             exit(0)
         self.label, voice_fields = parse_voice(line)
@@ -198,6 +170,33 @@ class Voice:   # struct to characterize a v
                 else:
                     log.error(f'Unknown option in v spec: {k}')
         voices.append(self)
+
+
+def parse_voice(line):
+    ok = True
+    v_spec = list()
+    spec = ''
+    p = line.split(' ')
+    print(line)
+    label = p[0]
+    del p[0]
+    for i in p:
+        if not i:
+            continue
+        if '"' not in i and ok:
+            v_spec.append(i)
+            continue
+        if '"' in i and ok:
+            ok = False
+            spec = i
+        elif '"' not in i and not ok:
+            spec = ' '.join([spec, i])
+        elif '"' in i and not ok:
+            ok = True
+            spec = ' '.join([spec, i])
+            v_spec.append(spec)
+    return label, v_spec
+
 
 
 def find_voice(vc):

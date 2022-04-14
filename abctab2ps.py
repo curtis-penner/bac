@@ -60,7 +60,6 @@ def process_text_block(fp_in, fp, job: bool) -> None:
 def process_ps_comment(fp_in, fp, line):
     from constants import CM
 
-    dfmt = format.Format()
     l_width = common.cfmt.staff_width
 
     line = line.replace('%', ' ').strip()
@@ -205,7 +204,8 @@ def process_file(fp_in, fp_out, xref_str, pat, sel_all, search_field, info=None)
 
         # now parse a real line of music
         if not common.voices:
-            common.ivc = voice.switch_voice(DEFVOICE)
+            v = voice.Voice()
+            common.ivc = v.switch_voice(DEFVOICE)
 
         n_sym_0 = len(common.voices[common.ivc].syms)
 
