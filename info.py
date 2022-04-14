@@ -228,7 +228,7 @@ class Field:
             elif key == 'G':
                 self.group(value)
             elif key == 'H':
-                self.history(value)
+                self.history(value, Field.header)
             elif key == 'L':
                 self.default_note_length(value, Field.header)
             elif key == 'N':
@@ -270,6 +270,7 @@ class Field:
         savestr = self.xref
         # default_info = default_info.Field()
         self.xref = savestr
+
 
 def process_line(self, fp, type, xref_str, pat, sel_all, search_field):
     pass

@@ -12,6 +12,10 @@ name
 
 ## A translation project
 This is a translation project, taking the existing copy of abctab2ps
-and translating it from C language to the Python language.  
+and translating it from C/C++ language to the Python language.  
 
 ## Structural changes
+The options have been moved from the subs module and into their own 
+module, cmdline.py.
+
+The index work has been separated into it own module index.py.
