@@ -45,39 +45,39 @@ class Index:
         close_index_page(self.fp)
         self.fp.close()
 
-    def init_index_file(self, findex):
-        findex.write("%!PS-Adobe-3.0\n")
-        findex.write("%%Title: abctab2ps index\n")
+    def init_index_file(self, fp):
+        fp.write("%!PS-Adobe-3.0\n")
+        fp.write("%%Title: abctab2ps index\n")
 
         # CreationDate
         now = datetime.datetime.now()
-        findex.write('%Creator: abctab2ps '
-                     f'{constants.VERSION}.{constants.REVISION}\n')
-        findex.write(f'%CreationDate: {now}\n')
-        findex.write(f"%%Creator: "
-                     f"abctab2ps {constants.VERSION}.{constants.REVISION}\n")
-        findex.write(f"%%CreationDate: {now}\n")
+        fp.write('%Creator: abctab2ps '
+                 f'{constants.VERSION}.{constants.REVISION}\n')
+        fp.write(f'%CreationDate: {now}\n')
+        fp.write(f"%%Creator: "
+                 f"abctab2ps {constants.VERSION}.{constants.REVISION}\n")
+        fp.write(f"%%CreationDate: {now}\n")
 
         # Author
         if not args.noauthor:
-            findex.write(f'%For: {getpass.getuser()}\n')
+            fp.write(f'%For: {getpass.getuser()}\n')
         if pssubs.PS_LEVEL == 2:
-            findex.write("%%LanguageLevel: 2\n")
+            fp.write("%%LanguageLevel: 2\n")
 
-        findex.write("%%EndComments\n\n")
+        fp.write("%%EndComments\n\n")
 
-        findex.write("%%BeginSetup\n")
+        fp.write("%%BeginSetup\n")
         if pssubs.PS_LEVEL < 2:
-            pssubs.level1_fix(findex)
+            pssubs.level1_fix(fp)
 
-        syms.define_font(findex, common.cfmt.indexfont.name, 1)
-        findex.write("\n/T {translate} bind def\n/M {moveto} bind def\n")
-        findex.write("/S {show} bind def\n")
-        syms.def_misc(findex)
-        findex.write("%%EndSetup\n\n")
+        syms.define_font(fp, common.cfmt.indexfont.name, 1)
+        fp.write("\n/T {translate} bind def\n/M {moveto} bind def\n")
+        fp.write("/S {show} bind def\n")
+        syms.def_misc(fp)
+        fp.write("%%EndSetup\n\n")
 
         common.page_number = 0
-        self.init_index_page(findex)
+        self.init_index_page(fp)
 
         common.index_initialized = True
 
@@ -109,56 +109,6 @@ class Index:
             self.index_posy = self.index_posy - common.cfmt.indexfont.size
 
         fp.write(f"{common.cfmt.indexfont.size:.1f} {common.cfmt.indexfont.box} F1 \n", )
-
-    @staticmethod
-    def do_index(fp, xref_str: str, pat: list, select_all, search_field) -> None:
-        global field
-        for line in fp.readlines():
-            if parse.is_comment(line):
-                continue
-            line = parse.decomment_line(line)
-            if info.is_field(line):
-                f_type = field(line)
-                if isinstance(f_type, info.XRef):
-                    field.xref(line)
-                    if common.within_block:
-                        log.warning(f"+++ Tune {field.xref.xref} not closed properly\n")
-                    common.numtitle = 0
-                    common.within_tune = False
-                    common.within_block = True
-                    common.ntext = 0
-                    continue
-                elif f_type == constants.KEY:
-                    if not common.within_block:
-                        break
-                    if not common.within_tune:
-                        common.tnum2 += 1
-                        if parse.is_selected(xref_str, pat, select_all, search_field):
-                            log.info(f"  {field.xref.xref:-4d} {field.key_clef.key_type:-5s}"
-                                     f" {field.meter.meter_str:-4s}")
-                            if search_field == constants.S_SOURCE:
-                                log.info(f"  {field.source.line:-15s}")
-                            elif search_field == constants.S_RHYTHM:
-                                log.info(f"  {field.rhythm.line:-8s}")
-                            elif search_field == constants.S_COMPOSER:
-                                log.info(f"  {field.composer.composers[0]:-15s}")
-                            if field.titles.titles:
-                                log.info(f"  {field.titles.titles[0]} - "
-                                         f"{field.titles.titles[1]} - "
-                                         f"{field.titles.titles[2]}")
-                            common.tnum1 += 1
-                        common.within_tune = True
-                    break
-
-                if util.isblankstr(line):
-                    if common.within_block and not common.within_tune:
-                        log.info(f"+++ Header not closed in tune {field.xref.xref}")
-                    common.within_tune = False
-                    common.within_block = False
-                    field = info.Field()
-
-        if common.within_block and not common.within_tune:
-            log.info(f"+++ Header not closed in tune {field.xref.xref}")
 
     def write_index_entry(self) -> None:
         if not self.initialized:
@@ -193,6 +143,54 @@ class Index:
 
         if field.composer[0]:
             self.fp.write(f'(   - {field.composer[0]}) S\n')
+
+
+def do_index(fp, xref_str: str, pat: list, select_all, search_field) -> None:
+    global field
+    for line in fp.readlines():
+        if parse.is_comment(line):
+            continue
+        line = parse.decomment_line(line)
+        if info.is_field(line):
+            f_type = field(line)
+            if isinstance(f_type, info.XRef):
+                field.xref(line)
+                if common.within_block:
+                    log.warning(f"+++ Tune {field.xref.xref} not closed properly\n")
+                common.within_tune = False
+                common.within_block = True
+                continue
+            elif f_type == constants.KEY:
+                if not common.within_block:
+                    break
+                if not common.within_tune:
+                    common.tnum2 += 1
+                    if parse.is_selected(xref_str, pat, select_all, search_field):
+                        log.info(f"  {field.xref.xref:-4d} {field.key_clef.key_type:-5s}"
+                                 f" {field.meter.meter_str:-4s}")
+                        if search_field == constants.S_SOURCE:
+                            log.info(f"  {field.source.line:-15s}")
+                        elif search_field == constants.S_RHYTHM:
+                            log.info(f"  {field.rhythm.line:-8s}")
+                        elif search_field == constants.S_COMPOSER:
+                            log.info(f"  {field.composer.composers[0]:-15s}")
+                        if field.titles.titles:
+                            log.info(f"  {field.titles.titles[0]} - "
+                                     f"{field.titles.titles[1]} - "
+                                     f"{field.titles.titles[2]}")
+                        common.tnum1 += 1
+                    common.within_tune = True
+                break
+
+            if util.isblankstr(line):
+                if common.within_block and not common.within_tune:
+                    log.info(f"+++ Header not closed in tune {field.xref.xref}")
+                common.within_tune = False
+                common.within_block = False
+                field = info.Field()
+
+    if common.within_block and not common.within_tune:
+        log.info(f"+++ Header not closed in tune {field.xref.xref}")
 
 
 def close_index_page(fp) -> None:
