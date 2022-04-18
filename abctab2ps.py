@@ -16,7 +16,7 @@ import subs
 import tab
 import index
 from constants import (VERSION, REVISION, INDEXFILE)
-from constants import (MWORDS, DEFVOICE)
+from constants import DEFVOICE
 from constants import OBEYLINES, OBEYRIGHT, OBEYCENTER, ALIGN, SKIP, RAGGED
 from log import log
 
@@ -200,7 +200,7 @@ def process_file(fp_in, fp_out, xref_str, pat, sel_all, search_field, info=None)
         if not common.do_music:
             return
         if voice.parse_vocals(line):
-            return MWORDS
+            return
 
         # now parse a real line of music
         if not common.voices:

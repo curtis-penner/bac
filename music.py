@@ -1,8 +1,7 @@
 # Copyright (c) 2021 Curtis Penner
 import style
 from constants import (BASE, NOTE, REST, BREST, INVISIBLE, CLEF, KEYSIG, TIMESIG)
-from constants import VOCPRE, DEFVOICE, MWORDS
-from constants import (CM, IN, PT)
+from constants import VOCPRE
 from constants import (H_OVAL, H_EMPTY)
 from constants import (STEM, STEM_CH, BNUMHT)
 from constants import (BAR,  B_SNGL, B_DBL, B_LREP, B_RREP, B_DREP, B_FAT1, B_FAT2)
@@ -19,7 +18,7 @@ from constants import (COMMENT, MUSIC, TO_BE_CONTINUED, E_O_F, INFO,
 from constants import (WHOLE, HALF)
 from constants import (BRUTTO, ALMOSTBRUTTO)
 from constants import (RHNONE)
-from common import (cfmt, voices, verbose)
+from common import (cfmt, voices)
 import common
 import subs
 import cmdline
