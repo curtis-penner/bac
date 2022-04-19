@@ -1,10 +1,12 @@
-
-
+import buffer
+import constants
 from log import log
-from parse import Meter, DefaultLength
 from key import Key
+import symbol
+import format
 from voice import Voice
-from common import (within_block)
+import common
+
 
 
 def is_field(s: str) -> bool:
@@ -163,6 +165,204 @@ class History:
         print(line)
 
 
+class Meter:
+    """ data to specify the meter """
+
+    Body = True
+    Header = True
+
+    def __init__(self):
+        self.meter1 = 4
+        self.meter2 = 4   # numerator, denominator*/
+        self.mflag = 1   # mflag: 1=C, 2=C|, 3=numerator only, otherwise 0
+        self.top = ''
+        self.meter_top = ''
+        self.meter_display = dict()
+        self.display = 1   # 0 for M:none, 1 for real meter, 2 for differing display
+        self.meter1 = 4
+        self.meter2 = 4
+        self.dlen = constants.EIGHTH
+        self.meter_str = None
+        self.do_meter = True
+        self.dismeter1: int = 4
+        self.dismeter2: int = 4
+        self.dismflag:int = 0
+
+    def __call__(self, meter_str, header=False):
+        self.meter_str = meter_str.strip()
+        if meter_str == 'C|':
+            self.meter1 = 2
+            self.meter2 = 4
+        elif meter_str == 'C':
+            self.meter1 = 4
+            self.meter2 = 4
+        elif '/' in meter_str:
+            meters = meter_str.split('/', 1)
+            if meters[0].isdigit():
+                self.meter1 = int(meters[0])
+            elif '+' in meter_str or ' ' in meter_str:
+                self.parse_meter_token()
+            else:
+                self.meter1 = 4
+
+            if meters[1].isdigit():
+                self.meter2 = int(meters[1])
+            else:
+                log.error(f'meter bottom is not a number: {meters[1]}')
+                self.meter2 = 4
+        else:
+            if meter_str.isdigit():
+                self.meter1 = int(meter_str)
+                self.meter2 = 4
+            else:
+                log.critical(f'Failed meter value: {meter_str}')
+
+        d = constants.BASE/self.meter2
+
+        self.dlen = constants.BASE
+        if 4*self.meter1 < 3*self.meter2:
+            self.dlen = constants.SIXTEENTH
+        self.mflag = 0
+
+
+    def parse_meter_token(self):
+        if '+' in self.meter_top:
+            # convert the split string to integer
+            m_str = self.meter_top.split('+')
+            m = list()
+            for i in m_str:
+                m.append(int(i))
+            self.meter1 = sum(m)
+        else:
+            m_str = self.meter_top.split(' ')
+            m = list()
+            for i in m_str:
+                m.append(int(i))
+            self.meter1 = sum(m)
+
+    def set_meter(self, mtrstr):   # def __call__(mtrstr):
+        """ interpret meter string, store in struct """
+        if not mtrstr:
+            log.error("Empty meter string")
+            return
+
+        # if no meter, set invisible 4/4 (for default length)
+        if mtrstr == "none":
+            mtrstring = "4/4"
+            self.display = 0
+        else:
+            mtrstring = mtrstr
+            self.display = 1
+
+        # if global meterdisplay option, add "display=..." string accordingly
+        # (this is ugly and not extensible for more keywords, but works for now)
+        if not self.meter_display and 'display=' in mtrstring:
+            m = mtrstring.split('display=')
+            self.display_meter = m[1]
+        else:
+            log.inf0(f'Meter <{self.meter_str}> is {self.meter1} '
+                     f'over {self.meter2} with default '
+                     f'length 1/{constants.BASE//self.dlen}')
+            if self.display == 2:
+                self.dismeter1 = dismeter1
+                self.dismeter2 = dismeter2
+                self.dismflag = dismflag
+                self.distop = meter_distop
+                print(f"Meter <{mtrstr}> will display")
+            elif self.display == 0:
+                self.dismeter1 = 0
+                self.dismeter2 = 0
+                self.dismflag = 0
+                self.distop = ""
+                print(f"Meter <{mtrstr}> will display as <none>")
+
+        # store parsed data in struct
+        self.meter1 = meter1
+        self.meter2 = meter2
+        self.mflag = mflag
+        if not self.dlen:
+            self.dlen = dlen
+        self.top = meter_top
+
+    def display_meter(self, mtrstr):
+        if not mtrstr:
+            self.dismeter1 = 4
+            self.dismeter2 = 4
+            self.mflag = 0
+            self.distop = ''
+            log.info(f"Meter will display as {self.dismeter1} over {self.dismeter2}")
+        elif mtrstr == 'none':
+            self.display = 0
+            log.info(f"Meter <{mtrstr}> will display as {self.meter1} over {self.meter2}")
+
+    def append_meter(self, voice: Voice):
+        """ add meter to list of music
+        Warning: only called for inline fields normal meter music are added in set_initsyms
+        """
+
+        # must not be ignored because we need meter for counting bars!
+        # if self.display == 0) return
+
+        kk = voice.add_sym(constants.TIMESIG)
+        common.voices[common.ivc].syms.append(symbol.Symbol())
+        common.voices[common.ivc].syms[kk].gchords = common.GchordList()
+        common.voices[common.ivc].syms[kk].type = constants.TIMESIG
+        if self.display == 2:
+            common.voices[common.ivc].syms[kk].u = self.dismeter1
+            common.voices[common.ivc].syms[kk].v = self.dismeter2
+            common.voices[common.ivc].syms[kk].w = self.dismflag
+            common.voices[common.ivc].syms[kk].text = self.distop
+        else:
+            common.voices[common.ivc].syms[kk].u = self.meter1
+            common.voices[common.ivc].syms[kk].v = self.meter2
+            common.voices[common.ivc].syms[kk].w = self.mflag
+            common.voices[common.ivc].syms[kk].text = self.top
+
+        if not self.display:
+            common.voices[common.ivc].syms[kk].invis = 1
+
+
+    def set_dlen(self, s: str) -> None:
+        """ set default length for parsed notes """
+        # int l1,l2,d,dlen
+
+        l1: int = 0
+        l2: int = 1
+        s = f"{l1}/{l2}"
+        if not l1:
+            return   # empty string.. don't change default length
+        else:
+            d = constants.BASE//l2
+            if d*l2 != constants.BASE:
+                log.critical(f"Length incompatible with BASE, using 1/8: {s}")
+                dlen = constants.BASE//8
+            else:
+                dlen = d*l1
+
+        log.info(f"Dlen    <{s}> sets default note length to {dlen}//{constants.BASE} = 1"
+                 f"/{constants.BASE//dlen}")
+
+        self.dlen = dlen
+
+
+class DefaultLength(Meter):
+    Body = True
+
+    def __init__(self):
+        super().__init__()
+        self.default_length = constants.EIGHTH
+
+    def __call__(self, length, header=True):
+        if '/' in length:
+            top, bottom = length.split('/')
+            if not top.isdigit() and not bottom.isdigit():
+                log.error(f'+++Error: Default Length {length}')
+                exit(3)
+            self.default_length = constants.BASE * int(top) // int(bottom)
+        else:
+            self.default_length = constants.EIGHTH
+
+
 class Field:
     header = False
     body = False
@@ -190,7 +390,7 @@ class Field:
         self.lyrics = Lyrics()
         self.words = Words()
         self.xref = XRef()
-        self.transciptoin_note = Single()
+        self.transcription_note = Single()
 
     def __call__(self, line):
         key, value = line.split(':', 1)
@@ -198,7 +398,7 @@ class Field:
         value = value.strip()
 
         if is_field(key) and Field.header:
-            if not within_block:
+            if not common.within_block:
                 if key == 'X':
                     ret_val = self.xref(value)
                     if ret_val:
@@ -246,7 +446,7 @@ class Field:
             elif key == 'V':
                 self.voice(value, Field.header)
             elif key == 'Z':
-                self.transciptoin_note(value)
+                self.transcription_note(value)
 
         if key in ['E', 'K', 'L', 'M', 'P', 'V', 'w', 'W'] and Field.body:
             log.debug(f"process_line: {key}:{value}")
@@ -272,38 +472,63 @@ class Field:
         self.xref = savestr
 
 
-def process_line(self, fp, type, xref_str, pat, sel_all, search_field):
-    pass
-#     """
-#
-#     :param fp: filename or pointer?
-#     :param type: won't be using
-#     :param xref_str:
-#     :param pat: list of strings
-#     :param sel_all: bool
-#     :param search_field: int
-#     """
-#     fnm = ''
-#     finf = list()
-#     feps = None
-#
-#     if common.within_block:
-#         log.info(f"process_line, type {type} ")
-#         print_linetype(type)
-#
-#     if self.xref:   # start of new block
-#         if not epsf:
-#             write_buffer (fp)   # flush stuff left from %% lines
-#         if within_block:
-#             log.error("\n+++ Last tune not closed properly\n");
-#         get_default_info ();
-#         within_block    = True
-#         within_tune     = False
-#         do_this_tune    = False
-#         self.Title = list()
-#         init_pdims();
-#         cfmt = Format()
-#         return
+def print_line_type(t: object) -> None:
+    if isinstance(t, Comment):
+        print("COMMENT")
+    elif isinstance(t, Music):
+        print("MUSIC")
+    elif isinstance(t, ToBeContinued):
+        print("TO_BE_CONTINUED")
+    elif isinstance(t, EOF):
+        print("E_O_F")
+    elif isinstance(t, Info):
+        print("INFO")
+    elif isinstance(t, Titles):
+        print("TITLE")
+    elif isinstance(t, Meter):
+        print("METER")
+    elif isinstance(t, Parts):
+        print("PARTS")
+    elif isinstance(t, Key):
+        print("KEY")
+    elif isinstance(t, XRef):
+        print("XREF")
+    elif isinstance(t, DefaultLength):
+        print("DLEN")
+    elif isinstance(t, History):
+        print("HISTORY")
+    elif isinstance(t, Tempo):
+        print("TEMPO")
+    elif isinstance(t, Blank):
+        print("BLANK")
+    elif isinstance(t, Voice):
+        print("VOICE")
+    else:
+        print("UNKNOWN LINE TYPE")
+
+
+def process_line(self, fp, type: object, xref_str: str, pat: list,
+                 sel_all: bool, search_field: str):
+    fnm = ''
+    finf = list()
+    feps = None
+
+    if common.within_block:
+        log.info(f"process_line, type {type.__name__} ")
+        print_line_type(type)
+
+    if self.xref.xref:   # start of new block
+        if not common.epsf:
+            buffer.write_buffer (fp)   # flush stuff left from %% lines
+        if common.within_block:
+            log.error("+++ Last tune not closed properly")
+        get_default_info()
+        common.within_block = True
+        common.within_tune = False
+        common.do_this_tune = False
+        self.title = list()
+        format.init_pdims()
+        return
 #     elif self.titles:
 #         if not within_block:
 #             return

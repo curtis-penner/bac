@@ -914,46 +914,6 @@ def set_sym_widths(ns1, ns2, symb, ivc):
                         at_least(symb[i].wr, xx * (1.0 - VOCPRE) - spaceafternote)
 
 
-# ----- print_linetype ----------- 
-def print_linetype(t):
-    """
-    todo: this should be apart of field
-    :param int t:
-    :return:
-    """
-    if t == COMMENT:
-        print("COMMENT")
-    elif t == MUSIC:
-        print("MUSIC")
-    elif t == TO_BE_CONTINUED:
-        print("TO_BE_CONTINUED")
-    elif t == E_O_F:
-        print("E_O_F")
-    elif t == INFO:
-        print("INFO")
-    elif t == TITLE:
-        print("TITLE")
-    elif t == METER:
-        print("METER")
-    elif t == PARTS:
-        print("PARTS")
-    elif t == KEY:
-        print("KEY")
-    elif t == XREF:
-        print("XREF")
-    elif t == DLEN:
-        print("DLEN")
-    elif t == HISTORY:
-        print("HISTORY")
-    elif t == TEMPO:
-        print("TEMPO")
-    elif t == BLANK:
-        print("BLANK")
-    elif t == VOICE:
-        print("VOICE")
-    else:
-        print("UNKNOWN LINE TYPE")
-
 
 def print_vsyms():
     """ print music for all voices """
