@@ -546,6 +546,10 @@ def g_fspc(font_spec):
     return Font(name, size, box)
 
 
+cfmt = Format()
+font = Font()
+
+
 if __name__ == '__main__':
     assert g_logv('true')
     assert g_logv('YES')

@@ -225,7 +225,7 @@ def process_file(f_in, f_out, xref_str: str, pat: list, sel_all: bool,
         # After
         log.debug(f"  parsed music symbols {n_sym_0} to"
                   f" {len(common.voices[common.ivc].syms)-1} for voice {common.ivc}")
-        field.process_line(f_out, xref_str, pat, sel_all, search_field)
+        info.process_line(f_out, xref_str, pat, sel_all, search_field)
 
     if not common.epsf:
         buffer.buffer_eob(f_out)

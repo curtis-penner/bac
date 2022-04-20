@@ -218,16 +218,6 @@ def tex_str(line) -> tuple:    # tex_str(const char *str, string *s, float *wid)
     return s, w
 
 
-def put_str(line):
-    """
-    output a string in postscript
-
-    :param line:
-    """
-    s = line.strip()
-    print(f"{s}")
-
-
 def check_margin(new_posx):
     """
     do horizontal shift if needed
@@ -621,28 +611,6 @@ def write_text_block(fp, job: int, words_of_text='') -> None:
 # }
 #
 #
-# # ----- write_inside_title    -----
-# def write_inside_title(FILE *fp)
-# {
-#     char t[201]
-#
-#     if          (numtitle==1) strcpy(t,info.title)
-#     elifnumtitle==2) strcpy(t,info.title2)
-#     elifnumtitle==3) strcpy(t,info.title3)
-#     if(vb>15) print("write inside title <%s>\n", t)
-#     if(strlen(t)==0) return
-#
-#     bskip(cfmt.subtitlefont.size+0.2*CM)
-#     set_font(fp, cfmt.subtitlefont, 0)
-#
-#     if(cfmt.titlecaps) cap_str(t)
-#     PUT0("(")
-#     put_str(t)
-#     if(cfmt.titleleft) PUT0(") 0 0 M rshow\n")
-#     else PUT1(") %.1f 0 M cshow\n", cfmt.staffwidth/2)
-#     bskip(cfmt.musicspace+0.2*CM)
-#
-# }
 
 
 

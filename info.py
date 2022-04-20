@@ -1,12 +1,13 @@
 import buffer
 import constants
+import music
 from log import log
 from key import Key
 import symbol
 import format
+from format import cfmt, font
 from voice import Voice
 import common
-
 
 
 def is_field(s: str) -> bool:
@@ -54,20 +55,25 @@ class Titles:
     def __len__(self):
         return len(self.titles)
 
-    # def do_this(self):
-    #     if not Field.within_block:
-    #         return
-    #     if Field.do_tune:  # title within tune
-    #         if do_this_tune:
-    #             output_music(fp)
-    #             self.write_inside_title(common.fp);
-    #             Field.do_meter = True
-    #             Field.do_indent = True
-    #             barinit = cfmt.barinit
-    #     else:
-    #         check_selected(common.fp, xref_str, npat, pat, sel_all, search_field)
+    def write_inside_title(self, fp):
+        log.debug(f"write inside title <{self.titles[0]}>")
+        if not self.titles:
+            return
 
-    # def write_inside_title(self, fp):
+        common.bskip(fp, cfmt.subtitlefont.size + 0.2 * constants.CM)
+        font.set_font(fp, cfmt.subtitlefont, 0)
+
+        if cfmt.titlecaps:
+            t = self.titles[0].upper()
+        else:
+            t = self.titles[0]
+        fp.write(f"({t.strip()}")
+
+        if cfmt.titleleft:
+            fp.write(") 0 0 M rshow\n")
+        else:
+            fp.write(f") {cfmt.staffwidth / 2:.1f} 0 M cshow\n")
+        common.bskip(fp, cfmt.musicspace + 0.2 * constants.CM)
 
 
 class Single:
@@ -224,7 +230,6 @@ class Meter:
             self.dlen = constants.SIXTEENTH
         self.mflag = 0
 
-
     def parse_meter_token(self):
         if '+' in self.meter_top:
             # convert the split string to integer
@@ -320,7 +325,6 @@ class Meter:
 
         if not self.display:
             common.voices[common.ivc].syms[kk].invis = 1
-
 
     def set_dlen(self, s: str) -> None:
         """ set default length for parsed notes """
@@ -529,19 +533,19 @@ def process_line(self, fp, type: object, xref_str: str, pat: list,
         self.title = list()
         format.init_pdims()
         return
-#     elif self.titles:
-#         if not within_block:
-#             return
-#         if within_tune:   # title within tune
-#             if (do_this_tune ):
-#                 output_music(fp)
-#                 write_inside_title(fp);
-#                 do_meter = do_indent = True
-#                 barinit = cfmt.barinit
-#         else:
-#             check_selected(fp, xref_str, npat, pat, sel_all,
-#                            search_field)
-#         return
+    elif self.titles:
+        if not common.within_block:
+            return
+        if common.within_tune:   # title within tune
+            if (common.do_this_tune ):
+                music.output_music(fp)
+                write_inside_title(fp);
+                do_meter = do_indent = True
+                barinit = cfmt.barinit
+        else:
+            check_selected(fp, xref_str, npat, pat, sel_all,
+                           search_field)
+        return
 #     elif self.tempo:
 #         if not within_block:
 #             return
