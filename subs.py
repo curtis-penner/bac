@@ -609,15 +609,7 @@ def write_text_block(fp, job: int, words_of_text='') -> None:
 #     strcpy(page_init,"")
 #
 # }
-#
-#
 
-
-
-def write_tunetop(fp):
-    put(f"\n\n%% --- tune {common.tunenum+1} {info.titles[0]}\n")
-    if not common.epsf:
-        common.bskip(cfmt.topspace)
 
 # # ----- tempo_is_metronomemark -----
 # #

@@ -5276,16 +5276,4 @@ def output_music(fp):
 
     init_parse_params ();
 
-def check_selected(fp, xref_str, pat, sel_all, search_field):
-    """
-    :param fp:
-    :param xref_str:
-    :param pat:
-    :param sel_all:
-    :param search_field:
-    """
-    if not common.do_this_tune:
-        if parse.is_selected(xref_str, len(pat), pat, sel_all, search_field):
-            common.do_this_tune = True
-            subs.write_tunetop(fp)
 

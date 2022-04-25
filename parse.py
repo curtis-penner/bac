@@ -1523,25 +1523,6 @@ def info_field(s: str) -> bool:
 # }
 
 
-def handle_inside_field(t_type: object) -> None:
-    """ act on info field inside body of tune """
-    # Todo, rework handle_inside_field(t_type)
-    if not common.voices:
-        common.ivc = voice.Voice.switch_voice(DEFVOICE)
-
-    if isinstance(t_type, Meter):
-        t_type.set_meter(info.meter, voices[ivc].meter)
-        t_type.append_meter(common.voices[common.ivc].meter, )
-    elif isinstance(t_type, info.DefaultLength):
-            t_type.set_dlen(info.len, common.voices[common.ivc].meter)
-    elif isinstance(t_type, Key):
-            oldkey = common.voices[common.ivc].key
-            rc= Key.set_keysig(info.key,common.voices[common.ivc].key, 0)
-            if rc:
-                Key.set_transtab(halftones, common.voices[common.ivc].key)
-            Key.append_key_change(oldkey,voices[ivc].key)
-    elif isinstance(t_type, voice.Voice):
-            ivc = voice.switch_voice(lvoiceid)
 
 
 def parse_uint(p) -> int:
@@ -2545,8 +2526,7 @@ def parse_music_line(line: str) -> int:
 
 
 
-def is_selected(xref_str: str, pat, select_all: bool,
-                search_field: int) -> bool:
+def is_selected(xref_str: str, pat: list, select_all: bool, search_field: int) -> bool:
     """ check selection for current info fields """
     global field
 
