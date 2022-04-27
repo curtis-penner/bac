@@ -1391,7 +1391,7 @@ def info_field(s: str) -> bool:
     elif s.startswith('W'):
         info.words(s, appendable=True)
     elif s.startswith('K'):
-        info.key_clef(s)
+        info.key(s)
     elif s.startswith('L'):
         info.default_note_length(s)
     elif s.startswith('M'):
@@ -2647,7 +2647,7 @@ def do_index(filename, xref_str: str, pat: list, select_all: bool, search_field:
             if not common.within_tune:
                 common.tnum2 += 1
                 if is_selected(xref_str, pat, select_all, search_field):
-                    log.info(f"    {info.xref.xref:-4d} {info.key_clef.key_type:-5s} {info.meter:-4s}")
+                    log.info(f"    {info.xref.xref:-4d} {info.key.key_type:-5s} {info.meter:-4s}")
                     if search_field == S_SOURCE:
                         log.info(f"    {info.source:-15s}")
 

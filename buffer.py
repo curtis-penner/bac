@@ -20,9 +20,9 @@ def write_buffer(fp) -> None:
     if not common.nbuf:
         return
 
-    common.writenum += 1
+    common.write_num = True
 
-    if common.writenum == 1 and common.make_index:
+    if common.write_num and common.make_index:
         index.write_index_entry()
 
     nb = 0

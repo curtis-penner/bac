@@ -166,7 +166,7 @@ def do_index(fp, xref_str: str, pat: list, select_all, search_field) -> None:
                 if not common.within_tune:
                     common.tnum2 += 1
                     if parse.is_selected(xref_str, pat, select_all, search_field):
-                        log.info(f"  {field.xref.xref:-4d} {field.key_clef.key_type:-5s}"
+                        log.info(f"  {field.xref.xref:-4d} {field.key.key_type:-5s}"
                                  f" {field.meter.meter_str:-4s}")
                         if search_field == constants.S_SOURCE:
                             log.info(f"  {field.source.line:-15s}")

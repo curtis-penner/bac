@@ -56,7 +56,7 @@ voices = list()
 within_block = False
 
 within_tune = False
-writenum = 0   # calls to write_buffer for each one tune
+write_num = 0   # calls to write_buffer for each one tune
 
 
 class XPOS:            # struct for a horizontal position

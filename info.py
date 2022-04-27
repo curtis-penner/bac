@@ -812,7 +812,7 @@ class Field:
         self.file_name = Single(True)
         self.group = Single()
         self.history = History()
-        self.key_clef = Key()
+        self.key = Key()
         self.default_note_length = DefaultLength()
         self.meter = Meter()
         self.notes = Single(True)
@@ -845,7 +845,7 @@ class Field:
 
             log.debug(f"process_line: {key}:{value}")
             if key == 'K':
-                self.key_clef(value, Field.header)
+                self.key(value, Field.header)
                 self.within_block = False
             elif key == 'M':
                 self.meter(value, Field.header)
@@ -889,7 +889,7 @@ class Field:
             if key == 'M':
                 self.meter(value, Field.body)
             elif key == 'K':
-                self.key_clef(value, Field.body)
+                self.key(value, Field.body)
             elif key == 'V':
                 self.voice(value, Field.body)
             elif key == 'P':
@@ -901,8 +901,8 @@ class Field:
             elif key == 'W':
                 self.words(value)
 
-    def process_line(self, fp, type: object, xref_str: str, pat: list,
-                     sel_all: bool, search_field: str):
+    def process_line(self, fp, i_type: object, xref_str: str, pat: list, sel_all: bool,
+                     search_field0: str):
         if common.within_block:
             log.info(f"process_line, type {type.__name__} ")
             # print_line_type(type)
@@ -918,61 +918,59 @@ class Field:
             self.titles.titles = list()
             cfmt.init_pdims()
             return
-        elif self.titles:
+        elif isinstance(i_type, Titles):
             if not common.within_block:
                 return
             if common.within_tune:  # title within tune
-                if (common.do_this_tune):
+                if common.do_this_tune:
                     music.output_music(fp)
                     self.titles.write_inside_title(fp)
                     common.do_meter = True
                     common.do_indent = True
                     common.bar_init = cfmt.barinit
             else:
-                check_selected(fp, xref_str, npat, pat, sel_all,
-                               search_field)
+                self.check_selected(fp, xref_str, pat, sel_all, search_field0)
             return
-    #     elif self.tempo:
-    #         if not within_block:
-    #             return
-    #         if within_tune:   # tempo within tune
-    #             if do_this_tune:
-    #                 output_music(fp)
-    #                 write_inside_tempo(fp)
-    #         else:
-    #             check_selected(fp, xref_str, npat, pat, sel_all, search_field);
-    #         return
-    #     elif self.key:
-    #         if not within_block:
-    #             break;
-    #         if within_tune:
-    #             if do_this_tune:
-    #                 handle_inside_field(type);
-    #         else:   # end of header.. start now
-    #             check_selected(fp, xref_str, npat, pat, sel_all, search_field);
-    #             if do_this_tune:
-    #                 tunenum++;
-    #                 if verbose >= 3:
-    #                     log.warning(f"---- start {xrefnum} ({info.title}) "
-    #                                 f"----\n")
-    #                 set_keysig(info.key, default_key, True);
-    #                 halftones=get_halftones(default_key, transpose);
-    #                 set_transtab(halftones, default_key);
-    #                 set_meter(info.meter, default_meter);
-    #                 set_dlen(info.len, default_meter);
-    #                 check_margin(cfmt.leftmargin);
-    #                 write_heading(fp);
-    #                 nvoice=0
-    #                 init_parse_params();
-    #                 # insert is now set in set_meter (for invisible meter)
-    #                 default_meter.insert=1;
-    #
-    #                 mline=0;
-    #                 do_indent=do_meter=1;
-    #                 barinit=cfmt.barinit;
-    #                 writenum=0;
-    #         within_tune = 1;
-    #         break;
+        elif self.tempo:
+            if not common.within_block:
+                return
+            if common.within_tune:   # tempo within tune
+                if common.do_this_tune:
+                    music.output_music(fp)
+                    self.tempo.write_inside_tempo(fp)
+            else:
+                self.check_selected(fp, xref_str, pat, sel_all, search_field0)
+            return
+        elif isinstance(i_type, Key):
+            if not common.within_block:
+                return
+            if common.within_tune:
+                if common.do_this_tune:
+                    self.handle_inside_field(type)
+            else:   # end of header.. start now
+                self.check_selected(fp, xref_str, pat, sel_all, search_field0)
+                if common.do_this_tune:
+                    common.tunenum += 1
+                    log.warning(f"---- start {xrefnum} ({self.titles.titles[0]}) ----")
+                    self.key.set_keysig(info.key, default_key, True)
+                    self.key.halftones=get_halftones(default_key, transpose)
+                    self.key.set_transtab(halftones, default_key)
+                    self.meter.set_meter(info.meter, default_meter)
+                    self.default_note_length.set_dlen(info.len, default_meter)
+                    cfmt.check_margin(cfmt.leftmargin)
+                    subs.write_heading(fp)
+                    self.voice.nvoice = 0
+                    parse.init_parse_params()
+                    # insert is now set in set_meter (for invisible meter)
+                    self.meter.default_meter.insert = 1
+
+                    common.mline = False
+                    common.do_indent = True
+                    common.do_meter = True
+                    common.bar_init = cfmt.barinit
+                    common.write_num = False
+            common.within_tune = True
+            return
     #     elif self.meter:
     #         if not within_block:
     #             break;
@@ -1063,19 +1061,20 @@ class Field:
         if isinstance(t_type, Meter):
             self.meter.set_meter(self.meter, common.voices[common.ivc].meter)
             t_type.append_meter(common.voices[common.ivc].meter, )
-        elif isinstance(t_type, info.DefaultLength):
-            t_type.set_dlen(self.len, common.voices[common.ivc].meter)
+        elif isinstance(t_type, DefaultLength):
+            t_type.set_dlen(self.default_note_length, common.voices[common.ivc].meter)
         elif isinstance(t_type, Key):
             oldkey = common.voices[common.ivc].key
-            rc = Key.set_keysig(self.key, common.voices[common.ivc].key, 0)
+            rc = self.key.set_keysig(self.key, common.voices[common.ivc].key, 0)
             if rc:
-                Key.set_transtab(halftones, common.voices[common.ivc].key)
-            Key.append_key_change(oldkey, voices[ivc].key)
-        elif isinstance(t_type, voice.Voice):
-            ivc = voice.switch_voice(lvoiceid)
+                self.key.set_transtab(self.key.halftones,
+                                      common.voices[common.ivc].key)
+            self.key.append_key_change(oldkey, common.voices[common.ivc].key)
+        elif isinstance(t_type, Voice):
+            ivc = self.voice.switch_voice(common.lvoiceid)
 
 
-    def is_selected(self, xref_str: str, pat: list, select_all: bool, search_field: int) -> bool:
+    def is_selected(self, xref_str: str, pat: list, select_all: bool, search_field: str) -> bool:
         """ check selection for current info fields """
         # true if select_all or if no selectors given
         if select_all:
@@ -1123,7 +1122,7 @@ class Field:
             return True
         return False
 
-    def check_selected(self, fp, xref_str: str, pat: list, sel_all: bool, search_field: int):
+    def check_selected(self, fp, xref_str: str, pat: list, sel_all: bool, search_field: str):
         """
         :param fp:
         :param xref_str:
@@ -1191,152 +1190,136 @@ class Field:
 #
 #
 
+    def get_default_info(self) -> object:
+        """
+        set info to default, except xref field
+        :param info:
+        :return:
+        """
+        save_str = self.xref.xref_str
+        info = Field()
+        info.xref.xref_str = save_str
+        return info
 
-def get_default_info(info):
-    """
-    set info to default, except xref field
+    @staticmethod
+    def is_info_field(self, s: str) -> int:
+        """ identify any type of info field
+        |: at start of music line """
+        return len(s) < 0 or not s[1] != ':' or s[0] == '|'
 
-    This I don't understand why?  or how it is used.
 
-    :param info:
-    :return:
-    """
-    # char savestr[STRLINFO];
-    save_str = info.xref
-    info = Field()
-    info.xref = save_str
 
-    # strcpy (savestr, info.xref);
-    # info=default_info;
-    # strcpy (info.xref, savestr);
+def info_field(s: str) -> int:
+    """ identify info line, store in proper place
+    switch within_block: either goes to default_info or info.
+    Only xref ALWAYS goes to info. """
+    # char s[STRLINFO];
+    # struct ISTRUCT *inf;
+    # int i;
 
-#
-# /* ----- is_info_field: identify any type of info field ---- */
-# int is_info_field (char *str)
-# {
-#   if (strlen(str)<2) return 0;
-#   if (str[1]!=':')   return 0;
-#   if (str[0]=='|')   return 0;   /* |: at start of music line */
-#   return 1;
-# }
-#
-#
-# /* ----- info_field: identify info line, store in proper place  ---- */
-# /* switch within_block: either goes to default_info or info.
-#    Only xref ALWAYS goes to info. */
-# int info_field (char *str)
-# {
-#     char s[STRLINFO];
-#     struct ISTRUCT *inf;
-#     int i;
-#
-#     if (within_block) {
-#         inf=&info;
-#     }
-#     else {
-#         inf=&default_info;
-#     }
-#
-#     if (strlen(str)<2) return 0;
-#     if (str[1]!=':')   return 0;
-#     if (str[0]=='|')   return 0;   /* |: at start of music line */
-#
-#     for (i=0;i<strlen(str);i++) if (str[i]=='%') str[i]='\0';
-#
-#     /* info fields must not be longer than STRLINFO characters */
-#     strnzcpy(s,str,STRLINFO);
-#
-#     if (s[0]=='X') {
-#         strip (info.xref,   &s[2]);
-#         xrefnum=get_xref(info.xref);
-#         return XREF;
-#     }
-#
-#     else if (s[0]=='A') strip (inf->area,   &s[2]);
-#     else if (s[0]=='B') strip (inf->book,   &s[2]);
-#     else if (s[0]=='C') {
-#         if (inf->ncomp>=NCOMP)
-#             std::cerr << "Too many composer lines\n";
-#         else {
-#             strip (inf->comp[inf->ncomp],&s[2]);
-#             inf->ncomp++;
-#         }
-#     }
-#     else if (s[0]=='D') {
-#         strip (inf->disc,   &s[2]);
-#         add_text (&s[2], TEXT_D);
-#     }
-#
-#     else if (s[0]=='F') strip (inf->file,   &s[2]);
-#     else if (s[0]=='G') strip (inf->group,  &s[2]);
-#     else if (s[0]=='H') {
-#         strip (inf->hist,   &s[2]);
-#         add_text (&s[2], TEXT_H);
-#         return HISTORY;
-#     }
-#     else if (s[0]=='W') {
-#         add_text (&s[2], TEXT_W);
-#         return WORDS;
-#     }
-#     else if (s[0]=='I') strip (inf->info,   &s[2]);
-#     else if (s[0]=='K') {
-#         strip (inf->key,    &s[2]);
-#         return KEY;
-#     }
-#     else if (s[0]=='L') {
-#         strip (inf->len,    &s[2]);
-#         return DLEN;
-#     }
-#     else if (s[0]=='M') {
-#         strip (inf->meter,  &s[2]);
-#         return METER;
-#     }
-#     else if (s[0]=='N') {
-#         strip (inf->notes,  &s[2]);
-#         add_text (&s[2], TEXT_N);
-#     }
-#     else if (s[0]=='O') strip (inf->orig,   &s[2]);
-#     else if (s[0]=='R') strip (inf->rhyth,  &s[2]);
-#     else if (s[0]=='P') {
-#         strip (inf->parts,  &s[2]);
-#         return PARTS;
-#     }
-#     else if (s[0]=='S') strip (inf->src,    &s[2]);
-#     else if (s[0]=='T') {
-#         //strip (t, &s[2]);
-#         numtitle++;
-#         if (numtitle>3) numtitle=3;
-#         if (numtitle==1)      strip (inf->title,  &s[2]);
-#         else if (numtitle==2) strip (inf->title2, &s[2]);
-#         else if (numtitle==3) strip (inf->title3, &s[2]);
-#         return TITLE;
-#     }
-#     else if (s[0]=='V') {
-#         strip (lvoiceid,  &s[2]);
-#         if (!*lvoiceid) {
-#             syntax("missing v specifier",p);
-#             return 0;
-#         }
-#         return VOICE;
-#     }
-#     else if (s[0]=='Z') {
-#         strip (inf->trans,  &s[2]);
-#         add_text (&s[2], TEXT_Z);
-#     }
-#     else if (s[0]=='Q') {
-#         strip (inf->tempo,  &s[2]);
-#         return TEMPO;
-#     }
-#
-#     else if (s[0]=='E') ;
-#
-#     else {
-#         return 0;
-#     }
-#
-#     return INFO;
-# }
-#
+    if common.within_block:
+        inf = field
+    else:
+        inf = default_info;
+
+    field
+
+    for (i=0;i<strlen(str);i++) if (str[i]=='%') str[i]='\0';
+
+    /* info fields must not be longer than STRLINFO characters */
+    strnzcpy(s,str,STRLINFO);
+
+    if (s[0]=='X') {
+        strip (info.xref,   &s[2]);
+        xrefnum=get_xref(info.xref);
+        return XREF;
+    }
+
+    else if (s[0]=='A') strip (inf->area,   &s[2]);
+    else if (s[0]=='B') strip (inf->book,   &s[2]);
+    else if (s[0]=='C') {
+        if (inf->ncomp>=NCOMP)
+            std::cerr << "Too many composer lines\n";
+        else {
+            strip (inf->comp[inf->ncomp],&s[2]);
+            inf->ncomp++;
+        }
+    }
+    else if (s[0]=='D') {
+        strip (inf->disc,   &s[2]);
+        add_text (&s[2], TEXT_D);
+    }
+
+    else if (s[0]=='F') strip (inf->file,   &s[2]);
+    else if (s[0]=='G') strip (inf->group,  &s[2]);
+    else if (s[0]=='H') {
+        strip (inf->hist,   &s[2]);
+        add_text (&s[2], TEXT_H);
+        return HISTORY;
+    }
+    else if (s[0]=='W') {
+        add_text (&s[2], TEXT_W);
+        return WORDS;
+    }
+    else if (s[0]=='I') strip (inf->info,   &s[2]);
+    else if (s[0]=='K') {
+        strip (inf->key,    &s[2]);
+        return KEY;
+    }
+    else if (s[0]=='L') {
+        strip (inf->len,    &s[2]);
+        return DLEN;
+    }
+    else if (s[0]=='M') {
+        strip (inf->meter,  &s[2]);
+        return METER;
+    }
+    else if (s[0]=='N') {
+        strip (inf->notes,  &s[2]);
+        add_text (&s[2], TEXT_N);
+    }
+    else if (s[0]=='O') strip (inf->orig,   &s[2]);
+    else if (s[0]=='R') strip (inf->rhyth,  &s[2]);
+    else if (s[0]=='P') {
+        strip (inf->parts,  &s[2]);
+        return PARTS;
+    }
+    else if (s[0]=='S') strip (inf->src,    &s[2]);
+    else if (s[0]=='T') {
+        //strip (t, &s[2]);
+        numtitle++;
+        if (numtitle>3) numtitle=3;
+        if (numtitle==1)      strip (inf->title,  &s[2]);
+        else if (numtitle==2) strip (inf->title2, &s[2]);
+        else if (numtitle==3) strip (inf->title3, &s[2]);
+        return TITLE;
+    }
+    else if (s[0]=='V') {
+        strip (lvoiceid,  &s[2]);
+        if (!*lvoiceid) {
+            syntax("missing v specifier",p);
+            return 0;
+        }
+        return VOICE;
+    }
+    else if (s[0]=='Z') {
+        strip (inf->trans,  &s[2]);
+        add_text (&s[2], TEXT_Z);
+    }
+    else if (s[0]=='Q') {
+        strip (inf->tempo,  &s[2]);
+        return TEMPO;
+    }
+
+    else if (s[0]=='E') ;
+
+    else {
+        return 0;
+    }
+
+    return INFO;
+}
+
 #
 # /* ----- handle_inside_field: act on info field inside body of tune --- */
 # void handle_inside_field(int type)
