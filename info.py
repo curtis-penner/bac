@@ -4,13 +4,19 @@ import buffer
 import constants
 import music
 import subs
+import pssubs
 from log import log
-from key import Key
 import symbol
 import format
 import parse
 from format import cfmt, font
 import common
+
+
+def is_info_field(s: str) -> bool:
+    """ identify any type of info field
+    |: at start of music line """
+    return len(s) < 0 or not s[1] != ':' or s[0] == '|'
 
 
 def is_field(s: str) -> bool:
@@ -188,7 +194,6 @@ class Voice:   # struct to characterize a v
 
 
         :param line:
-        :param header:
         :return:
         """
         if not line:
@@ -365,9 +370,7 @@ def parse_voice(line):
 
 
 def parse_vocals(line: str) -> bool:
-    """
-    parse words below a line of music
-
+    """ parse words below a line of music
     Use '^' to mark a '-' between syllables - hope nobody needs '^' !
     """
     word = ''
@@ -417,8 +420,9 @@ def parse_vocals(line: str) -> bool:
             while word[w] != '\0':  # replace * and ~ by space
                 # cd: escaping with backslash possible
                 # (does however not yet work for '*')
-                if word[w] == '*' or word[w] == '~' or not word[w - 1] == '\\':
-                    word[w] = ' '
+                word = word.replace('*', ' ')
+                word = word.replace('~', ' ')
+                word = word.replace('\\', ' ')
                 w += 1
             isym += 1
             while common.voices[common.ivc].sym[isym].type != constants.NOTE and \
@@ -426,7 +430,7 @@ def parse_vocals(line: str) -> bool:
                 isym += 1
             if isym >= len(common.voices[common.ivc].nsym):
                 SyntaxError("Not enough notes for words", line)
-            common.voices[common.ivc].sym[isym].wordp[common.nwline] = parse.add_wd(word);
+            common.voices[common.ivc].sym[isym].wordp[common.nwline] = parse.add_wd(word)
 
         if p[c] == '\0':
             break
@@ -557,13 +561,38 @@ class Parts:
     def __call__(self, line, header):
         print(line, header)
 
+    def write_parts(self, fp) -> None:
+        if self.parts:
+            common.bskip(fp, cfmt.partsfont.size)
+            cfmt.partsfont.set_font(fp, False)
+            fp.write("0 0 M(")
+            fp.write(self.parts)
+            fp.write(") rshow\n")
+            common.bskip(fp, cfmt.partsspace)
+
 
 class Tempo:
     def __init__(self):
-        self.parts = ''
+        self.tempo = ''
 
     def __call__(self, line):
         self.parts = line
+
+    def write_inside_tempo(self, fp) -> None:
+        # print metronome marks only when wished
+        if self.tempo_is_metronome_mark() and not cfmt.printmetronome:
+            return
+
+        common.bskip(fp, cfmt.partsfont.size)
+        self.write_tempo(fp, self.tempo, common.voices[common.ivc].meter)
+        common.bskip(fp, 0.1*constants.CM)
+
+    def tempo_is_metronome_mark(self) -> bool:
+        NotImplemented(self.tempo)
+        return True
+
+    def write_tempo(self, fp, t: str, v:list) -> None:
+        pass
 
 
 class Words:
@@ -609,24 +638,42 @@ class Meter:
     Header = True
 
     def __init__(self):
-        self.meter1 = 4
-        self.meter2 = 4   # numerator, denominator*/
-        self.mflag = 1   # mflag: 1=C, 2=C|, 3=numerator only, otherwise 0
+        self.meter1: int = 4   # numerator,
+        self.meter2: int = 4   # denominator
+        self.mflag: int = 1   # mflag: 1=C, 2=C|, 3=numerator only, otherwise 0
         self.top = ''
         self.meter_top = ''
-        self.meter_display = dict()
+        self.meter_display: dict = dict()
         self.display = 1   # 0 for M:none, 1 for real meter, 2 for differing display
-        self.meter1 = 4
-        self.meter2 = 4
-        self.dlen = constants.EIGHTH
-        self.meter_str = None
-        self.do_meter = True
-        self.dismeter1: int = 4
-        self.dismeter2: int = 4
-        self.dismflag:int = 0
+
+        self.dlen: int = constants.EIGHTH
+        self.meter_str: str = ''
+        self.do_meter: bool = True
+        self.display_top: str = ''
+        self.display_meter1: int = 0
+        self.display_meter2: int = 0
+        self.display_mflag: int = 0
 
     def __call__(self, meter_str, header=False):
         self.meter_str = meter_str.strip()
+        if not meter_str:
+            log.error("Empty meter string")
+            return
+
+        # if no meter, set invisible 4/4 (for default length)
+        if meter_str == "none":
+            meter_str = "4/4"
+            self.display = 0
+        else:
+            self.display = 1
+
+        # if global display_meter option, add "display=..." string accordingly
+        # (this is ugly and not extensible for more keywords, but works for now)
+        if not self.meter_display and 'display=' in self.meter_str:
+            m = self.meter_str.split('display=', 1)
+            self.display_meter = m[1]
+            self.set_display_meter(self.display_meter)
+
         if meter_str == 'C|':
             self.meter1 = 2
             self.meter2 = 4
@@ -654,48 +701,34 @@ class Meter:
             else:
                 log.critical(f'Failed meter value: {meter_str}')
 
-        d = constants.BASE/self.meter2
-
         self.dlen = constants.BASE
         if 4*self.meter1 < 3*self.meter2:
             self.dlen = constants.SIXTEENTH
         self.mflag = 0
+        log.info(f"Dlen    <{self.dlen}> sets default note length to {self.dlen}/"
+                 f"/{constants.BASE} = 1"
+                 f"/{constants.BASE // self.dlen}")
         
-    def set_meter(self, mtrstr):   # def __call__(mtrstr):
-        """ interpret meter string, store in struct """
-        if not mtrstr:
-            log.error("Empty meter string")
-            return
+    def set_display_meter(self, display_meter_str):   # def __call__(mtrstr):
+        """ interpret display_meter string, store in struct """
 
-        # if no meter, set invisible 4/4 (for default length)
-        if mtrstr == "none":
-            mtr_string = "4/4"
-            self.display = 0
-        else:
-            mtr_string = mtrstr
-            self.display = 1
-
-        # if global meterdisplay option, add "display=..." string accordingly
-        # (this is ugly and not extensible for more keywords, but works for now)
-        if not self.meter_display and 'display=' in mtr_string:
-            m = mtr_string.split('display=')
-            self.display_meter = m[1]
-        else:
-            log.inf0(f'Meter <{self.meter_str}> is {self.meter1} '
-                     f'over {self.meter2} with default '
-                     f'length 1/{constants.BASE//self.dlen}')
-            if self.display == 2:
-                self.dismeter1 = dismeter1
-                self.dismeter2 = dismeter2
-                self.dismflag = dismflag
-                self.distop = meter_distop
-                print(f"Meter <{mtrstr}> will display")
-            elif self.display == 0:
-                self.dismeter1 = 0
-                self.dismeter2 = 0
-                self.dismflag = 0
-                self.distop = ""
-                print(f"Meter <{mtrstr}> will display as <none>")
+        if self.display == 2:
+            display = Meter()
+            display(display_meter_str)
+            self.display_meter1 = display.meter1
+            self.display_meter2 = display.meter2
+            self.display_mflag = display.mflag
+            self.display_top = display.meter_top
+            log.info(f"Meter <{display_meter_str}> will display")
+            log.info(f'Meter <{display_meter_str}> is {self.display_meter1} '
+                     f'over {self.display_meter2} with default '
+                     f'length 1/{constants.BASE // self.dlen}')
+        elif self.display == 0:
+            self.display_meter1 = 0
+            self.display_meter2 = 0
+            self.display_mflag = 0
+            self.display_top = ""
+            print(f"Meter <{display_meter_str}> will display as <none>")
 
     def parse_meter_token(self):
         if '+' in self.meter_top:
@@ -712,22 +745,13 @@ class Meter:
                 m.append(int(i))
             self.meter1 = sum(m)
 
-
-        # store parsed data in struct
-        self.meter1 = meter1
-        self.meter2 = meter2
-        self.mflag = mflag
-        if not self.dlen:
-            self.dlen = dlen
-        self.top = meter_top
-
     def display_meter(self, mtrstr):
         if not mtrstr:
-            self.dismeter1 = 4
-            self.dismeter2 = 4
+            self.display_meter1 = 4
+            self.display_meter2 = 4
             self.mflag = 0
-            self.distop = ''
-            log.info(f"Meter will display as {self.dismeter1} over {self.dismeter2}")
+            self.display_top = ''
+            log.info(f"Meter will display as {self.display_meter1} over {self.display_meter2}")
         elif mtrstr == 'none':
             self.display = 0
             log.info(f"Meter <{mtrstr}> will display as {self.meter1} over {self.meter2}")
@@ -745,10 +769,10 @@ class Meter:
         common.voices[common.ivc].syms[kk].gchords = common.GchordList()
         common.voices[common.ivc].syms[kk].type = constants.TIMESIG
         if self.display == 2:
-            common.voices[common.ivc].syms[kk].u = self.dismeter1
-            common.voices[common.ivc].syms[kk].v = self.dismeter2
-            common.voices[common.ivc].syms[kk].w = self.dismflag
-            common.voices[common.ivc].syms[kk].text = self.distop
+            common.voices[common.ivc].syms[kk].u = self.display_meter1
+            common.voices[common.ivc].syms[kk].v = self.display_meter2
+            common.voices[common.ivc].syms[kk].w = self.display_mflag
+            common.voices[common.ivc].syms[kk].text = self.display_top
         else:
             common.voices[common.ivc].syms[kk].u = self.meter1
             common.voices[common.ivc].syms[kk].v = self.meter2
@@ -799,34 +823,678 @@ class DefaultLength(Meter):
             self.default_length = constants.EIGHTH
 
 
+class Key:
+    """
+    Every option in the K: field may be omitted, but the order must not be
+    rearranged. The meaning of the individual options is:
+
+    key and mode:
+    The key signature should be specified with a capital letter (major mode) which
+    may be followed by a "#" or "b" for sharp or flat respectively. The mode
+    determines the accidentals and can follow immediately after the key letter
+    or with white spaces separated; possible mode names are maj(or) (this is
+    the default), min(or), m(inor), ion(ian), mix(olydian), dor(ian),
+    phr(ygian), lyd(ian), loc(rian), aeo(lian). Mode names are not case-sensitive.
+    When key and mode are omitted C major is assumed.
+
+    global accidentals:
+    Global accidentals are accidentals that always override key specific
+    accidentals. For example, "K:D =c" would write the key signature as two
+    sharps (key of D) but then mark every c as natural (which is conceptually
+    the same as D mixolydian). Note that there can be several global accidentals,
+    separated by spaces and each specified with an accidental, __, _, =, ^,
+    or ^ ^ ; followed by a letter in lower case. Global accidentals are overridden
+    by accidentals attached to notes within the body of the abc tune and are
+    reset by each change of signature.
+
+    clef and octave:
+    The clef specification must be the last word in the key field. Optionally
+    it may start with a "clef=" prefix.  Classical Western music notation has
+    only three clef signs (G, F and C) which can appear on different music
+    lines. abctab2ps supports the following clef names: treble (G on line 2;
+    this is the default), treble8 (like treble, but with an "8" printed below),
+    treble8up (like treble, but with an "8" printed above), frenchviolin (G on
+    line 1), bass (F on line 4), varbaritone (F on line 3), subbass (F on line 5),
+    alto (C on line 3), tenor (C on line 4), baritone (C on line 5), soprano
+    (C on line 1), mezzosoprano (C on line 2). Optionally the clef may contain
+    an appended octave modifier (eg. "treble-8"), which changes the pitch
+    interpretation.
+    """
+    A_SH = 1  # codes for accidentals
+    A_NT = 2
+    A_FT = 3
+    A_DS = 4
+    A_DF = 5
+
+    bagpipe = False
+
+    treble = 1,
+    treble8 = 2,
+    bass = 3,
+    alto = 4,
+    tenor = 5,
+    soprono = 6,
+    mezzosoprono = 7,
+    baritone = 8,
+    varbaritone = 9,
+    subbass = 10,
+    frenchviolin = 11,
+    treble8up = 12
+
+    # note=(root, sf)
+    notes = dict(A=(0, 3),
+                 B=(1, 5),
+                 C=(2, 0),
+                 D=(3, 2),
+                 E=(4, 4),
+                 F=(5, -1),
+                 G=(6, 1))
+
+    modes = {'maj': 0, 'min': -3, 'ion': 0, 'mix': 3, 'dor': 3,
+             'phr': 3, 'lyd': 1, 'loc': -5, 'aeo': 3}
+
+    # types of clefs
+    clef_type = dict(treble=1,
+                     treble8=2,
+                     bass=3,
+                     alto=4,
+                     tenor=5,
+                     soprono=6,
+                     mezzosoprono=7,
+                     baritone=8,
+                     varbaritone=9,
+                     subbass=10,
+                     frenchviolin=11,
+                     treble8up=12)
+
+    def __init__(self):
+        self.name = ''
+        self.sf = 2
+        self.root = 0
+        self.root_acc = Key.A_NT
+        self.add_pitch = 0
+        self.key_type = Key.treble
+        self.add_accs = list()
+        self.add_transp = 0
+
+    def adjust_with_mode(self, key_mode):
+        for mode, shift in Key.modes.items():
+            if key_mode[2:].lower().startswith(mode):
+                self.sf += shift
+        else:
+            if key_mode[2:].lower().startswith('m'):
+                self.sf -= 3
+
+    def __call__(self, line: str, header: bool = True) -> bool:
+        """ Parse the value for key / clef """
+        self.name = line
+        parts = line.split()
+
+        if not parts:
+            self.sf = 2
+            self.root = 0
+            self.root_acc = Key.A_NT
+            return True
+
+        for key_mode in parts:
+            if key_mode[0] in 'ABCDEFG':
+                c = 0
+                self.root, self.sf = Key.notes.get(key_mode[c], (2, 0))
+                c += 1
+
+                if len(key_mode) > 1:
+                    if key_mode[c] in '#b':
+                        if key_mode[1] == '#':
+                            self.root_acc = Key.A_SH
+                        elif key_mode[1] == 'b':
+                            self.root_acc = Key.A_FT
+                        c += 1
+
+                if len(key_mode) > 2:
+                    self.adjust_with_mode(key_mode[2:])
+
+            if key_mode[0] in '_=^':
+                self.global_accidentals(key_mode)
+
+            if len(parts) > 1 and (key_mode.startswith('clef=') or
+                                   key_mode == parts[-1]):
+                self.set_clef(key_mode)
+        return True
+
+    def global_accidentals(self, km):
+        c = 0
+        while c < len(km):
+            if km[c] == '_':
+                if self.root_acc == Key.A_FT:
+                    self.root_acc = Key.A_DF
+                c += 1
+            elif km[c] == '=':
+                self.root_acc = Key.A_NT
+                c += 1
+            elif km[c] == '^':
+                if self.root_acc == Key.A_SH:
+                    self.root_acc = Key.A_DS
+                c += 1
+            elif km[c] in 'abcdefg':
+                pass
+
+    def set_clef(self, clef):
+        if clef.startswith('clef='):
+            clef = clef[5:]
+        self.key_type = Key.clef_type.get(clef.lower(), Key.clef_type['treble'])
+
+        # if '-' in clef:
+        #     ptr = clef.find('-')
+        # if '+' in clef:
+        #     ptr = clef.find('+')
+
+        for c in Key.clef_type.keys():
+            if clef.startswith(c):
+                if clef.endswith('+8'):
+                    self.add_pitch = +7
+                elif clef.endswith('-8'):
+                    self.add_pitch = -7
+                elif clef.endswith('+0') or clef.endswith('-0'):
+                    self.add_pitch = 0
+                elif clef.endswith('+16'):
+                    self.add_pitch = +14
+                elif clef.endswith('-16'):
+                    self.add_pitch = -14
+                else:
+                    log.warning(f'unknown octave modifier in clef: {clef}')
+                return True
+
+        if self.parse_tab_key(clef):
+            return True
+        return False
+
+    def get_halftones(self, t):
+        """
+        figure out how by many halftones to transpose
+        In the transposing routines: pitches A..G are coded as with 0..7
+
+        :param str t:
+        :return int:
+        """
+        pit_tab = [0, 2, 3, 5, 7, 8, 10]
+
+        if not t:
+            return 0
+
+        root_new = self.root
+        root_old = self.root
+        racc_old = self.root_acc
+        direction = 0
+        pit_old = 0
+        racc_new = 0
+
+        c = 0
+        while c < len(t):
+            if t[c] == '^':
+                direction = 1
+                c += 1
+            elif t[c] == '_':
+                direction = -1
+
+            stype = 1
+            root_new = self.root
+            if t[c].upper() in 'ABCDEFG':
+                root_new = 'ABCDEFG'.find(str(t[c].upper))
+                c += 1
+                stype = 2
+
+            # first case: offset was given directly as numeric argument
+            if stype == 1 and t[c:].isdigit():
+                nht = int(t[c:])
+                if direction < 0:
+                    nht = -nht
+                if nht == 0:
+                    if direction < 0:
+                        nht -= 12
+                    if direction > 0:
+                        nht += 12
+                return nht
+
+            # second case: root of target key was specified explicitly
+            if t[c] == 'b':
+                racc_new = Key.A_FT
+                c += 1
+            elif t[c] == '#':
+                racc_new = Key.A_SH
+                c += 1
+
+        # get pitch as number from 0-11 for root of old key
+        pit_new = pit_tab[root_old]
+        if racc_old == Key.A_FT:
+            pit_new -= 1
+        if racc_old == Key.A_SH:
+            pit_new += 1
+        if pit_new < 0:
+            pit_new += 12
+        if pit_new > 11:
+            pit_new -= 12
+
+        # get pitch as number from 0 - 11 for root of new key * /
+        pit_new = pit_tab[root_new]
+        if racc_new == Key.A_FT:
+            pit_new -= 1
+        if racc_new == Key.A_SH:
+            pit_new += 1
+        if pit_new < 0:
+            pit_new += 12
+        if pit_new > 11:
+            pit_new -= 12
+
+        # number of halftones is difference
+        nht = pit_new - pit_old
+        if direction == 0:
+            if nht > 6:
+                nht -= 12
+            if nht < -5:
+                nht += 12
+        if direction > 0 >= nht:
+            nht += 12
+        if direction < 0 <= nht:
+            nht -= 12
+
+        return nht
+
+    def set_transtab(self, nht, key):
+        """
+        setup for transposition by nht halftones
+
+        :param int nht:
+        :param instande key:
+        :return:
+        """
+        # int a, b, sf_old, sf_new, add_t, i, j, acc_old, acc_new, root_old, root_acc;
+        # for each note A..G, these tables tell how many sharps (resp. flats)
+        # the keysig must have to get the accidental on this note.Phew.
+        sh_tab = [5, 7, 2, 4, 6, 1, 3]
+        fl_tab = [3, 1, 6, 4, 2, 7, 5]
+        # tables for pretty printout only
+        # root_tab = ['A', 'B', 'C', 'D', 'E', 'F', 'G']
+        # acc_tab = ["bb", "b ", "    ", "# ", "x "]
+
+        # nop if no transposition is wanted
+        if nht == 0:
+            self.add_transp = 0
+            self.add_accs = list()
+            return
+
+        # get new sharps_flats and shift of numeric pitch; copy to key
+        sf_old = self.sf
+        # root_old = self.root
+        # root_acc = self.root_acc
+        sf_new, add_t = self.shift_key(sf_old, nht)
+        self.sf = sf_new
+        self.add_transp = add_t
+
+        # set up table for conversion of accidentals
+        for i in range(7):
+            j = i + add_t
+            j = (j + 70) % 7
+            acc_old = 0
+            if sf_old >= sh_tab[i]:
+                acc_old = 1
+            if -sf_old >= fl_tab[i]:
+                acc_old = -1
+            acc_new = 0
+            if sf_new >= sh_tab[j]:
+                acc_new = 1
+            if -sf_new >= fl_tab[j]:
+                acc_new = -1
+            key.add_acc[i] = acc_new - acc_old
+
+        # printout keysig change
+        # if (verbose >= 3):
+        #     i = root_old;
+        #     j = i + add_t;
+        #     j = (j + 70) % 7;
+        #     acc_old = 0;
+        #     if (sf_old >= sh_tab[i]) acc_old=1;
+        #     if (-sf_old >= fl_tab[i]) acc_old=-1;
+        #     acc_new = 0;
+        #     if (sf_new >= sh_tab[j]) acc_new=1;
+        #     if (-sf_new >= fl_tab[j]) acc_new=-1;
+        #     strcpy(c3, "s");
+        #     if (nht == 1 | | nht == -1) strcpy(c3, "");
+        #     strcpy(c1, "");
+        #     strcpy(c2, "");
+        #     if (acc_old == -1) strcpy(c1, "b"); if (acc_old == 1) strcpy(c1, "#");
+        #     if (acc_new == -1) strcpy(c2, "b"); if (acc_new == 1) strcpy(c2, "#");
+        #     printf("Transpose root from %c%s to %c%s (shift by %d halftone%s)\n",
+        #         root_tab[i], c1, root_tab[j], c2, nht, c3);
+
+        # printout full table of transformations
+        # if (verbose >= 4):
+        #     printf("old & new keysig        conversions\n");
+        #     for (i=0;i < 7;i++) {
+        #         j=i+add_t;
+        #     j=(j+70) % 7;
+        #     acc_old=0;
+        #     if ( sf_old >= sh_tab[i]) acc_old=1;
+        #     if (-sf_old >= fl_tab[i]) acc_old=-1;
+        #     acc_new=0;
+        #     if ( sf_new >= sh_tab[j]) acc_new=1;
+        #     if (-sf_new >= fl_tab[j]) acc_new=-1;
+        #     printf("%c%s. %c%s                     ", root_tab[i], acc_tab[acc_old+2],
+        #     root_tab[j], acc_tab[acc_new+2]);
+        #     for (a=-1;a <= 1;a++) {
+        #     b=a+self.add_acc[i];
+        #     printf ("%c%s. %c%s    ", root_tab[i], acc_tab[a+2],
+        #     root_tab[j], acc_tab[b+2]);
+        #     }
+        #     printf ("\n");
+
+    def do_transpose(self, pitch, acc):
+        """
+        ranspose numeric pitch and accidental
+
+        :param int pitch:
+        :param int acc:
+        :return: int, int
+        """
+        # int pitch_old,pitch_new,sf_old,sf_new,acc_old,acc_new,i,j;
+        pitch_old = pitch
+        acc_old = acc
+        acc_new = acc_old
+        sf_old = self.sf
+        pitch_new = pitch_old + self.add_transp
+        i = (pitch_old + 70) % 7
+        # j=(pitch_new+70)%7
+
+        if acc_old:
+            if acc_old == self.A_DF:
+                sf_old = -2
+            if acc_old == self.A_FT:
+                sf_old = -1
+            if acc_old == self.A_NT:
+                sf_old = 0
+            if acc_old == self.A_SH:
+                sf_old = 1
+            if acc_old == self.A_DS:
+                sf_old = 2
+            sf_new = sf_old + self.add_accs[i]
+            if sf_new == -2:
+                acc_new = self.A_DF
+            if sf_new == -1:
+                acc_new = self.A_FT
+            if sf_new == 0:
+                acc_new = self.A_NT
+            if sf_new == 1:
+                acc_new = self.A_SH
+            if sf_new == 2:
+                acc_new = self.A_DS
+        else:
+            acc_new = 0
+        return pitch_new, acc_new
+
+    '''
+    def gch_transpose(self, gch):
+        """
+        transpose guitar chord string in gch
+
+        :param gch:
+        :return:
+        """
+        # char *q,*r;
+        # char* gchtrans;
+        # int root_old,root_new,sf_old,sf_new,ok;
+        root_tab = ['A','B','C','D','E','F','G']
+        root_tub = ['a','b','c','d','e','f','g']
+
+        if not args.transposegchords or args.halftones == 0:
+            return
+
+        # q = (char*)gch.c_str();
+        # gchtrans = (char*)alloca(sizeof(char)*gch.length());
+        gchtrans = len(gch)
+        r = gchtrans
+
+        while True:
+            while (*q==' ' || *q=='(') { *r=*q; q++; r++; }
+            if (*q=='\0') break;
+            ok = 0
+            if q in "ABCDEFG":
+                root_old = root_tab.index(q)
+                ok = 1
+            elif q in "abcdefg":
+                root_old = root_tub.index(q)
+                ok = 1
+            else:
+                root_old = self.root
+
+            if ok:
+                sf_old = 0
+                if q == 'b':
+                    sf_old = -1
+                    q += 1
+                if q == '#':
+                    sf_old = 1
+                    q += 1
+                root_new = root_old + self.add_transp
+                root_new = (root_new+28)%7
+                sf_new = sf_old + self.add_acc[root_old]
+                if ok == 1:
+                    r = root_tab[root_new]
+                    r += 1
+                if ok == 2:
+                    r = root_tub[root_new]
+                    r += 1
+                if sf_new == -1:
+                    r = 'b'
+                    r += 1
+                if sf_new == 1:
+                    r = '#'
+                    r += 1
+
+
+            while q !=' ' and q != '/' and q != '\0':
+                r = q
+                q += 1
+                r += 1
+            if *q=='/':
+                r = *q
+                q += 1
+                r += 1
+        r = '\0'
+        return gchtrans;
+
+    def append_key_change(self, gch):
+        """
+        :param int gch:
+        """
+        print(gch)
+
+    @staticmethod
+    def shift_key(sf_old, nht):
+        """
+        make new key by shifting nht halftones ---
+
+        :param sf_old:
+        :param nht:
+        :return: sf_new, add_t
+        """
+        skey_tab = [2, 6, 3, 0, 4, 1, 5, 2]
+        fkey_tab = [2, 5, 1, 4, 0, 3, 6, 2]
+        root_tab = ['A', 'B', 'C', 'D', 'E', 'F', 'G']
+
+        sf_new = (sf_old + nht * 7) % 12
+        sf_new = (sf_new + 240) % 12
+        if sf_new >= 6:
+            sf_new -= 12
+
+        # get old and new root in ionian mode, shift is difference
+        r_old = 2
+        if sf_old > 0:
+            r_old = skey_tab[sf_old]
+        if sf_old < 0:
+            r_old = fkey_tab[-sf_old]
+        r_new = 2
+        if sf_new > 0:
+            r_new = skey_tab[sf_new]
+        if sf_new < 0:
+            r_new = fkey_tab[-sf_new]
+        add_t = r_new - r_old
+
+        # fix up add_t to get same "decade" as nht
+        dh = (nht + 120) / 12
+        dh = dh - 10
+        dr = (add_t + 70) / 7
+        dr = dr - 10
+        add_t = add_t + 7 * (dh - dr)
+
+        log.info(f"shift_key: sf_old={sf_old} new {sf_new}     "
+                 f"root: old {root_tab[r_old]} new {root_tab[r_new]}    "
+                 f"shift by {add_t}")
+
+        return sf_new, add_t
+
+    def parse_tab_key(self, string):
+        """
+        parse "string" for tablature key 
+        If "string" is a tablature "clef" specification, the corresponding
+        clef number is stored in "key_type" and 1 is returned.
+        Otherwise 0 is returned.
+
+        :param string: 
+        :return bool: 
+        """
+        if constants.notab:
+            return False
+
+        if string == "frenchtab":
+            self.key_type = tab_.FRENCHTAB
+            return True
+        elif string == "french5tab":
+            self.key_type = tab_.FRENCH5TAB
+            return True
+
+        elif string == "french4tab":
+            self.key_type = tab_.FRENCH4TAB
+            return True
+
+        elif string == "spanishtab" or string == "guitartab":
+            self.key_type = tab_.SPANISHTAB
+            return True
+        elif string == "spanish5tab" or string == "banjo5tab":
+            self.key_type = tab_.SPANISH5TAB
+            return True
+        elif string == "spanish4tab" or string == "banjo4tab" or \
+                string == "ukuleletab":
+            self.key_type = tab_.SPANISH4TAB
+            return True
+        elif string == "italiantab":
+            self.key_type = tab_.ITALIANTAB
+            return True
+        elif string == "italian7tab":
+            self.key_type = tab_.ITALIAN7TAB
+            return True
+        elif string == "italian8tab":
+            self.key_type = tab_.ITALIAN8TAB
+            return True
+        elif string == "italian5tab":
+            self.key_type = tab_.ITALIAN5TAB
+            return True
+        elif string == "italian4tab":
+            self.key_type = tab_.ITALIAN4TAB
+            return True
+        elif string == "germantab":
+            self.key_type = tab_.GERMANTAB
+            return True
+        return False
+    '''
+
+    def is_tab_key(self):
+        """
+        decide whether the clef number in "key" means tablature
+        """
+        return (self.key_type == constants.FRENCHTAB or
+                self.key_type == constants.FRENCH5TAB or
+                self.key_type == constants.FRENCH4TAB or
+                self.key_type == constants.SPANISHTAB or
+                self.key_type == constants.SPANISH5TAB or
+                self.key_type == constants.SPANISH4TAB or
+                self.key_type == constants.ITALIANTAB or
+                self.key_type == constants.ITALIAN7TAB or
+                self.key_type == constants.ITALIAN8TAB or
+                self.key_type == constants.ITALIAN5TAB or
+                self.key_type == constants.ITALIAN4TAB or
+                self.key_type == constants.GERMANTAB)
+
+    def tab_numlines(self):
+        """
+        return number of lines per tablature system
+        """
+        if self.key_type in [constants.FRENCHTAB,
+                             constants.SPANISHTAB,
+                             constants.ITALIANTAB,
+                             constants.ITALIAN7TAB,
+                             constants.ITALIAN8TAB]:
+            return 6
+        elif self.key_type in [constants.FRENCH5TAB,
+                               constants.SPANISH5TAB,
+                               constants.ITALIAN5TAB,
+                               constants.GERMANTAB]:
+            # 5 lines should be enough for german tab
+            return 5
+        elif self.key_type in [constants.FRENCH4TAB,
+                               constants.SPANISH4TAB,
+                               constants.ITALIAN4TAB]:
+
+            return 4
+        else:
+            return 0
+
+    def numeric_pitch(self, note):
+        """
+        :param note:
+        :return int:
+        """
+        caps = list('CDEFGAB')
+        lower = list('cdefgab')
+        try:
+            if note == 'z':
+                return 14
+            if note.isupper():
+                return caps.index(note) + 16 + self.add_pitch
+            elif note.islower():
+                return lower.index(note) + 23 + self.add_pitch
+        except ValueError as ve:
+            log.error(ve)
+            log.error(f"numeric_pitch: cannot identify <{note}>\n")
+        return self.add_pitch
+
+
 class Field:
     header = False
     body = False
 
     def __init__(self):
-        self.area = Single()
-        self.book = Single()
-        self.composer = Composers()
-        self.discography = Single()
-        self.layout_parameter = LayoutParams()
-        self.file_name = Single(True)
-        self.group = Single()
-        self.history = History()
-        self.key = Key()
-        self.default_note_length = DefaultLength()
-        self.meter = Meter()
-        self.notes = Single(True)
-        self.origin = Single()
-        self.parts = Parts()
-        self.tempo = Tempo()
-        self.rhythm = Single()
-        self.source = Single()
-        self.titles = Titles()
-        self.voice = Voice()
-        self.lyrics = Lyrics()
-        self.words = Words()
-        self.xref = XRef()
-        self.transcription_note = Single()
+        self.area = Single()   # A:
+        self.book = Single()   # B:
+        self.composer = Composers()   # C:
+        self.discography = Single()   # D:
+        self.layout_parameter = LayoutParams()   # E:
+        self.file_name = Single(True)   # F:
+        self.group = Single()   # G:
+        self.history = History()   # H:
+        self.key = Key()   # K:
+        self.default_note_length = DefaultLength()   # L:
+        self.meter = Meter()   # M:
+        self.notes = Single(True)   # N:
+        self.origin = Single()   # O:
+        self.parts = Parts()   # P:
+        self.tempo = Tempo()   # Q:
+        self.rhythm = Single()   # R:
+        self.source = Single()   # S:
+        self.titles = Titles()   # T:
+        self.voice = Voice()   # V:
+        self.lyrics = Lyrics()   # W:
+        self.words = Words()   # w:
+        self.xref = XRef()   # X:
+        self.transcription_note = Single()   # Z:
 
     def __call__(self, line):
         key, value = line.split(':', 1)
@@ -901,6 +1569,71 @@ class Field:
             elif key == 'W':
                 self.words(value)
 
+    def is_selected(self, xref_str: str, pat: list, select_all: bool, search_field: str) -> bool:
+        """ check selection for current info fields """
+        # true if select_all or if no selectors given
+        if select_all:
+            return True
+        if not xref_str and len(pat) == 0:
+            return True
+
+        m = 0
+        for i in range(len(pat)):                        #patterns
+            if search_field == constants.S_COMPOSER:
+                for j in range(len(self.composer)):
+                    if not m:
+                        m = re.match(self.composer.composers[j], pat[i])
+            elif search_field == constants.S_SOURCE:
+                    m = re.match(self.source.line, pat[i])
+            elif search_field == constants.S_RHYTHM:
+                    m = re.match(self.rhythm.line, pat[i])
+            else:
+                    m = re.match(self.titles.titles[0], pat[i])
+                    if not m and len(self.titles) >= 2:
+                        m = re.match(self.titles.titles[1], pat[i])
+                    if not m and len(self.titles.titles[2]) == 3:
+                        m = re.match(self.titles.titles[2], pat[i])
+            if m:
+                return True
+
+        # check xref against string of numbers
+        # This is wrong. Need to check with doc to valid the need to rework.
+        self.xref.xref_str = self.xref.xref_str.replace(",", " ")
+        self.xref.xref_str = self.xref.xref_str.replace("-", " ")
+
+        p = self.xref.xref_str.split()
+        a = parse.parse_uint(p[0])
+        if not a:
+            return False  # can happen if invalid chars in string
+        b = parse.parse_uint(p[1])
+        if not b:
+            if self.xref.xref >= a:
+                return True
+        else:
+            for i in range(a, b):
+                if self.xref.xref == i:
+                    return True
+        if self.xref.xref == a:
+            return True
+        return False
+
+
+    def check_selected(self, fp, xref_str: str, pat: list, sel_all: bool, search_field: str):
+        """
+        :param fp:
+        :param xref_str:
+        :param pat:
+        :param sel_all:
+        :param search_field:
+        """
+        if not common.do_this_tune:
+            if self.is_selected(xref_str, pat, sel_all, search_field):
+                common.do_this_tune = True
+                fp.write(f"\n\n%% --- tune {common.tunenum + 1} {self.titles.titles[0]}\n")
+                if not common.epsf:
+                    common.bskip(fp, cfmt.topspace)
+
+
     def process_line(self, fp, i_type: object, xref_str: str, pat: list, sel_all: bool,
                      search_field0: str):
         if common.within_block:
@@ -953,10 +1686,10 @@ class Field:
                     common.tunenum += 1
                     log.warning(f"---- start {xrefnum} ({self.titles.titles[0]}) ----")
                     self.key.set_keysig(info.key, default_key, True)
-                    self.key.halftones=get_halftones(default_key, transpose)
-                    self.key.set_transtab(halftones, default_key)
+                    self.key.halftones = self.key.get_halftones(transpose)
+                    self.key.set_transtab(self.key.halftones)
                     self.meter.set_meter(info.meter, default_meter)
-                    self.default_note_length.set_dlen(info.len, default_meter)
+                    self.default_note_length(default_meter)
                     cfmt.check_margin(cfmt.leftmargin)
                     subs.write_heading(fp)
                     self.voice.nvoice = 0
@@ -971,171 +1704,204 @@ class Field:
                     common.write_num = False
             common.within_tune = True
             return
-    #     elif self.meter:
-    #         if not within_block:
-    #             break;
-    #         if do_this_tune and within_tune:
-    #             handle_inside_field(type);
-    #         break;
-    #         case
-    #         DLEN:
-    #         if (!within_block) break;
-    #         if (do_this_tune & & within_tune) handle_inside_field(type);
-    #         break;
-    #
-    #         case
-    #         PARTS:
-    #         if (!within_block) break;
-    #         if (do_this_tune & & within_tune) {
-    #         output_music (fp);
-    #         write_parts(fp);
-    #         }
-    #         break;
-    #
-    #         case
-    #         VOICE:
-    #         if (do_this_tune & & within_block) {
-    #         if (!within_tune)
-    #         printf ("+++ Voice field not allowed in header: V:%s\n", lvoiceid);
-    #         else
-    #         ivc=switch_voice (lvoiceid);
-    #         }
-    #         break;
-    #
-    #         case
-    #         BLANK:  # end of block or file
-    #         case
-    #         E_O_F:
-    #         if (do_this_tune) {
-    #         output_music (fp);
-    #         put_words (fp);
-    #         if (cfmt.writehistory) put_history (fp);
-    #         if (epsf) {
-    #         close_output_file ();
-    #         if (choose_outname) {
-    #         epsf_title (info.title, fnm);
-    #         strcat (fnm, ".eps");
-    #         }
-    #         else {
-    #         nepsf++;
-    #         sprintf (fnm, "%s%03d.eps", outf, nepsf);
-    #         }
-    #         sprintf (finf, "%s (%d)", in_file[0], xrefnum);
-    #         if ((feps = fopen (fnm, "w")) == NULL)
-    #         rx ("Cannot open output file ", fnm);
-    #         init_ps (feps, finf, 1,
-    #         cfmt.leftmargin-5, posy+bposy-5,
-    #         cfmt.leftmargin+cfmt.staffwidth+5,
-    #         cfmt.pageheight-cfmt.topmargin);
-    #         init_epsf (feps);
-    #         write_buffer (feps);
-    #         printf ("\n[%s] %s", fnm, info.title);
-    #         close_epsf (feps);
-    #         fclose (feps);
-    #         in_page=0;
-    #         init_pdims ();
-    #         }
-    #         else {
-    #         buffer_eob (fp);
-    #         write_buffer (fp);
-    #         if ((verbose == 0) & & (tunenum % 10 == 0)) printf (".");
-    #         if (verbose == 2) printf ("%s - ", info.title);
-    #         }
-    #         verbose=0;
-    #         }
-    #         info = default_info;
-    #         if (within_block & & !within_tune)
-    #             printf("\n+++ Header not closed in tune %d\n", xrefnum);
-    #         within_tune = within_block = do_this_tune = 0;
-    #         break;
-    #
-    #         }
-    #         }
+        elif isinstance(i_type, Meter):
+            if not common.within_block:
+                return
+            if common.do_this_tune and common.within_tune:
+                self.handle_inside_field(i_type)
+            return
+        elif isinstance(i_type, DefaultLength):
+            if not common.within_block:
+                return
+            if common.do_this_tune and common.within_tune:
+                self.handle_inside_field(i_type)
+            return
+        elif isinstance(i_type, Parts):
+            if not common.within_block:
+                return
+            if common.do_this_tune and common.within_tune:
+                music.output_music(fp)
+                subs.write_parts(fp)
+            return
+
+        elif isinstance(i_type, Voice):
+            if common.do_this_tune and common.within_block:
+                if not common.within_tune:
+                    log.info(f"+++ Voice field not allowed in header: V:{common.lvoiceid}")
+                else:
+                    common.ivc = self.voice.switch_voice(common.lvoiceid)
+            return
+        elif isinstance(i_type, Blank) or isinstance(i_type, EOF):
+            if common.do_this_tune:
+                music.output_music(fp)
+                subs.put_words(fp)
+                if cfmt.writehistory:
+                    subs.put_history(fp)
+                if common.epsf:
+                    subs.close_output_file(fp)
+                    if common.choose_outname:
+                        fnm = subs.epsf_title(self.titles)
+                        fnm += ".eps"
+                    else:
+                        common.nepsf += 1
+                        fnm = f"{common.outf}{common.nepsf:03d}.eps")
+                    finf = f"{in_file[0]} ({xrefnum})"
+                    try:
+                        feps = open(fnm, "w")
+                    except FileExistsError as fee:
+                        log.error(fee)
+                        log.error(f"Cannot open output file {fnm}")
+                    pssubs.init_ps(feps, finf, 1,
+                                   cfmt.leftmargin-5,
+                                   common.posy+common.bposy-5,
+                                   cfmt.leftmargin+cfmt.staffwidth+5,
+                                   cfmt.pageheight-cfmt.topmargin)
+                    pssubs.init_epsf(feps)
+                    buffer.write_buffer(feps)
+                    log.info(f"\n[{fnm}] {self.titles.titles[0]}")
+                    pssubs.close_epsf(feps)
+                    feps.close()
+                    common.in_page = False
+                    cfmt.init_pdims()
+                else:
+                    buffer.buffer_eob(fp)
+                    buffer.write_buffer(fp)
+
+            info = Info()
+            if common.within_block and not common.within_tune:
+                log.debug(f"\n+++ Header not closed in tune {self.xref.xref}")
+            common.within_tune = False
+            common.within_block = False
+            common.do_this_tune = False
+            return
 
     def handle_inside_field(self, t_type: object) -> None:
         """ act on info field inside body of tune """
         # Todo, rework handle_inside_field(t_type)
         if not common.voices:
             common.ivc = self.voice.switch_voice(constants.DEFVOICE)
-
         if isinstance(t_type, Meter):
-            self.meter.set_meter(self.meter, common.voices[common.ivc].meter)
-            t_type.append_meter(common.voices[common.ivc].meter, )
+            self.meter.set_meter(common.voices[common.ivc].meter.meter_str)
+            self.meter.append_meter(common.voices[common.ivc].meter.meter_str)
         elif isinstance(t_type, DefaultLength):
-            t_type.set_dlen(self.default_note_length, common.voices[common.ivc].meter)
+            self.default_note_length(common.voices[common.ivc].meter.dlen)
         elif isinstance(t_type, Key):
             oldkey = common.voices[common.ivc].key
-            rc = self.key.set_keysig(self.key, common.voices[common.ivc].key, 0)
+            rc = self.key(common.voices[common.ivc].key., 0)
             if rc:
                 self.key.set_transtab(self.key.halftones,
                                       common.voices[common.ivc].key)
             self.key.append_key_change(oldkey, common.voices[common.ivc].key)
         elif isinstance(t_type, Voice):
-            ivc = self.voice.switch_voice(common.lvoiceid)
+            common.ivc = self.voice.switch_voice(common.lvoiceid)
 
 
-    def is_selected(self, xref_str: str, pat: list, select_all: bool, search_field: str) -> bool:
-        """ check selection for current info fields """
-        # true if select_all or if no selectors given
-        if select_all:
-            return True
-        if not xref_str and len(pat) == 0:
-            return True
 
-        m = 0
-        for i in range(len(pat)):                        #patterns
-            if search_field == constants.S_COMPOSER:
-                for j in range(len(self.composer)):
-                    if not m:
-                        m = re.match(self.composer.composers[j], pat[i])
-            elif search_field == constants.S_SOURCE:
-                    m = re.match(self.source.line, pat[i])
-            elif search_field == constants.S_RHYTHM:
-                    m = re.match(self.rhythm.line, pat[i])
-            else:
-                    m = re.match(self.titles.titles[0], pat[i])
-                    if not m and len(self.titles) >= 2:
-                        m = re.match(self.titles.titles[1], pat[i])
-                    if not m and len(self.titles.titles[2]) == 3:
-                        m = re.match(self.titles.titles[2], pat[i])
-            if m:
-                return True
-
-        # check xref against string of numbers
-        # This is wrong. Need to check with doc to valid the need to rework.
-        self.xref.xref_str = self.xref.xref_str.replace(",", " ")
-        self.xref.xref_str = self.xref.xref_str.replace("-", " ")
-
-        p = self.xref.xref_str.split()
-        a = parse.parse_uint(p[0])
-        if not a:
-            return False  # can happen if invalid chars in string
-        b = parse.parse_uint(p[1])
-        if not b:
-            if self.xref.xref >= a:
-                return True
-        else:
-            for i in range(a, b):
-                if self.xref.xref == i:
-                    return True
-        if self.xref.xref == a:
-            return True
-        return False
-
-    def check_selected(self, fp, xref_str: str, pat: list, sel_all: bool, search_field: str):
-        """
-        :param fp:
-        :param xref_str:
-        :param pat:
-        :param sel_all:
-        :param search_field:
-        """
-        if not common.do_this_tune:
-            if self.is_selected(xref_str, pat, sel_all, search_field):
-                common.do_this_tune = True
-                fp.write(f"\n\n%% --- tune {common.tunenum + 1} {self.titles.titles[0]}\n")
-                if not common.epsf:
-                    common.bskip(fp, cfmt.topspace)
+    # # ----- write_heading    -----
+    # def write_heading(fp):
+    #
+    #     # float lwidth,down1,down2
+    #     # int i,ncl
+    #     # char t[STRLINFO]
+    #
+    #     lwidth = cfmt.staffwidth
+    #
+    #     # write the main title
+    #     common.bskip(cfmt.titlefont.size + cfmt.titlespace)
+    #     cfmt.titlefont.set_font(fp, True)
+    #     if cfmt.withxrefs:
+    #         fp.write(f"{xrefnum}. ")
+    #     t = info.titles[0]
+    #     if(cfmt.titlecaps) cap_str(t)
+    #     put_str(t)
+    #     if cfmt.titleleft:
+    #         put(") 0 0 M rshow")
+    #     else:
+    #         put(f") {lwidth/2:.1f} 0 M cshow\n", )
+    #
+    #     # write second title
+    #     if len(info.titles) >=2:
+    #         util.bskip(cfmt.subtitlespace + cfmt.subtitlefont.size)
+    #         set_font(fp,cfmt.subtitlefont,1)
+    #         strcpy(t,info.title2)
+    #         if(cfmt.titlecaps) cap_str(t)
+    #         put_str(t)
+    #         if(cfmt.titleleft) PUT0(") 0 0 M rshow\n")
+    #         else PUT1(") %.1f 0 M cshow\n", lwidth/2)
+    #     }
+    #
+    #     # write third title
+    #     if(numtitle>=3) {
+    #         bskip(cfmt.subtitlespace+cfmt.subtitlefont.size)
+    #         set_font(fp,cfmt.subtitlefont,1)
+    #         strcpy(t,info.title3)
+    #         if(cfmt.titlecaps) cap_str(t)
+    #         put_str(t)
+    #         if(cfmt.titleleft) PUT0(") 0 0 M rshow\n")
+    #         else PUT1(") %.1f 0 M cshow\n", lwidth/2)
+    #     }
+    #
+    #     # write composer, origin
+    #     if((info.ncomp>0) ||(strlen(info.orig)>0)) {
+    #         set_font(fp,cfmt.composerfont,0)
+    #         bskip(cfmt.composerspace)
+    #         ncl=info.ncomp
+    #         if((strlen(info.orig)>0) &&(ncl<1)) ncl=1
+    #         for(i=0;i<ncl;i++) {
+    #             bskip(cfmt.composerfont.size)
+    #             PUT1("%.1f 0 M(", lwidth)
+    #             put_str(info.comp[i])
+    #             if((i==ncl-1)&&(strlen(info.orig)>0)) {
+    #                 put_str("(")
+    #                 put_str(info.orig)
+    #                 put_str(")")
+    #             }
+    #             PUT0(") lshow\n")
+    #         }
+    #         down1=cfmt.composerspace+cfmt.musicspace+ncl*cfmt.composerfont.size
+    #     }
+    #     else {
+    #         bskip(cfmt.composerfont.size+cfmt.composerspace)
+    #         down1=cfmt.composerspace+cfmt.musicspace+cfmt.composerfont.size
+    #     }
+    #     bskip(cfmt.musicspace)
+    #
+    #     # decide whether we need extra shift for parts and tempo
+    #     down2=cfmt.composerspace+cfmt.musicspace
+    #     if(strlen(info.parts)>0) down2=down2+cfmt.partsspace+cfmt.partsfont.size
+    #     if(strlen(info.tempo)>0) down2=down2+cfmt.partsspace+cfmt.partsfont.size
+    #     if(down2>down1) bskip(down2-down1)
+    #
+    #     # write tempo and parts
+    #     if(strlen(info.parts)>0 || strlen(info.tempo)>0) {
+    #         int printtempo =(strlen(info.tempo)>0)
+    #         if(printtempo &&
+    #                 tempo_is_metronomemark(info.tempo) && !cfmt.printmetronome)
+    #             printtempo = 0
+    #
+    #         if(printtempo) {
+    #             bskip(-0.2*CM)
+    #             PUT1(" %.2f 0 T ", cfmt.indent*cfmt.scale)
+    #             write_tempo(fp, info.tempo, default_meter)
+    #             PUT1(" %.2f 0 T ", -cfmt.indent*cfmt.scale)
+    #             bskip(-cfmt.tempofont.size)
+    #         }
+    #
+    #         if(strlen(info.parts)>0) {
+    #             bskip(-cfmt.partsspace)
+    #             set_font(fp,cfmt.partsfont,0)
+    #             PUT0("0 0 M(")
+    #             put_str(info.parts)
+    #             PUT0(") rshow\n")
+    #             bskip(cfmt.partsspace)
+    #         }
+    #
+    #         if(printtempo) bskip(cfmt.tempofont.size+0.3*CM)
+    #
+    #     }
+    #
+    #
+    # }
 
 #
 # def print_line_type(t: object) -> None:
@@ -1201,166 +1967,6 @@ class Field:
         info.xref.xref_str = save_str
         return info
 
-    @staticmethod
-    def is_info_field(self, s: str) -> int:
-        """ identify any type of info field
-        |: at start of music line """
-        return len(s) < 0 or not s[1] != ':' or s[0] == '|'
 
 
 
-def info_field(s: str) -> int:
-    """ identify info line, store in proper place
-    switch within_block: either goes to default_info or info.
-    Only xref ALWAYS goes to info. """
-    # char s[STRLINFO];
-    # struct ISTRUCT *inf;
-    # int i;
-
-    if common.within_block:
-        inf = field
-    else:
-        inf = default_info;
-
-    field
-
-    for (i=0;i<strlen(str);i++) if (str[i]=='%') str[i]='\0';
-
-    /* info fields must not be longer than STRLINFO characters */
-    strnzcpy(s,str,STRLINFO);
-
-    if (s[0]=='X') {
-        strip (info.xref,   &s[2]);
-        xrefnum=get_xref(info.xref);
-        return XREF;
-    }
-
-    else if (s[0]=='A') strip (inf->area,   &s[2]);
-    else if (s[0]=='B') strip (inf->book,   &s[2]);
-    else if (s[0]=='C') {
-        if (inf->ncomp>=NCOMP)
-            std::cerr << "Too many composer lines\n";
-        else {
-            strip (inf->comp[inf->ncomp],&s[2]);
-            inf->ncomp++;
-        }
-    }
-    else if (s[0]=='D') {
-        strip (inf->disc,   &s[2]);
-        add_text (&s[2], TEXT_D);
-    }
-
-    else if (s[0]=='F') strip (inf->file,   &s[2]);
-    else if (s[0]=='G') strip (inf->group,  &s[2]);
-    else if (s[0]=='H') {
-        strip (inf->hist,   &s[2]);
-        add_text (&s[2], TEXT_H);
-        return HISTORY;
-    }
-    else if (s[0]=='W') {
-        add_text (&s[2], TEXT_W);
-        return WORDS;
-    }
-    else if (s[0]=='I') strip (inf->info,   &s[2]);
-    else if (s[0]=='K') {
-        strip (inf->key,    &s[2]);
-        return KEY;
-    }
-    else if (s[0]=='L') {
-        strip (inf->len,    &s[2]);
-        return DLEN;
-    }
-    else if (s[0]=='M') {
-        strip (inf->meter,  &s[2]);
-        return METER;
-    }
-    else if (s[0]=='N') {
-        strip (inf->notes,  &s[2]);
-        add_text (&s[2], TEXT_N);
-    }
-    else if (s[0]=='O') strip (inf->orig,   &s[2]);
-    else if (s[0]=='R') strip (inf->rhyth,  &s[2]);
-    else if (s[0]=='P') {
-        strip (inf->parts,  &s[2]);
-        return PARTS;
-    }
-    else if (s[0]=='S') strip (inf->src,    &s[2]);
-    else if (s[0]=='T') {
-        //strip (t, &s[2]);
-        numtitle++;
-        if (numtitle>3) numtitle=3;
-        if (numtitle==1)      strip (inf->title,  &s[2]);
-        else if (numtitle==2) strip (inf->title2, &s[2]);
-        else if (numtitle==3) strip (inf->title3, &s[2]);
-        return TITLE;
-    }
-    else if (s[0]=='V') {
-        strip (lvoiceid,  &s[2]);
-        if (!*lvoiceid) {
-            syntax("missing v specifier",p);
-            return 0;
-        }
-        return VOICE;
-    }
-    else if (s[0]=='Z') {
-        strip (inf->trans,  &s[2]);
-        add_text (&s[2], TEXT_Z);
-    }
-    else if (s[0]=='Q') {
-        strip (inf->tempo,  &s[2]);
-        return TEMPO;
-    }
-
-    else if (s[0]=='E') ;
-
-    else {
-        return 0;
-    }
-
-    return INFO;
-}
-
-#
-# /* ----- handle_inside_field: act on info field inside body of tune --- */
-# void handle_inside_field(int type)
-# {
-#     struct KEYSTR oldkey;
-#     int rc;
-#
-#     if (type==METER) {
-#         if (nvoice==0) ivc=switch_voice (DEFVOICE);
-#         set_meter (info.meter,&v[ivc].meter);
-#         append_meter (&(v[ivc].meter));
-#     }
-#
-#     else if (type==DLEN) {
-#         if (nvoice==0) ivc=switch_voice (DEFVOICE);
-#         set_dlen (info.len,  &v[ivc].meter);
-#     }
-#
-#     else if (type==KEY) {
-#         if (nvoice==0) ivc=switch_voice (DEFVOICE);
-#         oldkey=v[ivc].key;
-#         rc=set_keysig(info.key,&v[ivc].key,0);
-#         if (rc) set_transtab (halftones,&v[ivc].key);
-#         append_key_change(oldkey,v[ivc].key);
-#     }
-#
-#     else if (type==VOICE) {
-#         ivc=switch_voice (lvoiceid);
-#     }
-#
-# }
-#
-#
-#
-# /* ----- decomment_line: cut off after % ----- */
-# void decomment_line (char *ln)
-# {
-#     char* p;
-#     int inquotes = 0; /* do not remove inside double quotes */
-#     for (p=ln; *p; p++) {
-#         if (*p=='"') {if (inquotes) inquotes=0; else inquotes=1;}
-#         if ((*p=='%') && !inquotes) *p='\0';
-#     }
-#
