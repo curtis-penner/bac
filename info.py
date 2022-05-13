@@ -9,6 +9,7 @@ from log import log
 import symbol
 import format
 import parse
+import tab
 from format import cfmt, font
 import common
 
@@ -196,6 +197,9 @@ class Voice:   # struct to characterize a v
         :param line:
         :return:
         """
+
+        if not common.do_this_tune:
+            return False
         if not line:
             exit(0)
         self.label, voice_fields = parse_voice(line)
@@ -980,8 +984,8 @@ class Key:
                     log.warning(f'unknown octave modifier in clef: {clef}')
                 return True
 
-        if self.parse_tab_key(clef):
-            return True
+        if tab.parse_tab_key(clef):
+            return True   # Todo
         return False
 
     def get_halftones(self, t):
@@ -1443,8 +1447,6 @@ class Key:
         return self.add_pitch
 
 
-
-
 class Tempo:
     def __init__(self):
         self.tempo = ''
@@ -1466,118 +1468,118 @@ class Tempo:
         return True
 
 
-def write_tempo(self, fp, tempo: str, meter: Meter) -> None:
-    # char *r, *q
-    # char text[STRLINFO]
-    # int top,bot,value,len,i,err,fac,dig,div
-    # struct SYMBOL s
-    # float stem,dotx,doty,sc,dx
+    def write_tempo(self, fp, tempo: str, meter: Meter) -> None:
+        # char *r, *q
+        # char text[STRLINFO]
+        # int top,bot,value,len,i,err,fac,dig,div
+        # struct SYMBOL s
+        # float stem,dotx,doty,sc,dx
 
-    log.error(f"write tempo <{self.tempo}>")
-    font.set_font(fp, cfmt.tempofont, False)
-    fp.write(" 18 0 M\n")
-    t = tempo
-    r = 0
-    while r < len(t):
-        while t[r] ==' ':
-            r += 1   # skip blanks
-        if t[r] =='\0':
-            break
+        log.error(f"write tempo <{self.tempo}>")
+        font.set_font(fp, cfmt.tempofont, False)
+        fp.write(" 18 0 M\n")
+        t = tempo
+        r = 0
+        while r < len(t):
+            while t[r] ==' ':
+                r += 1   # skip blanks
+            if t[r] =='\0':
+                break
 
-        if t[r] =='"':   # write string
-            r += 1
-            q = ''
-            while t[r] != '"' and t[r] != '\0':
-                q += t[r]
+            if t[r] =='"':   # write string
                 r += 1
-            if t[r] == '"':
-                r += 1
-            if q:
-                fp.write("6 0 rmoveto (")
-                fp.write(q)
-                fp.write(") rshow 12 0 \n")
-        else:     # write tempo denotation
-            q = ""
-            while t[r] != ' ' and t[r] != '\0':
-                q = t[r]
-                r += 1
-            err = False
-            value = 0
-            i = 0
-            while i < len(q):
-                len = constants.QUARTER
-                if '=' in q:
-                    if q[i] == 'C' or q[i] == 'c':
-                        i += 1
-                        len = meter.dlen
-                        div = False
-                        if q == '/':
-                            div = True
+                q = ''
+                while t[r] != '"' and t[r] != '\0':
+                    q += t[r]
+                    r += 1
+                if t[r] == '"':
+                    r += 1
+                if q:
+                    fp.write("6 0 rmoveto (")
+                    fp.write(q)
+                    fp.write(") rshow 12 0 \n")
+            else:     # write tempo denotation
+                q = ""
+                while t[r] != ' ' and t[r] != '\0':
+                    q = t[r]
+                    r += 1
+                err = False
+                value = 0
+                i = 0
+                while i < len(q):
+                    len = constants.QUARTER
+                    if '=' in q:
+                        if q[i] == 'C' or q[i] == 'c':
                             i += 1
-                        fac = 0
-                        while q[i].isdigit():
-                            dig = int(q[i])
-                            fac = 10*fac+dig
-                            i += 1
+                            len = meter.dlen
+                            div = False
+                            if q == '/':
+                                div = True
+                                i += 1
+                            fac = 0
+                            while q[i].isdigit():
+                                dig = int(q[i])
+                                fac = 10*fac+dig
+                                i += 1
 
-                        if div:
-                            if fac == 0:
-                                fac = 2
-                            if len % fac:
-                                log.error(f"Bad length divisor in tempo: {q}")
-                            len = len/fac
+                            if div:
+                                if fac == 0:
+                                    fac = 2
+                                if len % fac:
+                                    log.error(f"Bad length divisor in tempo: {q}")
+                                len = len/fac
+                            else:
+                                if fac > 0:
+                                    len = len*fac
+                            if q[i] != '=':
+                                err = True
+                            i += 1
+                            if not q.isdigit():
+                                err = True
+                            value = int(q[i])
+                        elif q[i].isdigit:
+                            t = q[i:]
+                            f, value = t.split('=', 1)
+                            top, bot = f.split('/')
+                            # sscanf(q,"%d/%d=%d", &top,&bot,&value)
+                            len = constants.BASE*top/bot
                         else:
-                            if fac > 0:
-                                len = len*fac
-                        if q[i] != '=':
                             err = True
-                        i += 1
-                        if not q.isdigit():
-                            err = True
-                        value = int(q[i])
-                    elif q[i].isdigit:
-                        t = q[i:]
-                        f, value = t.split('=', 1)
-                        top, bot = f.split('/')
-                        # sscanf(q,"%d/%d=%d", &top,&bot,&value)
-                        len = constants.BASE*top/bot
                     else:
-                        err = True
+                        if q[i].isdigit():
+                            value = int(q[i])
+                        else:
+                            err = True
+                if err:  # draw note=value
+                    log.error(f"+++ invalid tempo specifier: {q[i:]}")
                 else:
-                    if q[i].isdigit():
-                        value = int(q[i])
-                    else:
-                        err = True
-            if err:  # draw note=value
-                log.error(f"+++ invalid tempo specifier: {q[i:]}")
-            else:
-                s = Symbol()
-                s.len = len
-                identify_note (&s,r)
-                sc=0.55*cfmt.tempofont.size/10.0
-            PUT2("gsave %.2f %.2f scale 15 3 rmoveto currentpoint\n", sc,sc)
-                if (s.head==H_OVAL)    PUT0("HD")
-                if (s.head==H_EMPTY) PUT0("Hd")
-                if (s.head==H_FULL)    PUT0("hd")
-                dx=4.0
-                if (s.dots) {
-                    dotx=8 doty=0
-                    if (s.flags>0) dotx=dotx+4
-                    if (s.head==H_EMPTY) dotx=dotx+1
-                    if (s.head==H_OVAL)    dotx=dotx+2
-                    for (i=0i<s.dotsi++) {
-                        PUT2(" %.1f %.1f dt", dotx, doty)
-                        dx=dotx
-                        dotx=dotx+3.5
+                    s = symbol.Symbol()
+                    s.len = len
+                    symbol.Note.identify_note(s, r)
+                    sc=0.55*cfmt.tempofont.size/10.0
+                PUT2("gsave %.2f %.2f scale 15 3 rmoveto currentpoint\n", sc,sc)
+                    if (s.head==H_OVAL)    PUT0("HD")
+                    if (s.head==H_EMPTY) PUT0("Hd")
+                    if (s.head==H_FULL)    PUT0("hd")
+                    dx=4.0
+                    if (s.dots) {
+                        dotx=8 doty=0
+                        if (s.flags>0) dotx=dotx+4
+                        if (s.head==H_EMPTY) dotx=dotx+1
+                        if (s.head==H_OVAL)    dotx=dotx+2
+                        for (i=0i<s.dotsi++) {
+                            PUT2(" %.1f %.1f dt", dotx, doty)
+                            dx=dotx
+                            dotx=dotx+3.5
+                        }
                     }
-                }
-                stem=16.0
-                if (s.flags>1) stem=stem+3*(s.flags-1)
-                if (s.len<WHOLE) PUT1(" %.1f su",stem)
-                if (s.flags>0) PUT2(" %.1f f%du",stem,s.flags)
-                if ((s.flags>0) && (dx<6.0)) dx=6.0
-                dx=(dx+18)*sc
-                PUT2(" grestore %.2f 0 rmoveto ( = %d) rshow\n", dx,value)
+                    stem=16.0
+                    if (s.flags>1) stem=stem+3*(s.flags-1)
+                    if (s.len<WHOLE) PUT1(" %.1f su",stem)
+                    if (s.flags>0) PUT2(" %.1f f%du",stem,s.flags)
+                    if ((s.flags>0) && (dx<6.0)) dx=6.0
+                    dx=(dx+18)*sc
+                    PUT2(" grestore %.2f 0 rmoveto ( = %d) rshow\n", dx,value)
 
     def tempo_is_metronomemark(self, tempostr: str) -> bool:
         """ checks whether a tempostring is a metronome mark("1/4=100")
