@@ -11,9 +11,14 @@ args = cmdline.options()
 
 
 class Font:
-    names = list()
+    names: list = list()
 
-    def __init__(self, name='Times-Roman', size=14.0, box=False):
+    def __init__(self):
+        self.name = 'Times-Roman'
+        self.size = 14.0
+        self.box = False
+
+    def __call__(self, name='Times-Roman', size=14.0, box=False):
         self.name = name
         self.size = size
         self.box = box

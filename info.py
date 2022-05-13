@@ -257,23 +257,23 @@ class Voice:   # struct to characterize a v
     #     r = str.c_str();
     #     np=newv=0;
     #     for (;;) {
-    #         while (isspace(*r)) r++;
+    #         while (isspace(*r)) r += 1;
     #         if (*r=='\0') break;
     #         strcpy(t1,"");
     #         strcpy(t2,"");
     #         q=t1;
-    #         while (!isspace(*r) && *r!='\0' && *r!='=') { *q=*r; r++; q++; }
+    #         while (!isspace(*r) && *r!='\0' && *r!='=') { *q=*r; r += 1; q++; }
     #         *q='\0';
     #         if (*r=='=') {
-    #             r++;
+    #             r += 1;
     #             q=t2;
     #             if (*r=='"') {
-    #                 r++;
-    #                 while (*r!='"' && *r!='\0') { *q=*r; r++; q++; }
-    #                 if (*r=='"') r++;
+    #                 r += 1;
+    #                 while (*r!='"' && *r!='\0') { *q=*r; r += 1; q++; }
+    #                 if (*r=='"') r += 1;
     #             }
     #             else {
-    #                 while (!isspace(*r) && *r!='\0') { *q=*r; r++; q++; }
+    #                 while (!isspace(*r) && *r!='\0') { *q=*r; r += 1; q++; }
     #             }
     #             *q='\0';
     #         }
@@ -569,30 +569,6 @@ class Parts:
             fp.write(self.parts)
             fp.write(") rshow\n")
             common.bskip(fp, cfmt.partsspace)
-
-
-class Tempo:
-    def __init__(self):
-        self.tempo = ''
-
-    def __call__(self, line):
-        self.parts = line
-
-    def write_inside_tempo(self, fp) -> None:
-        # print metronome marks only when wished
-        if self.tempo_is_metronome_mark() and not cfmt.printmetronome:
-            return
-
-        common.bskip(fp, cfmt.partsfont.size)
-        self.write_tempo(fp, self.tempo, common.voices[common.ivc].meter)
-        common.bskip(fp, 0.1*constants.CM)
-
-    def tempo_is_metronome_mark(self) -> bool:
-        NotImplemented(self.tempo)
-        return True
-
-    def write_tempo(self, fp, t: str, v:list) -> None:
-        pass
 
 
 class Words:
@@ -1253,7 +1229,7 @@ class Key:
         r = gchtrans
 
         while True:
-            while (*q==' ' || *q=='(') { *r=*q; q++; r++; }
+            while (*q==' ' || *q=='(') { *r=*q; q++; r += 1; }
             if (*q=='\0') break;
             ok = 0
             if q in "ABCDEFG":
@@ -1467,6 +1443,161 @@ class Key:
         return self.add_pitch
 
 
+
+
+class Tempo:
+    def __init__(self):
+        self.tempo = ''
+
+    def __call__(self, line):
+        self.tempo = line
+
+    def write_inside_tempo(self, fp) -> None:
+        # print metronome marks only when wished
+        if self.tempo_is_metronome_mark() and not cfmt.printmetronome:
+            return
+
+        common.bskip(fp, cfmt.partsfont.size)
+        self.write_tempo(fp, common.voices[common.ivc].meter)
+        common.bskip(fp, 0.1*constants.CM)
+
+    def tempo_is_metronome_mark(self) -> bool:
+        NotImplemented(self.tempo)
+        return True
+
+
+def write_tempo(self, fp, tempo: str, meter: Meter) -> None:
+    # char *r, *q
+    # char text[STRLINFO]
+    # int top,bot,value,len,i,err,fac,dig,div
+    # struct SYMBOL s
+    # float stem,dotx,doty,sc,dx
+
+    log.error(f"write tempo <{self.tempo}>")
+    font.set_font(fp, cfmt.tempofont, False)
+    fp.write(" 18 0 M\n")
+    t = tempo
+    r = 0
+    while r < len(t):
+        while t[r] ==' ':
+            r += 1   # skip blanks
+        if t[r] =='\0':
+            break
+
+        if t[r] =='"':   # write string
+            r += 1
+            q = ''
+            while t[r] != '"' and t[r] != '\0':
+                q += t[r]
+                r += 1
+            if t[r] == '"':
+                r += 1
+            if q:
+                fp.write("6 0 rmoveto (")
+                fp.write(q)
+                fp.write(") rshow 12 0 \n")
+        else:     # write tempo denotation
+            q = ""
+            while t[r] != ' ' and t[r] != '\0':
+                q = t[r]
+                r += 1
+            err = False
+            value = 0
+            i = 0
+            while i < len(q):
+                len = constants.QUARTER
+                if '=' in q:
+                    if q[i] == 'C' or q[i] == 'c':
+                        i += 1
+                        len = meter.dlen
+                        div = False
+                        if q == '/':
+                            div = True
+                            i += 1
+                        fac = 0
+                        while q[i].isdigit():
+                            dig = int(q[i])
+                            fac = 10*fac+dig
+                            i += 1
+
+                        if div:
+                            if fac == 0:
+                                fac = 2
+                            if len % fac:
+                                log.error(f"Bad length divisor in tempo: {q}")
+                            len = len/fac
+                        else:
+                            if fac > 0:
+                                len = len*fac
+                        if q[i] != '=':
+                            err = True
+                        i += 1
+                        if not q.isdigit():
+                            err = True
+                        value = int(q[i])
+                    elif q[i].isdigit:
+                        t = q[i:]
+                        f, value = t.split('=', 1)
+                        top, bot = f.split('/')
+                        # sscanf(q,"%d/%d=%d", &top,&bot,&value)
+                        len = constants.BASE*top/bot
+                    else:
+                        err = True
+                else:
+                    if q[i].isdigit():
+                        value = int(q[i])
+                    else:
+                        err = True
+            if err:  # draw note=value
+                log.error(f"+++ invalid tempo specifier: {q[i:]}")
+            else:
+                s = Symbol()
+                s.len = len
+                identify_note (&s,r)
+                sc=0.55*cfmt.tempofont.size/10.0
+            PUT2("gsave %.2f %.2f scale 15 3 rmoveto currentpoint\n", sc,sc)
+                if (s.head==H_OVAL)    PUT0("HD")
+                if (s.head==H_EMPTY) PUT0("Hd")
+                if (s.head==H_FULL)    PUT0("hd")
+                dx=4.0
+                if (s.dots) {
+                    dotx=8 doty=0
+                    if (s.flags>0) dotx=dotx+4
+                    if (s.head==H_EMPTY) dotx=dotx+1
+                    if (s.head==H_OVAL)    dotx=dotx+2
+                    for (i=0i<s.dotsi++) {
+                        PUT2(" %.1f %.1f dt", dotx, doty)
+                        dx=dotx
+                        dotx=dotx+3.5
+                    }
+                }
+                stem=16.0
+                if (s.flags>1) stem=stem+3*(s.flags-1)
+                if (s.len<WHOLE) PUT1(" %.1f su",stem)
+                if (s.flags>0) PUT2(" %.1f f%du",stem,s.flags)
+                if ((s.flags>0) && (dx<6.0)) dx=6.0
+                dx=(dx+18)*sc
+                PUT2(" grestore %.2f 0 rmoveto ( = %d) rshow\n", dx,value)
+
+    def tempo_is_metronomemark(self, tempostr: str) -> bool:
+        """ checks whether a tempostring is a metronome mark("1/4=100")
+        or a verbose text(eg. "Andante"). In abc, verbose tempo texts
+        must start with double quotes """
+        p: str = ''
+        for p in tempostr:
+            if p.isspace():
+                continue
+            if p == '"':
+                return False
+            else:
+                break
+        if p:
+            return True # only when actually text found
+        else:
+            return False
+
+
+
 class Field:
     header = False
     body = False
@@ -1634,11 +1765,11 @@ class Field:
                     common.bskip(fp, cfmt.topspace)
 
 
-    def process_line(self, fp, i_type: object, xref_str: str, pat: list, sel_all: bool,
+    def process_line(self, fp, i_type: object, xref_str: str, line: str, pat: list, sel_all: \
+        bool,
                      search_field0: str):
         if common.within_block:
-            log.info(f"process_line, type {type.__name__} ")
-            # print_line_type(type)
+            log.info(f"process_line, type {i_type.__name__} ")
 
         if xref_str:  # start of new block
             if not common.epsf:
@@ -1684,20 +1815,17 @@ class Field:
                 self.check_selected(fp, xref_str, pat, sel_all, search_field0)
                 if common.do_this_tune:
                     common.tunenum += 1
-                    log.warning(f"---- start {xrefnum} ({self.titles.titles[0]}) ----")
-                    self.key.set_keysig(info.key, default_key, True)
-                    self.key.halftones = self.key.get_halftones(transpose)
-                    self.key.set_transtab(self.key.halftones)
-                    self.meter.set_meter(info.meter, default_meter)
-                    self.default_note_length(default_meter)
+                    log.warning(f"---- start {self.xref.xref} ({self.titles.titles[0]}) ----")
+                    # self.key.halftones = self.key.get_halftones(transpose)
+                    # self.key.set_transtab(self.key.halftones)
                     cfmt.check_margin(cfmt.leftmargin)
-                    subs.write_heading(fp)
-                    self.voice.nvoice = 0
+                    self.write_heading(fp)
+                    common.voices = list()
                     parse.init_parse_params()
                     # insert is now set in set_meter (for invisible meter)
-                    self.meter.default_meter.insert = 1
+                    self.meter.insert = 1
 
-                    common.mline = False
+                    common.number_of_music_lines = 0
                     common.do_indent = True
                     common.do_meter = True
                     common.bar_init = cfmt.barinit
@@ -1744,8 +1872,8 @@ class Field:
                         fnm += ".eps"
                     else:
                         common.nepsf += 1
-                        fnm = f"{common.outf}{common.nepsf:03d}.eps")
-                    finf = f"{in_file[0]} ({xrefnum})"
+                        fnm = f"{common.outf}{common.nepsf:03d}.eps"
+                    finf = f"{common.in_file[0]} ({self.xref.xref})"
                     try:
                         feps = open(fnm, "w")
                     except FileExistsError as fee:
@@ -1787,7 +1915,7 @@ class Field:
             self.default_note_length(common.voices[common.ivc].meter.dlen)
         elif isinstance(t_type, Key):
             oldkey = common.voices[common.ivc].key
-            rc = self.key(common.voices[common.ivc].key., 0)
+            rc = self.key(common.voices[common.ivc].key, 0)
             if rc:
                 self.key.set_transtab(self.key.halftones,
                                       common.voices[common.ivc].key)
@@ -1795,113 +1923,103 @@ class Field:
         elif isinstance(t_type, Voice):
             common.ivc = self.voice.switch_voice(common.lvoiceid)
 
+    def write_heading(self, fp):
+        line_width: float = cfmt.staffwidth
 
+        # write the main title
+        common.bskip(fp, cfmt.titlefont.size + cfmt.titlespace)
+        cfmt.titlefont.set_font(fp, True)
+        if cfmt.withxrefs:
+            fp.write(f"{self.xref.xref}. ")
+        t = self.titles.titles[0]
+        if cfmt.titlecaps:
+            t = t.upper()
+        fp.write(t)
+        if cfmt.titleleft:
+            fp.write(") 0 0 M rshow")
+        else:
+            fp.write(f") {line_width/2:.1f} 0 M cshow\n", )
 
-    # # ----- write_heading    -----
-    # def write_heading(fp):
-    #
-    #     # float lwidth,down1,down2
-    #     # int i,ncl
-    #     # char t[STRLINFO]
-    #
-    #     lwidth = cfmt.staffwidth
-    #
-    #     # write the main title
-    #     common.bskip(cfmt.titlefont.size + cfmt.titlespace)
-    #     cfmt.titlefont.set_font(fp, True)
-    #     if cfmt.withxrefs:
-    #         fp.write(f"{xrefnum}. ")
-    #     t = info.titles[0]
-    #     if(cfmt.titlecaps) cap_str(t)
-    #     put_str(t)
-    #     if cfmt.titleleft:
-    #         put(") 0 0 M rshow")
-    #     else:
-    #         put(f") {lwidth/2:.1f} 0 M cshow\n", )
-    #
-    #     # write second title
-    #     if len(info.titles) >=2:
-    #         util.bskip(cfmt.subtitlespace + cfmt.subtitlefont.size)
-    #         set_font(fp,cfmt.subtitlefont,1)
-    #         strcpy(t,info.title2)
-    #         if(cfmt.titlecaps) cap_str(t)
-    #         put_str(t)
-    #         if(cfmt.titleleft) PUT0(") 0 0 M rshow\n")
-    #         else PUT1(") %.1f 0 M cshow\n", lwidth/2)
-    #     }
-    #
-    #     # write third title
-    #     if(numtitle>=3) {
-    #         bskip(cfmt.subtitlespace+cfmt.subtitlefont.size)
-    #         set_font(fp,cfmt.subtitlefont,1)
-    #         strcpy(t,info.title3)
-    #         if(cfmt.titlecaps) cap_str(t)
-    #         put_str(t)
-    #         if(cfmt.titleleft) PUT0(") 0 0 M rshow\n")
-    #         else PUT1(") %.1f 0 M cshow\n", lwidth/2)
-    #     }
-    #
-    #     # write composer, origin
-    #     if((info.ncomp>0) ||(strlen(info.orig)>0)) {
-    #         set_font(fp,cfmt.composerfont,0)
-    #         bskip(cfmt.composerspace)
-    #         ncl=info.ncomp
-    #         if((strlen(info.orig)>0) &&(ncl<1)) ncl=1
-    #         for(i=0;i<ncl;i++) {
-    #             bskip(cfmt.composerfont.size)
-    #             PUT1("%.1f 0 M(", lwidth)
-    #             put_str(info.comp[i])
-    #             if((i==ncl-1)&&(strlen(info.orig)>0)) {
-    #                 put_str("(")
-    #                 put_str(info.orig)
-    #                 put_str(")")
-    #             }
-    #             PUT0(") lshow\n")
-    #         }
-    #         down1=cfmt.composerspace+cfmt.musicspace+ncl*cfmt.composerfont.size
-    #     }
-    #     else {
-    #         bskip(cfmt.composerfont.size+cfmt.composerspace)
-    #         down1=cfmt.composerspace+cfmt.musicspace+cfmt.composerfont.size
-    #     }
-    #     bskip(cfmt.musicspace)
-    #
-    #     # decide whether we need extra shift for parts and tempo
-    #     down2=cfmt.composerspace+cfmt.musicspace
-    #     if(strlen(info.parts)>0) down2=down2+cfmt.partsspace+cfmt.partsfont.size
-    #     if(strlen(info.tempo)>0) down2=down2+cfmt.partsspace+cfmt.partsfont.size
-    #     if(down2>down1) bskip(down2-down1)
-    #
-    #     # write tempo and parts
-    #     if(strlen(info.parts)>0 || strlen(info.tempo)>0) {
-    #         int printtempo =(strlen(info.tempo)>0)
-    #         if(printtempo &&
-    #                 tempo_is_metronomemark(info.tempo) && !cfmt.printmetronome)
-    #             printtempo = 0
-    #
-    #         if(printtempo) {
-    #             bskip(-0.2*CM)
-    #             PUT1(" %.2f 0 T ", cfmt.indent*cfmt.scale)
-    #             write_tempo(fp, info.tempo, default_meter)
-    #             PUT1(" %.2f 0 T ", -cfmt.indent*cfmt.scale)
-    #             bskip(-cfmt.tempofont.size)
-    #         }
-    #
-    #         if(strlen(info.parts)>0) {
-    #             bskip(-cfmt.partsspace)
-    #             set_font(fp,cfmt.partsfont,0)
-    #             PUT0("0 0 M(")
-    #             put_str(info.parts)
-    #             PUT0(") rshow\n")
-    #             bskip(cfmt.partsspace)
-    #         }
-    #
-    #         if(printtempo) bskip(cfmt.tempofont.size+0.3*CM)
-    #
-    #     }
-    #
-    #
-    # }
+        # write second title
+        if len(self.titles) > 1:
+            common.bskip(fp, cfmt.subtitlespace + cfmt.subtitlefont.size)
+            font(fp, cfmt.subtitlefont, True)
+            t = self.titles.titles[1]
+            if cfmt.titlecaps:
+                t = t.upper()
+            fp.write(t)
+            if cfmt.titleleft:
+                fp.write(") 0 0 M rshow\n")
+            else:
+                fp.write(f") {line_width/2:.1f} 0 M cshow\n")
+
+        # write third title
+        if len(self.titles) > 2:
+            common.bskip(fp, cfmt.subtitlespace+cfmt.subtitlefont.size)
+            font(fp, cfmt.subtitlefont, True)
+            t = self.titles.titles[2]
+            if cfmt.titlecaps:
+                t = t.upper()
+            fp.write(t)
+            if cfmt.titleleft:
+                fp.write(") 0 0 M rshow\n")
+        else:
+            fp.write(f") {line_width/2:.1f} 0 M cshow\n")
+
+        # write composer, origin
+        if self.composer.composers or self.origin.line:
+            font.set_font(fp, cfmt.composerfont, False)
+            common.bskip(cfmt.composerspace)
+            ncl: int = len(self.composer.composers)
+            if self.origin and not self.composer.composers:
+                ncl = 1
+            for composer in self.composer.composers:
+                common.bskip(fp, cfmt.composerfont.size)
+                fp.write(f"{line_width:.1f} 0 M(")
+                fp.write(composer)
+                if composer == self.composer.composers[-1] and self.origin:
+                    fp.write("(")
+                    fp.write(self.origin)
+                    fp.write(")")
+                fp.write(") lshow\n")
+            down1: float = cfmt.composerspace+cfmt.musicspace+ncl*cfmt.composerfont.size
+        else:
+            common.bskip(fp, cfmt.composerfont.size+cfmt.composerspace)
+            down1: float = cfmt.composerspace+cfmt.musicspace+cfmt.composerfont.size
+        common.bskip(fp, cfmt.musicspace)
+
+        # decide whether we need extra shift for parts and tempo
+        down2: float = cfmt.composerspace+cfmt.musicspace
+        if self.parts.parts:
+            down2 = down2+cfmt.partsspace+cfmt.partsfont.size
+        if self.tempo.tempo:
+            down2 = down2+cfmt.partsspace+cfmt.partsfont.size
+        if down2 > down1:
+            common.bskip(fp, down2-down1)
+
+        # write tempo and parts
+        if self.parts.parts or self.tempo.tempo:
+            printtempo = len(self.tempo.tempo) > 0
+            if printtempo and self.tempo.tempo_is_metronomemark() and cfmt.printmetronome:
+                printtempo = False
+
+            if printtempo:
+                common.bskip(fp, -0.2*constants.CM)
+                fp.write(f" {cfmt.indent*cfmt.scale:.2f} 0 T ")
+                self.tempo.write_tempo(fp)
+                fp.write(f" {-cfmt.indent*cfmt.scale:.2f} 0 T ")
+                common.bskip(fp, -cfmt.tempofont.size)
+
+            if self.parts:
+                common.bskip(fp, -cfmt.partsspace)
+                font.set_font(fp, cfmt.partsfont, False)
+                fp.write("0 0 M(")
+                fp.write(self.parts.parts)
+                fp.write(") rshow\n")
+                common.bskip(fp, cfmt.partsspace)
+
+            if printtempo:
+                common.bskip(fp, cfmt.tempofont.size+0.3*constants.CM)
 
 #
 # def print_line_type(t: object) -> None:
@@ -1939,34 +2057,9 @@ class Field:
 #         print("UNKNOWN LINE TYPE")
 
 
-
-#
-# /* ----- add_text ---- */
-# void add_text (char *str, int type)
-# {
-#   if (not do_output) { return; }
-#   if (ntext>=NTEXT) {
-#       std::cerr << "No more room for text line <" << str << ">\n";
-#       return;
-#   }
-#   strcpy (text[ntext], str);
-#   text_type[ntext]=type;
-#   ntext++;
-# }
-#
-#
-
     def get_default_info(self) -> object:
-        """
-        set info to default, except xref field
-        :param info:
-        :return:
-        """
+        """ set info to default, except xref field """
         save_str = self.xref.xref_str
         info = Field()
         info.xref.xref_str = save_str
         return info
-
-
-
-

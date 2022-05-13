@@ -611,134 +611,23 @@ def write_text_block(fp, job: int, words_of_text='') -> None:
 # }
 
 
-# # ----- tempo_is_metronomemark -----
-# #
-#  * checks whether a tempostring is a metronome mark("1/4=100")
-#  * or a verbose text(eg. "Andante"). In abc, verbose tempo texts
-#  * must start with double quotes
-#
-# int tempo_is_metronomemark(char* tempostr)
-# {
-#     char* p
-#     for(p=tempostr; *p; p++) {
-#         if(isspace(*p)) continue
-#         if(*p == '"')
-#             return 0
-#         else
-#             break
-#     }
-#     if(*p)
-#         return 1; # only when actually text found
-#     else
-#         return 0
-# }
-#
-# # ----- write_tempo -----
-# void write_tempo(FILE *fp, char *tempo, struct METERSTR meter)
-# {
-#     char *r, *q
-#     char text[STRLINFO]
-#     int top,bot,value,len,i,err,fac,dig,div
-#     struct SYMBOL s
-#     float stem,dotx,doty,sc,dx
-#
-#     if(vb>15) print("write tempo <%s>\n", info.tempo)
-#     r=tempo
-#     set_font(fp,cfmt.tempofont,0)
-#     PUT0(" 18 0 M\n")
-#
-#     for(;;) {
-#         while(*r==' ') r++;                                        # skip blanks
-#         if(*r=='\0') break
-#
-#         if(*r=='"') {                                                    # write string
-#             r++
-#             q=text
-#             while(*r!='"' && *r!='\0') { *q=*r; r++; q++; }
-#             if(*r=='"') r++
-#             *q='\0'
-#             if(strlen(text)>0) {
-#                 PUT0("6 0 rmoveto(")
-#                 put_str(text)
-#                 PUT0(") rshow 12 0 \n")
-#             }
-#         }
-#         else {                                                                    # write tempo denotation
-#             q=text
-#             while(*r!=' ' && *r!='\0') { *q=*r; r++; q++; }
-#             *q='\0'
-#
-#             q=text
-#             len=QUARTER
-#             value=0
-#             err=0
-#             if(strchr(q,'=')) {
-#                 if(*q=='C' || *q=='c') {
-#                     q++
-#                     len=meter.dlen;
-#                     div=0
-#                     if(*q=='/') { div=1; q++; }
-#                     fac=0
-#                     while(isdigit(*q)) { dig=*q-'0'; fac=10*fac+dig; q++; }
-#
-#                     if(div) {
-#                         if(fac==0) fac=2
-#                         if(len%fac) print("Bad length divisor in tempo: %s", text)
-#                         len=len/fac
-#                     }
-#                     else
-#                         if(fac>0) len=len*fac
-#                     if(*q!='=') err=1
-#                     q++
-#                     if(!isdigit(*q)) err=1
-#                     sscanf(q,"%d", &value)
-#                 }
-#                 elifisdigit(*q)) {
-#                     sscanf(q,"%d/%d=%d", &top,&bot,&value)
-#                     len=(BASE*top)/bot
-#                 }
-#                 else err=1
-#             }
-#             else {
-#                 if(isdigit(*q))
-#                     sscanf(q,"%d", &value)
-#                 else err=1
-#             }
-#
-#             if(err)                                                            # draw note=value
-#                 printf("\n+++ invalid tempo specifier: %s\n", text)
-#             else {
-#                 s.len=len
-#                 identify_note(&s,r)
-#                 sc=0.55*cfmt.tempofont.size/10.0
-#                 PUT2("gsave %.2f %.2f scale 15 3 rmoveto currentpoint\n", sc,sc)
-#                 if(s.head==H_OVAL)    PUT0("HD")
-#                 if(s.head==H_EMPTY) PUT0("Hd")
-#                 if(s.head==H_FULL)    PUT0("hd")
-#                 dx=4.0
-#                 if(s.dots) {
-#                     dotx=8; doty=0
-#                     if(s.flags>0) dotx=dotx+4
-#                     if(s.head==H_EMPTY) dotx=dotx+1
-#                     if(s.head==H_OVAL)    dotx=dotx+2
-#                     for(i=0;i<s.dots;i++) {
-#                         PUT2(" %.1f %.1f dt", dotx, doty)
-#                         dx=dotx
-#                         dotx=dotx+3.5
-#                     }
-#                 }
-#                 stem=16.0
-#                 if(s.flags>1) stem=stem+3*(s.flags-1)
-#                 if(s.len<WHOLE) PUT1(" %.1f su",stem)
-#                 if(s.flags>0) PUT2(" %.1f f%du",stem,s.flags)
-#                 if((s.flags>0) &&(dx<6.0)) dx=6.0
-#                 dx=(dx+18)*sc
-#                 PUT2(" grestore %.2f 0 rmoveto( = %d) rshow\n", dx,value)
-#             }
-#         }
-#     }
-# }
 
+
+#
+# /* ----- add_text ---- */
+# void add_text (char *str, int type)
+# {
+#   if (not do_output) { return; }
+#   if (ntext>=NTEXT) {
+#       std::cerr << "No more room for text line <" << str << ">\n";
+#       return;
+#   }
+#   strcpy (text[ntext], str);
+#   text_type[ntext]=type;
+#   ntext++;
+# }
+#
+#
 
 
 

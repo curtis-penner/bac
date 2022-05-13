@@ -139,7 +139,7 @@ tunenum: int = 0                  # number of current tune
 tnum1: int = 0
 tnum2: int = 0
 number_of_titles: int = 0                  # how many titles were read
-# int mline                     # number music lines in current tune 
+number_of_music_lines: int = 0                     # number music lines in current tune
 # int nsym                      # number of symbols in line 
 # int nsym0                     # nsym at start of parsing a line 
 page_number: int = 0                   # current page in output file
