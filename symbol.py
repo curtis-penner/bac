@@ -311,13 +311,16 @@ class Deco(object):  # describes decorations
 
 
 class Gchord(object):
-    """
-    single guitar chord and list of guitar chords on a single note
-    """
+    """ single guitar chord and list of guitar chords on a single note """
     def __init__(self):
         self.text = ''
         self.x = 0.0
         self.list = list()
+
+    def parse_gchord(self, line):
+        if line.startswith('"'):
+            if line[1:].find('"') != -1:
+                self.text = line[1:line.find('"')]
 
 
 class Beam:  # packages info about one beam
