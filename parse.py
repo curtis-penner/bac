@@ -268,56 +268,7 @@ class Key:
 
         return False
 
-    def parse_tab_key(self, string: str) -> int:
-        """
-        parse "string" for tablature key
 
-        If "string" is a tablature "clef" specification, the corresponding
-        clef number is stored in "ktype" and 1 is returned.
-        Otherwise 0 is returned.
-        """
-
-        if common.notab:
-            return 0
-
-        if string == "frenchtab":
-            self.k_type = FRENCHTAB
-            return True
-        elif string == "french5tab":
-            self.k_type = FRENCH5TAB
-            return True
-        elif string == "french4tab":
-            self.k_type = FRENCH4TAB
-            return True
-        elif string == "spanishtab" or string == "guitartab":
-            self.k_type = SPANISHTAB
-            return True
-        elif string == "spanish5tab" or string == "banjo5tab":
-            self.k_type = SPANISH5TAB
-            return True
-        elif string == "spanish4tab" or string == "banjo4tab" or string == "ukuleletab":
-            self.k_type = SPANISH4TAB
-            return True
-        elif string == "italiantab":
-            self.k_type = ITALIANTAB
-            return True
-        elif string == "italian7tab":
-            self.k_type = ITALIAN7TAB
-            return True
-        elif string == "italian8tab":
-            self.k_type = ITALIAN8TAB
-            return True
-        elif string == "italian5tab":
-            self.k_type = ITALIAN5TAB
-            return True
-        elif string == "italian4tab":
-            self.k_type = ITALIAN4TAB
-            return True
-        elif string == "germantab":
-            self.k_type = GERMANTAB
-            return True
-
-        return False
 
     def get_halftones(self, transpose: str) -> int:
         """

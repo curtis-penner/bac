@@ -181,7 +181,7 @@ class Voice:   # struct to characterize a v
     #
     # }
 
-    def switch_voice(self, line: str) -> None:
+    def switch_voice(self, line: str) -> bool:
         """  read spec for a v, return v number
         example of a string:
 
@@ -984,7 +984,7 @@ class Key:
                     log.warning(f'unknown octave modifier in clef: {clef}')
                 return True
 
-        if tab.parse_tab_key(clef):
+        if parse.parse_tab_key(clef):
             return True   # Todo
         return False
 
@@ -1210,6 +1210,57 @@ class Key:
             acc_new = 0
         return pitch_new, acc_new
 
+    def parse_tab_key(self, string: str) -> int:
+        """
+        parse "string" for tablature key
+
+        If "string" is a tablature "clef" specification, the corresponding
+        clef number is stored in "ktype" and 1 is returned.
+        Otherwise 0 is returned.
+        """
+
+        if common.notab:
+            return 0
+
+        if string == "frenchtab":
+            self.k_type = constants.FRENCHTAB
+            return True
+        elif string == "french5tab":
+            self.k_type = constants.FRENCH5TAB
+            return True
+        elif string == "french4tab":
+            self.k_type = constants.FRENCH4TAB
+            return True
+        elif string == "spanishtab" or string == "guitartab":
+            self.k_type = constants.SPANISHTAB
+            return True
+        elif string == "spanish5tab" or string == "banjo5tab":
+            self.k_type = constants.SPANISH5TAB
+            return True
+        elif string == "spanish4tab" or string == "banjo4tab" or string == "ukuleletab":
+            self.k_type = constants.SPANISH4TAB
+            return True
+        elif string == "italiantab":
+            self.k_type = constants.ITALIANTAB
+            return True
+        elif string == "italian7tab":
+            self.k_type = constants.ITALIAN7TAB
+            return True
+        elif string == "italian8tab":
+            self.k_type = constants.ITALIAN8TAB
+            return True
+        elif string == "italian5tab":
+            self.k_type = constants.ITALIAN5TAB
+            return True
+        elif string == "italian4tab":
+            self.k_type = constants.ITALIAN4TAB
+            return True
+        elif string == "germantab":
+            self.k_type = constants.GERMANTAB
+            return True
+
+        return False
+
     '''
     def gch_transpose(self, gch):
         """
@@ -1330,60 +1381,6 @@ class Key:
                  f"shift by {add_t}")
 
         return sf_new, add_t
-
-    def parse_tab_key(self, string):
-        """
-        parse "string" for tablature key 
-        If "string" is a tablature "clef" specification, the corresponding
-        clef number is stored in "key_type" and 1 is returned.
-        Otherwise 0 is returned.
-
-        :param string: 
-        :return bool: 
-        """
-        if constants.notab:
-            return False
-
-        if string == "frenchtab":
-            self.key_type = tab_.FRENCHTAB
-            return True
-        elif string == "french5tab":
-            self.key_type = tab_.FRENCH5TAB
-            return True
-
-        elif string == "french4tab":
-            self.key_type = tab_.FRENCH4TAB
-            return True
-
-        elif string == "spanishtab" or string == "guitartab":
-            self.key_type = tab_.SPANISHTAB
-            return True
-        elif string == "spanish5tab" or string == "banjo5tab":
-            self.key_type = tab_.SPANISH5TAB
-            return True
-        elif string == "spanish4tab" or string == "banjo4tab" or \
-                string == "ukuleletab":
-            self.key_type = tab_.SPANISH4TAB
-            return True
-        elif string == "italiantab":
-            self.key_type = tab_.ITALIANTAB
-            return True
-        elif string == "italian7tab":
-            self.key_type = tab_.ITALIAN7TAB
-            return True
-        elif string == "italian8tab":
-            self.key_type = tab_.ITALIAN8TAB
-            return True
-        elif string == "italian5tab":
-            self.key_type = tab_.ITALIAN5TAB
-            return True
-        elif string == "italian4tab":
-            self.key_type = tab_.ITALIAN4TAB
-            return True
-        elif string == "germantab":
-            self.key_type = tab_.GERMANTAB
-            return True
-        return False
     '''
 
     def is_tab_key(self):
@@ -1555,31 +1552,40 @@ class Tempo:
                 else:
                     s = symbol.Symbol()
                     s.len = len
-                    symbol.Note.identify_note(s, r)
-                    sc=0.55*cfmt.tempofont.size/10.0
-                PUT2("gsave %.2f %.2f scale 15 3 rmoveto currentpoint\n", sc,sc)
-                    if (s.head==H_OVAL)    PUT0("HD")
-                    if (s.head==H_EMPTY) PUT0("Hd")
-                    if (s.head==H_FULL)    PUT0("hd")
+                    symbol.Note().identify_note(s, q)
+                    sc = 0.55*cfmt.tempofont.size/10.0
+                    fp.write(f"gsave {sc:.2f} {sc:.2f} scale 15 3 rmoveto currentpoint\n")
+                    if s.head == constants.H_OVAL:
+                        fp.write("HD")
+                    if s.head == constants.H_EMPTY:
+                        fp.write("Hd")
+                    if s.head == constants.H_FULL:
+                        fp.write("hd")
                     dx=4.0
-                    if (s.dots) {
-                        dotx=8 doty=0
-                        if (s.flags>0) dotx=dotx+4
-                        if (s.head==H_EMPTY) dotx=dotx+1
-                        if (s.head==H_OVAL)    dotx=dotx+2
-                        for (i=0i<s.dotsi++) {
-                            PUT2(" %.1f %.1f dt", dotx, doty)
-                            dx=dotx
-                            dotx=dotx+3.5
-                        }
-                    }
-                    stem=16.0
-                    if (s.flags>1) stem=stem+3*(s.flags-1)
-                    if (s.len<WHOLE) PUT1(" %.1f su",stem)
-                    if (s.flags>0) PUT2(" %.1f f%du",stem,s.flags)
-                    if ((s.flags>0) && (dx<6.0)) dx=6.0
-                    dx=(dx+18)*sc
-                    PUT2(" grestore %.2f 0 rmoveto ( = %d) rshow\n", dx,value)
+                    if s.dots:
+                        dotx = 8
+                        doty = 0
+                        if s.flags > 0:
+                            dotx += 4
+                        if s.head == constants.H_EMPTY:
+                            dotx += 1
+                        if s.head == constants.H_OVAL:
+                            dotx += 2
+                        for i in range(s.dots):
+                            fp.write(f" {dotx:.1f} {doty:.1f} dt")
+                            dx = dotx
+                            dotx = dotx+3.5
+                    stem = 16.0
+                    if s.flags > 1:
+                        stem += 3*(s.flags-1)
+                    if s.len < constants.WHOLE:
+                        fp.write(f" {stem:.1f} su")
+                    if s.flags:
+                        fp.write(f" {stem:.1f} f{s.flags}u")
+                    if s.flags and dx < 6.0:
+                        dx = 6.0
+                    dx = (dx+18)*sc
+                    fp.write(f" grestore {dx:.2f} 0 rmoveto ( = {value}) rshow\n")
 
     def tempo_is_metronomemark(self, tempostr: str) -> bool:
         """ checks whether a tempostring is a metronome mark("1/4=100")

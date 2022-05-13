@@ -351,10 +351,6 @@ prep_gch_list = GchordList  # guitar chords for preparsing
 prep_deco = Deco()  # decorations for preparsing
 
 
-class Note():
-    pass
-
-
 class Symbol:  # struct for a drawable symbol
     def __init(self):
         self.type = 0  # type of symbol
@@ -425,6 +421,11 @@ class Symbol:  # struct for a drawable symbol
         self.time = 0  # time for symbol start
         self.tabdeco = [0]*10   # tablature decorations inside chord
 
+
+class Note():
+    def identify_note(self, s: Symbol, r: str) -> None:
+        """ Todo """
+        s.text = r
 
 class XPos: # struct for a horizontal position
     def __init__(self):
