@@ -5,7 +5,6 @@ from log import log
 from util import put
 import constants
 from common import voices, ivc, cfmt, key
-from parse import is_note
 
 
 class Grace():
@@ -349,6 +348,11 @@ GchordList = list()
 
 prep_gch_list = GchordList  # guitar chords for preparsing
 prep_deco = Deco()  # decorations for preparsing
+
+
+def is_note(c: str) -> bool:
+    """ checks char for valid note symbol """
+    return c in "CDEFGABcdefgab^=_"
 
 
 class Symbol:  # struct for a drawable symbol

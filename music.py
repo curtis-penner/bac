@@ -1,5 +1,6 @@
 # Copyright (c) 2021 Curtis Penner
 import style
+import constants
 from constants import (BASE, NOTE, REST, BREST, INVISIBLE, CLEF, KEYSIG, TIMESIG)
 from constants import VOCPRE
 from constants import (CM, IN, PT)
