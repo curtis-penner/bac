@@ -9,15 +9,17 @@ from log import log
 import symbol
 import format
 import parse
-import tab
 from format import cfmt, font
 import common
+import cmdline
+
+args = cmdline.options()
 
 
-def is_info_field(s: str) -> bool:
-    """ identify any type of info field
-    |: at start of music line """
-    return len(s) < 0 or not s[1] != ':' or s[0] == '|'
+# def is_info_field(s: str) -> bool:
+#     """ identify any type of info field
+#     |: at start of music line """
+#     return len(s) > 0 or not s[1] != ':' or s[0] == '|'
 
 
 def is_field(s: str) -> bool:
@@ -579,12 +581,74 @@ class Words:
     def __init__(self, appendable=False):
         self.appendable = appendable
         self.line = ''
+        self.text_type: list[str] = list()
+
 
     def __call__(self, line):
         if self.appendable:
             self.line = ' '.join([self.line, line])
         else:
             self.line = line
+
+    def put_words(self, fp):
+        cfmt.wordsfont.set_font(fp, False)
+        cfmt.wordsfont.set_font_str(common.page_init)
+
+        n=0
+        for t_type in self.text_type:
+            if t_type == constants.TEXT_W:
+                n += 1
+        if not n:
+            return
+
+        common.bskip(fp, cfmt.wordsspace)
+        for t_type in self.text_type:
+            if t_type == constants.TEXT_W:
+                common.bskip(fp, cfmt.lineskipfac*cfmt.wordsfont.size)
+                p = text[i][0]
+                q  =str[0]   # what is str
+                if text[i][0].isdigit():
+                    while(*p != '\0') {
+                        *q=*p
+                        q++
+                        p++
+                        if(*p==' ') break
+                        if(*(p-1)==':') break
+                        if(*(p-1)=='.') break
+                    }
+                    if(*p==' ') p++
+                }
+                *q='\0'
+
+                # permit page break at empty lines or stanza start
+                nw = nwords(text[i])
+                if((nw==0) ||(strlen(str)>0)) buffer_eob(fp)
+
+                if (nw>0) {
+                    if (strlen(str)>0) {
+                        put("45 0 M(")
+                        put_str(str)
+                        put(") lshow\n")
+
+                    if(strlen(p)>0) {
+                        PUT0("50 0 M(")
+                        put_str(p)
+                        PUT0(") rshow\n")
+
+        buffer_eob(fp)
+        strcpy(page_init,"")
+
+
+    def add_text(self, s: str, i_type: int) -> None:
+      if not common.do_output:
+          return
+      if len(self.text_type) >= constants.NTEXT:
+          log.error(f"No more room for text line < {s}")
+          return
+      text[ntext] = s
+      self.text_type[ntext] = i_type
+      ntext++;
+
 
 
 class Lyrics:
@@ -609,6 +673,64 @@ class History:
 
     def __call__(self, line, header):
         print(line)
+
+    # ----- put_history -------
+    void put_history(FILE *fp)
+    {
+        int i,ok
+        float baseskip,parskip
+
+        set_font(fp, cfmt.textfont,0)
+        cfmt.textfont.set_font_str(page_init)
+        baseskip = cfmt.textfont.size * cfmt.lineskipfac
+        parskip = cfmt.textfont.size * cfmt.parskipfac
+
+        bskip(cfmt.textspace)
+
+        if(strlen(info.rhyth)>0) {
+            bskip(baseskip);
+            PUT0("0 0 M(Rhythm: ")
+            put_str(info.rhyth)
+            PUT0(") show\n")
+            bskip(parskip)
+        }
+
+        if(strlen(info.book)>0) {
+            bskip(0.5*CM);
+            PUT0("0 0 M(Book: ")
+            put_str(info.book)
+            PUT0(") show\n")
+            bskip(parskip)
+        }
+
+        if(strlen(info.src)>0) {
+            bskip(0.5*CM);
+            PUT0("0 0 M(Source: ")
+            put_str(info.src)
+            PUT0(") show\n")
+            bskip(parskip)
+        }
+
+        put_text(fp, TEXT_D, "Discography: ")
+        put_text(fp, TEXT_N, "Notes: ")
+        put_text(fp, TEXT_Z, "Transcription: ")
+
+        ok=0
+        for(i=0;i<ntext;i++) {
+            if(text_type[i]==TEXT_H) {
+                bskip(0.5*CM);
+                PUT0("0 0 M(")
+                put_str(text[i])
+                PUT0(") show\n")
+                ok=1
+            }
+        }
+        if(ok) bskip(parskip)
+        buffer_eob(fp)
+        strcpy(page_init,"")
+
+    }
+
 
 
 class Meter:
@@ -984,7 +1106,7 @@ class Key:
                     log.warning(f'unknown octave modifier in clef: {clef}')
                 return True
 
-        if parse.parse_tab_key(clef):
+        if self.parse_tab_key(clef):
             return True   # Todo
         return False
 
@@ -1261,36 +1383,33 @@ class Key:
 
         return False
 
-    '''
     def gch_transpose(self, gch):
-        """
-        transpose guitar chord string in gch
-
-        :param gch:
-        :return:
-        """
+        """ transpose guitar chord string in gch """
         # char *q,*r;
         # char* gchtrans;
         # int root_old,root_new,sf_old,sf_new,ok;
+
         root_tab = ['A','B','C','D','E','F','G']
         root_tub = ['a','b','c','d','e','f','g']
 
-        if not args.transposegchords or args.halftones == 0:
+        if not args.transposegchords or  args.halftones == 0:
             return
 
         # q = (char*)gch.c_str();
         # gchtrans = (char*)alloca(sizeof(char)*gch.length());
-        gchtrans = len(gch)
-        r = gchtrans
+        r = ''
 
+        q: int = 0
         while True:
-            while (*q==' ' || *q=='(') { *r=*q; q++; r += 1; }
-            if (*q=='\0') break;
-            ok = 0
-            if q in "ABCDEFG":
+            while gch[q] == ' ' or gch[q] == '(':
+                q += 1
+            if gch[q] == '\0':
+                break
+            ok: int = 0
+            if gch[q] in "ABCDEFG":
                 root_old = root_tab.index(q)
                 ok = 1
-            elif q in "abcdefg":
+            elif gch[q] in "abcdefg":
                 root_old = root_tub.index(q)
                 ok = 1
             else:
@@ -1298,15 +1417,15 @@ class Key:
 
             if ok:
                 sf_old = 0
-                if q == 'b':
+                if gch[q] == 'b':
                     sf_old = -1
                     q += 1
-                if q == '#':
+                if gch[q] == '#':
                     sf_old = 1
                     q += 1
                 root_new = root_old + self.add_transp
                 root_new = (root_new+28)%7
-                sf_new = sf_old + self.add_acc[root_old]
+                sf_new = sf_old + self.add_accs[root_old]
                 if ok == 1:
                     r = root_tab[root_new]
                     r += 1
@@ -1321,16 +1440,13 @@ class Key:
                     r += 1
 
 
-            while q !=' ' and q != '/' and q != '\0':
-                r = q
+            while gch[q] !=' ' and gch[q] != '/' and gch[q] != '\0':
+                r += q
                 q += 1
-                r += 1
-            if *q=='/':
-                r = *q
+            if gch[q] == '/':
+                r += gch[q]
                 q += 1
-                r += 1
-        r = '\0'
-        return gchtrans;
+        return r
 
     def append_key_change(self, gch):
         """
@@ -1381,7 +1497,6 @@ class Key:
                  f"shift by {add_t}")
 
         return sf_new, add_t
-    '''
 
     def is_tab_key(self):
         """
@@ -1464,21 +1579,14 @@ class Tempo:
         NotImplemented(self.tempo)
         return True
 
-
-    def write_tempo(self, fp, tempo: str, meter: Meter) -> None:
-        # char *r, *q
-        # char text[STRLINFO]
-        # int top,bot,value,len,i,err,fac,dig,div
-        # struct SYMBOL s
-        # float stem,dotx,doty,sc,dx
-
+    def write_tempo(self, fp, meter: Meter) -> None:
         log.error(f"write tempo <{self.tempo}>")
         font.set_font(fp, cfmt.tempofont, False)
         fp.write(" 18 0 M\n")
-        t = tempo
+        t = self.tempo
         r = 0
-        while r < len(t):
-            while t[r] ==' ':
+        while len(t) > r:
+            while t[r] == ' ':
                 r += 1   # skip blanks
             if t[r] =='\0':
                 break
@@ -1504,11 +1612,11 @@ class Tempo:
                 value = 0
                 i = 0
                 while i < len(q):
-                    len = constants.QUARTER
+                    dlen = constants.QUARTER
                     if '=' in q:
                         if q[i] == 'C' or q[i] == 'c':
                             i += 1
-                            len = meter.dlen
+                            dlen = meter.dlen
                             div = False
                             if q == '/':
                                 div = True
@@ -1522,12 +1630,12 @@ class Tempo:
                             if div:
                                 if fac == 0:
                                     fac = 2
-                                if len % fac:
+                                if dlen % fac:
                                     log.error(f"Bad length divisor in tempo: {q}")
-                                len = len/fac
+                                dlen = dlen/fac
                             else:
                                 if fac > 0:
-                                    len = len*fac
+                                    dlen = dlen*fac
                             if q[i] != '=':
                                 err = True
                             i += 1
@@ -1539,7 +1647,7 @@ class Tempo:
                             f, value = t.split('=', 1)
                             top, bot = f.split('/')
                             # sscanf(q,"%d/%d=%d", &top,&bot,&value)
-                            len = constants.BASE*top/bot
+                            dlen = constants.BASE*top/bot
                         else:
                             err = True
                     else:
@@ -1551,7 +1659,7 @@ class Tempo:
                     log.error(f"+++ invalid tempo specifier: {q[i:]}")
                 else:
                     s = symbol.Symbol()
-                    s.len = len
+                    # s.len = dlen
                     symbol.Note().identify_note(s, q)
                     sc = 0.55*cfmt.tempofont.size/10.0
                     fp.write(f"gsave {sc:.2f} {sc:.2f} scale 15 3 rmoveto currentpoint\n")
@@ -1857,7 +1965,7 @@ class Field:
                 return
             if common.do_this_tune and common.within_tune:
                 music.output_music(fp)
-                subs.write_parts(fp)
+                self.parts.write_parts(fp)
             return
 
         elif isinstance(i_type, Voice):
@@ -1922,12 +2030,12 @@ class Field:
         elif isinstance(t_type, DefaultLength):
             self.default_note_length(common.voices[common.ivc].meter.dlen)
         elif isinstance(t_type, Key):
-            oldkey = common.voices[common.ivc].key
-            rc = self.key(common.voices[common.ivc].key, 0)
+            old_key = common.voices[common.ivc].key
+            rc = self.key(common.voices[common.ivc].key, False)
             if rc:
                 self.key.set_transtab(self.key.halftones,
                                       common.voices[common.ivc].key)
-            self.key.append_key_change(oldkey, common.voices[common.ivc].key)
+            self.key.append_key_change(old_key, common.voices[common.ivc].key)
         elif isinstance(t_type, Voice):
             common.ivc = self.voice.switch_voice(common.lvoiceid)
 
@@ -2007,11 +2115,11 @@ class Field:
 
         # write tempo and parts
         if self.parts.parts or self.tempo.tempo:
-            printtempo = len(self.tempo.tempo) > 0
-            if printtempo and self.tempo.tempo_is_metronomemark() and cfmt.printmetronome:
-                printtempo = False
+            print_tempo = len(self.tempo.tempo) > 0
+            if print_tempo and self.tempo.tempo_is_metronomemark() and cfmt.printmetronome:
+                print_tempo = False
 
-            if printtempo:
+            if print_tempo:
                 common.bskip(fp, -0.2*constants.CM)
                 fp.write(f" {cfmt.indent*cfmt.scale:.2f} 0 T ")
                 self.tempo.write_tempo(fp)
@@ -2026,7 +2134,7 @@ class Field:
                 fp.write(") rshow\n")
                 common.bskip(fp, cfmt.partsspace)
 
-            if printtempo:
+            if print_tempo:
                 common.bskip(fp, cfmt.tempofont.size+0.3*constants.CM)
 
 #

@@ -471,65 +471,7 @@ def write_text_block(fp, job: int, words_of_text='') -> None:
     common.page_init = ""
 
 
-# def put_words(fp):
-#
-#     # int i,nw,n
-#     # char str[81]
-#     # char *p,*q
-#
-#     cfmt.wordsfont.set_font(fp, False)
-#     cfmt.wordsfont.set_font_str(common.page_init)
-#
-#     n=0
-#     for i in range(ntext):
-#         if text_type[i] == TEXT_W:
-#             n += 1
-#     if not n:
-#         return
-#
-#     bskip(cfmt.wordsspace)
-#     for i in range(ntext):
-#         if text_type[i] == TEXT_W:
-#             bskip(cfmt.lineskipfac*cfmt.wordsfont.size)
-#             p=text[i][0]
-#             q=str[0]
-#             if text[i][0].isdigit():
-#                 while(*p != '\0') {
-#                     *q=*p
-#                     q++
-#                     p++
-#                     if(*p==' ') break
-#                     if(*(p-1)==':') break
-#                     if(*(p-1)=='.') break
-#                 }
-#                 if(*p==' ') p++
-#             }
-#             *q='\0'
-#
-#             # permit page break at empty lines or stanza start
-#             nw=nwords(text[i])
-#             if((nw==0) ||(strlen(str)>0)) buffer_eob(fp)
-#
-#             if(nw>0) {
-#                 if(strlen(str)>0) {
-#                     put("45 0 M(")
-#                     put_str(str)
-#                     put(") lshow\n")
-#                 }
-#                 if(strlen(p)>0) {
-#                     PUT0("50 0 M(")
-#                     put_str(p)
-#                     PUT0(") rshow\n")
-#                 }
-#             }
-#         }
-#     }
-#
-#     buffer_eob(fp)
-#     strcpy(page_init,"")
-#
-# }
-#
+
 # # ----- put_text -------
 # void put_text(fp, int type, char *str)
 # {
@@ -552,82 +494,6 @@ def write_text_block(fp, job: int, words_of_text='') -> None:
 #     buffer_eob(fp);
 #
 # }
-#
-# # ----- put_history -------
-# void put_history(FILE *fp)
-# {
-#     int i,ok
-#     float baseskip,parskip
-#
-#     set_font(fp, cfmt.textfont,0)
-#     cfmt.textfont.set_font_str(page_init)
-#     baseskip = cfmt.textfont.size * cfmt.lineskipfac
-#     parskip = cfmt.textfont.size * cfmt.parskipfac
-#
-#     bskip(cfmt.textspace)
-#
-#     if(strlen(info.rhyth)>0) {
-#         bskip(baseskip);
-#         PUT0("0 0 M(Rhythm: ")
-#         put_str(info.rhyth)
-#         PUT0(") show\n")
-#         bskip(parskip)
-#     }
-#
-#     if(strlen(info.book)>0) {
-#         bskip(0.5*CM);
-#         PUT0("0 0 M(Book: ")
-#         put_str(info.book)
-#         PUT0(") show\n")
-#         bskip(parskip)
-#     }
-#
-#     if(strlen(info.src)>0) {
-#         bskip(0.5*CM);
-#         PUT0("0 0 M(Source: ")
-#         put_str(info.src)
-#         PUT0(") show\n")
-#         bskip(parskip)
-#     }
-#
-#     put_text(fp, TEXT_D, "Discography: ")
-#     put_text(fp, TEXT_N, "Notes: ")
-#     put_text(fp, TEXT_Z, "Transcription: ")
-#
-#     ok=0
-#     for(i=0;i<ntext;i++) {
-#         if(text_type[i]==TEXT_H) {
-#             bskip(0.5*CM);
-#             PUT0("0 0 M(")
-#             put_str(text[i])
-#             PUT0(") show\n")
-#             ok=1
-#         }
-#     }
-#     if(ok) bskip(parskip)
-#     buffer_eob(fp)
-#     strcpy(page_init,"")
-#
-# }
-
-
-
-
-#
-# /* ----- add_text ---- */
-# void add_text (char *str, int type)
-# {
-#   if (not do_output) { return; }
-#   if (ntext>=NTEXT) {
-#       std::cerr << "No more room for text line <" << str << ">\n";
-#       return;
-#   }
-#   strcpy (text[ntext], str);
-#   text_type[ntext]=type;
-#   ntext++;
-# }
-#
-#
 
 
 
