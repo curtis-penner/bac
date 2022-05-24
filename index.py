@@ -197,5 +197,12 @@ def close_index_page(fp) -> None:
     fp.write("\n%%PageTrailer\ngrestore\nshowpage\n")
 
 
+def close_index_file(fp):
+    log.info("Close index file")
+    close_index_page(fp)
+    fp.close()
+
+
+
 if __name__ == '__main__':
     ind = Index()

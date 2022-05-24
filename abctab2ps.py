@@ -20,11 +20,116 @@ from constants import DEFVOICE
 from constants import OBEYLINES, OBEYRIGHT, OBEYCENTER, ALIGN, SKIP, RAGGED
 from log import log
 
+cfmt = common.cfmt
+
 
 def signal_handler():
     """ signal handler for premature termination """
     log.critical('could not install signal handler for SIGTERM and SIGINT')
     exit(130)
+
+
+
+def write_text_block(fp, job: int, words_of_text='') -> None:
+    if not words_of_text:
+        return
+
+    baseskip = cfmt.textfont.size * cfmt.lineskipfac
+    parskip = cfmt.textfont.size * cfmt.parskipfac
+    cfmt.textfont.set_font_str(common.page_init)
+
+    swfac = set_swfac(cfmt.textfont.name)
+
+    # Now this is stupid. All that work to just set it to 1.0
+
+    spw = util.cwid(' ')
+    put("/LF \{0 "
+        f"{-baseskip:.1f}"
+        " rmoveto} bind def\n")
+
+    # output by pieces, separate at newline token
+    ntxt = len(words_of_text)
+    i1 = 0
+    while i1 < ntxt:
+        i2 = -1
+        for i in range(i1, ntxt):
+            if words_of_text[i] == '$$NL$$':
+                i2 = i
+                break
+        if i2 == -1:
+            i2 = ntxt
+        common.bskip(fp, baseskip)
+
+        if job == OBEYLINES:
+            put("0 0 M(")
+            for i in range(i1, i2):
+                line, wwidth = tex_str(words_of_text[i])
+                put(f"{line} ")
+            put(") rshow\n")
+
+        elif job == OBEYCENTER:
+            put(f"{cfmt.staff_width / 2:.1f} 0 M(")
+            for i in range(i1, i2):
+                line, wwidth = tex_str(words_of_text[i])
+                put(f"{line}")
+                if i<i2-1:
+                    put(" ")
+            put(") cshow\n")
+
+        elif job == OBEYRIGHT:
+            put(f"{cfmt.staff_width:.1f} 0 M(")
+            for i in range(i1, i2):
+                line, wwidth = tex_str(words_of_text[i])
+                put(f"{line}")
+                if i<i2-1:
+                    put(" ")
+            put(") lshow\n")
+
+        else:
+            put("0 0 M mark\n")
+            nc = 0
+            mc = -1
+            wtot = -spw
+            for i in range(i2-1, i1, -1):
+                line, wwidth = tex_str(words_of_text[i])
+                mc += len(words_of_text)
+                wtot += wwidth+spw
+                nc += len(line)+2
+                if nc >= 72:
+                    nc = 0
+                    put("\n")
+                put(f"({line})")
+                if job == RAGGED:
+                    put(" %.1f P1\n", cfmt.staff_width)
+                else:
+                    put(" %.1f P2\n", cfmt.staff_width)
+                    # first estimate:(total textwidth)/(available width)
+                    textwidth=wtot*swfac*cfmt.textfont.size
+            if "Courier" in cfmt.textfont.name:
+                textwidth = 0.60 * mc * cfmt.textfont.size
+            ftline0 = textwidth / cfmt.staff_width
+            # revised estimate: assume some chars lost at each line end
+            nbreak = int(ftline0)
+            textwidth = textwidth + 5 * nbreak * util.cwid('a') * swfac * cfmt.textfont.size
+            ftline = textwidth/cfmt.staff_width
+            ntline = (int)(ftline+1.0)
+            if common.vb >= 10:
+                print(f"first estimate {ftline0:.2f}, revised {ftline:.2f}")
+            if common.vb >= 10:
+                print(f"Output {i2-i1} words, about {ftline:.2f} lines(fac {swfac:.2f})")
+            bskip((ntline-1)*baseskip)
+
+        buffer.buffer_eob(fp)
+        # next line to allow pagebreak after each text "line"
+        # if(!epsf && !within_tune) write_buffer(fp);
+        i1=i2+1
+    bskip(parskip)
+    buffer.buffer_eob(fp)
+    # next line to allow pagebreak after each paragraph
+    if not common.epsf and not common.within_tune:
+        buffer.write_buffer(fp)
+    common.page_init = ""
+
 
 
 def process_text_block(fp_in, fp, job: bool) -> None:

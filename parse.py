@@ -1507,6 +1507,12 @@ def is_selected(xref_str: str, pat: list, select_all: bool, search_field: int) -
     return False
 
 
+def is_xrefstr(xrefstr: str) -> bool:
+    """ check if string ok for xref selection
+    This will end up in info.XRef class"""
+    return xrefstr.isdigit() and int(xrefstr) != 0
+
+
 def rehash_selectors(sel_str: list[str]) -> tuple:
     """
     split selectors into patterns and xrefs

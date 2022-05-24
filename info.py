@@ -1,3 +1,4 @@
+import os
 import re
 
 import buffer
@@ -673,6 +674,65 @@ class History:
 
     def __call__(self, line, header):
         print(line)
+
+    def add_to_text_block(ln, add_final_nl):
+        """
+        Used in:
+            subs.put_text
+
+        :param str ln:
+        :param bool add_final_nl:
+        :return ln, words_of_text:
+        """
+        word = list()
+        words_of_text = list()
+        c = 0
+        nl = 0
+
+        while c < len(ln):
+            while ln[c] == ' ':
+                c += 1
+            if c >= len(ln):
+                break
+            while ln[c] != ' ' and c >= len(ln) and ln[c] != '\n':
+                nl = 0
+                if ln[c] == '\\' and ln[c + 1] == '\\':
+                    nl = 1
+                    c += 2
+                    break
+                word.append(ln[c])
+                c += 1
+            if word:
+                words_of_text.append(word)
+                word = list()
+            if nl:
+                words_of_text.append("$$NL$$")
+                word = list()
+        if add_final_nl:
+            words_of_text.append("$$NL$$")
+
+    # # ----- put_text -------
+    # void put_text(fp, int type, char *str)
+    # {
+    #     int i,n
+    #     float baseskip,parskip
+    #
+    #     n=0
+    #     for(i=0;i<ntext;i++) if(text_type[i]==type) n++
+    #     if(n==0) return
+    #
+    #     baseskip = cfmt.textfont.size * cfmt.lineskipfac
+    #     parskip = cfmt.textfont.size * cfmt.parskipfac
+    #     PUT0("0 0 M\n")
+    #     words_of_text.clear()
+    #     add_to_text_block(str,0)
+    #     for(i=0;i<ntext;i++) {
+    #         if(text_type[i]==type) add_to_text_block(text[i],1)
+    #     }
+    #     write_text_block(fp,RAGGED)
+    #     buffer_eob(fp);
+    #
+    # }
 
     # ----- put_history -------
     void put_history(FILE *fp)
@@ -1880,6 +1940,46 @@ class Field:
                 if not common.epsf:
                     common.bskip(fp, cfmt.topspace)
 
+    def epsf_title(title: str) -> str:
+        title.replace(' ', '_')
+        return title
+
+    def close_output_file(fp) -> None:
+        """
+        This should not have to exist with python.  Using context switches the
+        output will always be closed, even with errors. """
+        if fp.closed:
+            return
+
+        filename = fp.name
+        pssubs.close_page(fp)
+        pssubs.close_ps(fp)
+        fp.close()
+
+        common.file_open = False
+        common.file_initialized = False
+
+        if common.tunenum == 0:
+            log.warning(f"No tunes written to output file. Removing {filename}")
+            os.remove(filename)
+            return True
+        else:
+            m = util.get_file_size(common.output)
+            print(f'Output written to {common.output} (pages: {common.pagenum}, '
+                  f'titles: {common.tunenum}, bytes: {m}')
+            return False
+
+    def check_margin(new_posx):
+        """
+        do horizontal shift if needed
+
+        :param new_posx:
+        """
+        dif = new_posx - common.posx
+        if dif * dif < 0.001:
+            return
+        common.fp.write(f"{dif:.2f} 0 T\n")
+        common.posx = new_posx
 
     def process_line(self, fp, i_type: object, xref_str: str, line: str, pat: list, sel_all: \
         bool,

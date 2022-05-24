@@ -1311,7 +1311,197 @@ def print_vsyms():
 #         return height;
 #     }
 # }
-#
+
+
+def tex_str(line) -> tuple:    # tex_str(const char *str, string *s, float *wid)
+    """
+    change string to take care of some tex-style codes
+
+    Puts \ in front of ( and ) in case brackets are not balanced,
+    interprets some TeX-type strings using ISOLatin1 encodings.
+    Returns the length of the string as finally given out on paper.
+    Also returns an estimate of the string width...
+
+    :param line:
+    :return tuple: s, w
+    """
+    s = list()
+    n = 0
+    w = 0
+    c = 0
+    while c < len(line):
+        if line[c] == '(' or line[c] == ')':   #( ) becomes \( \)
+            t = "\\" + line[c]
+            s.append(t)
+            w += util.cwid('(')
+            n += 1
+
+        elif line[c] == '\\':   # backslash
+            # sequences
+            c += 1
+            if line[c] == '\0': break
+            add = 0
+            # accented vowels
+            if line[c] == '`':
+                add=1
+            if line[c] == '\'':
+                add=2
+            if line[c] == '^':
+                add=3
+            if line[c] == '"':
+                add=4
+            if add:
+                c += 1
+                base = 0
+                if line[c] == 'a':
+                    base=340
+                    if add == 4:
+                        add=5
+                if line[c] == 'e':
+                    base=350
+                if line[c] == 'i':
+                    base=354
+                if line[c] == 'o':
+                    base=362
+                    if add == 4:
+                        add=5
+                if line[c] == 'u':
+                    base=371
+                if line[c] == 'A':
+                    base=300
+                    if add == 4:
+                        add=5
+                if line[c] == 'E':
+                    base=310
+                if line[c] == 'I':
+                    base=314
+                if line[c] == 'O':
+                    base=322
+                    if add == 4:
+                        add=5
+                if line[c] == 'U':
+                    base=331
+                w += util.cwid(line[c])
+                if base:
+                    t = "\\%d" % (base+add-1)
+                    s.append(t)
+                    n += 1
+                else:
+                    t = "%c" % line[c]
+                    s.append(t)
+                    n += 1
+
+            elif line[c] == '#':
+                # sharp sign
+                s.append("\201")
+                w += util.cwid('\201')
+                n += 1
+            elif line[c] == 'b':
+                # flat sign
+                s.append("\202")
+                w += util.cwid('\202')
+                n += 1
+            elif line[c] == '=':
+                # natural sign
+                s.append("\203")
+                w += util.cwid('\203')
+                n += 1
+            elif line[c] == ' ':
+                # \-space
+                s.append(" ")
+                w += util.cwid(' ')
+                n += 1
+
+            elif line[c] == 'O': # O-slash
+                s.append("\\330")
+                w += util.cwid('O')
+                n += 1
+
+            elif line[c] == 'o':  # o-slash
+                s.append("\\370")
+                w += util.cwid('O')
+                n += 1
+
+            elif line[c] == 's' and line[c+1] =='s':      # sz
+                c += 1
+                s.append("\\337")
+                w += util.cwid('s')
+                n += 1
+            elif line[c] == 'a' and line[c+1] == 'a':     # a-ring
+                c += 1
+                s.append("\\345")
+                w += util.cwid('a')
+                n += 1
+            elif line[c] == 'A' and line[c+1] == 'A':     # A-ring
+                c += 1
+                s.append("\\305")
+                w += util.cwid('A')
+                n += 1
+            elif line[c] == 'a' and line[c+1] == 'e':      # ae
+                c += 1
+                s.append("\\346")
+                w += 1.5 * util.cwid('a')
+                n += 1
+            elif line[c] == 'A' and line[c+1] =='E':      # AE
+                c += 1
+                s.append("\\306")
+                w += 1.5 * util.cwid('A')
+                n += 1
+            elif line[c] == 'c':          # c-cedilla
+                c += 1
+                w += util.cwid(line[c])
+                if line[c] == 'C':
+                    s.append("\\307")
+                n += 1
+            elif line[c] == 'c':
+                s.append("\\347")
+                n += 1
+            else:
+                t = "%c" % line[c]
+                s.append(t)
+                n += 1
+
+        elif line[c] == '~':
+            # n-twiddle
+            if line[c+1]:
+                c += 1
+                w += util.cwid(line[c])
+                if line[c] == 'N':
+                    s.append("\\321")
+                    n += 1
+                elif line[c] == 'n':
+                    s.append("\\361")
+                    n += 1
+                else:
+                    t = "~%c" % line[c]
+                    s.append(t)
+                    n += 1
+            else:
+                w += util.cwid('~')
+                s.append("~")
+                n += 1
+        else:    #
+            # \-something-else
+            # pass through
+            t = "\\%c" % line[c]
+            s.append(t)
+            w += util.cwid('A')
+            n += 1
+        if line[c] == '{':
+            pass
+
+        elif line[c] == '}':
+            pass
+        else:      # other
+            # characters: pass though
+            t = "%c" % line[c]
+            s.append(t)
+            n += 1
+            w += util.cwid(line[c])
+        c += 1
+    return s, w
+
+
 # # ----- set_sym_widths: set widths and prefered space ---
 # # This routine sets the minimal left and right widths wl,wr
 #      so that successive symbols are still separated when
