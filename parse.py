@@ -356,56 +356,7 @@ def info_field(s: str) -> bool:
 
 
 
-# # ----- append_key_change: append change of key to sym list ------
-# void append_key_change(struct KEYSTR oldkey, struct KEYSTR newkey)
-# {
-#         int n1,n2,t1,t2,kk
-#
-#         n1=oldkey.sf
-#         t1=A_SH
-#         if n1<0) { n1=-n1; t1=A_FT; }
-#         n2=newkey.sf
-#         t2=A_SH
-#
-#         if newkey.ktype != oldkey.ktype) {            # clef change
-#                 kk=add_sym(CLEF)
-#                 voices[ivc].syms[kk].u=newkey.ktype
-#                 voices[ivc].syms[kk].v=1
-#         }
-#
-#         if n2<0) { n2=-n2; t2=A_FT; }
-#         if t1 == t2) {                            # here if old and new have same type
-#                 if n2>n1) {                                 # more new symbols ..
-#                         kk=add_sym(KEYSIG);                # draw all of them
-#                         voices[ivc].syms[kk].u=1
-#                         voices[ivc].syms[kk].v=n2
-#                         voices[ivc].syms[kk].w=100
-#                         voices[ivc].syms[kk].t=t1
-#                 }
-#                 elif n2<n1) {                        # less new symbols ..
-#                         kk=add_sym(KEYSIG);                    # draw all new symbols and neutrals
-#                         voices[ivc].syms[kk].u=1
-#                         voices[ivc].syms[kk].v=n1
-#                         voices[ivc].syms[kk].w=n2+1
-#                         voices[ivc].syms[kk].t=t2
-#                 }
-#                 else return
-#         }
-#         else {                                         # here for change s->f or f->s
-#                 kk=add_sym(KEYSIG);                    # neutralize all old symbols
-#                 voices[ivc].syms[kk].u=1
-#                 voices[ivc].syms[kk].v=n1
-#                 voices[ivc].syms[kk].w=1
-#                 voices[ivc].syms[kk].t=t1
-#                 kk=add_sym(KEYSIG);                    # add all new symbols
-#                 voices[ivc].syms[kk].u=1
-#                 voices[ivc].syms[kk].v=n2
-#                 voices[ivc].syms[kk].w=100
-#                 voices[ivc].syms[kk].t=t2
-#         }
-#
-# }
-#
+
 #
 #
 # # ----- numeric_pitch ------
@@ -427,31 +378,7 @@ def info_field(s: str) -> bool:
 #         return(0)
 # }
 #
-# # ----- symbolic_pitch: translate numeric pitch back to symbol ------
-# int symbolic_pitch(int pit, char *str)
-# {
-#         int    p,r,s
-#         char ltab1[7] = {'C','D','E','F','G','A','B'}
-#         char ltab2[7] = {'c','d','e','f','g','a','b'}
-#
-#         p=pit-16
-#         r=(p+700)%7
-#         s=(p-r)/7
-#
-#         if p<7) {
-#                 sprintf (str,"%c,,,,,",ltab1[r])
-#                 str[1-s]='\0'
-#         }
-#         else {
-# '''
-# """
-#                 sprintf (str,"%c'''''",ltab2[r])
-#                 str[s]='\0'
-# """
-# '''
-#         }
-#         return 0
-# }
+
 
 
 def parse_uint(p) -> int:

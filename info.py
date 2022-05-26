@@ -4,7 +4,6 @@ import re
 import buffer
 import constants
 import music
-import subs
 import pssubs
 from log import log
 import symbol
@@ -607,8 +606,9 @@ class Words:
             if t_type == constants.TEXT_W:
                 common.bskip(fp, cfmt.lineskipfac*cfmt.wordsfont.size)
                 p = text[i][0]
-                q  =str[0]   # what is str
+                q = s[0]   # what is str
                 if text[i][0].isdigit():
+                    p = 0
                     while(*p != '\0') {
                         *q=*p
                         q++
@@ -619,25 +619,26 @@ class Words:
                     }
                     if(*p==' ') p++
                 }
-                *q='\0'
+                q = '\0'
 
                 # permit page break at empty lines or stanza start
                 nw = nwords(text[i])
-                if((nw==0) ||(strlen(str)>0)) buffer_eob(fp)
+                if not nw or s:
+                    buffer.buffer_eob(fp)
 
-                if (nw>0) {
-                    if (strlen(str)>0) {
-                        put("45 0 M(")
-                        put_str(str)
-                        put(") lshow\n")
+                if nw:
+                    if s:
+                        fp.write("45 0 M(")
+                        fp.write(s)
+                        fp.write(") lshow\n")
 
-                    if(strlen(p)>0) {
-                        PUT0("50 0 M(")
-                        put_str(p)
-                        PUT0(") rshow\n")
+                    if p:
+                        fp.write("50 0 M(")
+                        fp.write(p)
+                        fp.write(") rshow\n")
 
-        buffer_eob(fp)
-        strcpy(page_init,"")
+        buffer.buffer_eob(fp)
+        page_init = ""
 
 
     def add_text(self, s: str, i_type: int) -> None:
@@ -723,7 +724,7 @@ class History:
     #
     #     baseskip = cfmt.textfont.size * cfmt.lineskipfac
     #     parskip = cfmt.textfont.size * cfmt.parskipfac
-    #     PUT0("0 0 M\n")
+    #     fp.write("0 0 M\n")
     #     words_of_text.clear()
     #     add_to_text_block(str,0)
     #     for(i=0;i<ntext;i++) {
@@ -749,25 +750,25 @@ class History:
 
         if(strlen(info.rhyth)>0) {
             bskip(baseskip);
-            PUT0("0 0 M(Rhythm: ")
-            put_str(info.rhyth)
-            PUT0(") show\n")
+            fp.write("0 0 M(Rhythm: ")
+            fp.write(info.rhyth)
+            fp.write(") show\n")
             bskip(parskip)
         }
 
         if(strlen(info.book)>0) {
             bskip(0.5*CM);
-            PUT0("0 0 M(Book: ")
-            put_str(info.book)
-            PUT0(") show\n")
+            fp.write("0 0 M(Book: ")
+            fp.write(info.book)
+            fp.write(") show\n")
             bskip(parskip)
         }
 
         if(strlen(info.src)>0) {
             bskip(0.5*CM);
-            PUT0("0 0 M(Source: ")
-            put_str(info.src)
-            PUT0(") show\n")
+            fp.write("0 0 M(Source: ")
+            fp.write(info.src)
+            fp.write(") show\n")
             bskip(parskip)
         }
 
@@ -779,9 +780,9 @@ class History:
         for(i=0;i<ntext;i++) {
             if(text_type[i]==TEXT_H) {
                 bskip(0.5*CM);
-                PUT0("0 0 M(")
-                put_str(text[i])
-                PUT0(") show\n")
+                fp.write("0 0 M(")
+                fp.write(text[i])
+                fp.write(") show\n")
                 ok=1
             }
         }
@@ -1508,11 +1509,55 @@ class Key:
                 q += 1
         return r
 
-    def append_key_change(self, gch):
-        """
-        :param int gch:
-        """
-        print(gch)
+    def append_key_change(oldkey, newkey) -> None:
+        """ append change of key to sym list """
+        n1 = oldkey.sf
+        t1 = Key.A_SH
+        if n1 < 0:
+            n1 = -n1
+            t1 = Key.A_FT
+        n2 = newkey.sf
+        t2 = Key.A_SH
+
+        if newkey.ktype != oldkey.ktype:            # clef change
+                kk = add_sym(CLEF)
+                voices[ivc].syms[kk].u=newkey.ktype
+                voices[ivc].syms[kk].v=1
+        }
+    #
+    #         if n2<0) { n2=-n2; t2=A_FT; }
+    #         if t1 == t2) {                            # here if old and new have same type
+    #                 if n2>n1) {                                 # more new symbols ..
+    #                         kk=add_sym(KEYSIG);                # draw all of them
+    #                         voices[ivc].syms[kk].u=1
+    #                         voices[ivc].syms[kk].v=n2
+    #                         voices[ivc].syms[kk].w=100
+    #                         voices[ivc].syms[kk].t=t1
+    #                 }
+    #                 elif n2<n1) {                        # less new symbols ..
+    #                         kk=add_sym(KEYSIG);                    # draw all new symbols and neutrals
+    #                         voices[ivc].syms[kk].u=1
+    #                         voices[ivc].syms[kk].v=n1
+    #                         voices[ivc].syms[kk].w=n2+1
+    #                         voices[ivc].syms[kk].t=t2
+    #                 }
+    #                 else return
+    #         }
+    #         else {                                         # here for change s->f or f->s
+    #                 kk=add_sym(KEYSIG);                    # neutralize all old symbols
+    #                 voices[ivc].syms[kk].u=1
+    #                 voices[ivc].syms[kk].v=n1
+    #                 voices[ivc].syms[kk].w=1
+    #                 voices[ivc].syms[kk].t=t1
+    #                 kk=add_sym(KEYSIG);                    # add all new symbols
+    #                 voices[ivc].syms[kk].u=1
+    #                 voices[ivc].syms[kk].v=n2
+    #                 voices[ivc].syms[kk].w=100
+    #                 voices[ivc].syms[kk].t=t2
+    #         }
+    #
+    # }
+    #
 
     @staticmethod
     def shift_key(sf_old, nht):
@@ -1755,12 +1800,12 @@ class Tempo:
                     dx = (dx+18)*sc
                     fp.write(f" grestore {dx:.2f} 0 rmoveto ( = {value}) rshow\n")
 
-    def tempo_is_metronomemark(self, tempostr: str) -> bool:
+    def tempo_is_metronomemark(self) -> bool:
         """ checks whether a tempostring is a metronome mark("1/4=100")
         or a verbose text(eg. "Andante"). In abc, verbose tempo texts
         must start with double quotes """
         p: str = ''
-        for p in tempostr:
+        for p in self.tempo:
             if p.isspace():
                 continue
             if p == '"':
@@ -2185,7 +2230,7 @@ class Field:
         # write composer, origin
         if self.composer.composers or self.origin.line:
             font.set_font(fp, cfmt.composerfont, False)
-            common.bskip(cfmt.composerspace)
+            common.bskip(fp, cfmt.composerspace)
             ncl: int = len(self.composer.composers)
             if self.origin and not self.composer.composers:
                 ncl = 1
@@ -2222,7 +2267,7 @@ class Field:
             if print_tempo:
                 common.bskip(fp, -0.2*constants.CM)
                 fp.write(f" {cfmt.indent*cfmt.scale:.2f} 0 T ")
-                self.tempo.write_tempo(fp)
+                self.tempo.write_tempo(fp, common.voices[common.ivc].meter)
                 fp.write(f" {-cfmt.indent*cfmt.scale:.2f} 0 T ")
                 common.bskip(fp, -cfmt.tempofont.size)
 

@@ -491,3 +491,29 @@ def set_xpwid(xp):
 
     :return:
     """
+
+# # ----- symbolic_pitch: translate numeric pitch back to symbol ------
+# int symbolic_pitch(int pit, char *str)
+# {
+#         int    p,r,s
+#         char ltab1[7] = {'C','D','E','F','G','A','B'}
+#         char ltab2[7] = {'c','d','e','f','g','a','b'}
+#
+#         p=pit-16
+#         r=(p+700)%7
+#         s=(p-r)/7
+#
+#         if p<7) {
+#                 sprintf (str,"%c,,,,,",ltab1[r])
+#                 str[1-s]='\0'
+#         }
+#         else {
+# '''
+# """
+#                 sprintf (str,"%c'''''",ltab2[r])
+#                 str[s]='\0'
+# """
+# '''
+#         }
+#         return 0
+# }
