@@ -137,12 +137,9 @@ def getline(fp):
     return '', False
 
 
-def nwords(s):
+def nwords(s: str) -> int:
     """
     count words in string
-    
-    :param str s:
-    :return int:
     """
     return len(s.split())
 

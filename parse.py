@@ -1499,7 +1499,7 @@ def do_index(filename, xref_str: str, pat: list, select_all: bool, search_field:
             common.number_of_titles = 0
             common.within_tune = False
             common.within_block = True
-            ntext = 0
+            common.ntext = 0
             break
             
         elif f_type == constants.KEY:

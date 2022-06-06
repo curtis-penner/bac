@@ -40,12 +40,7 @@ class Font:
         else:
             return f"{self.name} {self.size:.1f}"
 
-    def set_font(self, add_bracket=False):
-        """
-
-        :param add_bracket:
-        :return:
-        """
+    def set_font(self, add_bracket: bool =False) -> None:
         if self.name not in Font.names:
             font_index = Font.names.index(self.name)
 

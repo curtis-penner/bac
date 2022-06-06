@@ -1,6 +1,8 @@
+
 import os
 import re
 
+import abctab2ps
 import buffer
 import constants
 import music
@@ -8,18 +10,20 @@ import pssubs
 from log import log
 import symbol
 import format
+import util
 import parse
 from format import cfmt, font
 import common
+from common import voices, ivc
 import cmdline
 
 args = cmdline.options()
 
 
-# def is_info_field(s: str) -> bool:
-#     """ identify any type of info field
-#     |: at start of music line """
-#     return len(s) > 0 or not s[1] != ':' or s[0] == '|'
+def is_info_field(s: str) -> bool:
+    """ identify any type of info field
+    |: at start of music line """
+    return len(s) > 0 or not s[1] != ':' or s[0] == '|'
 
 
 def is_field(s: str) -> bool:
@@ -38,315 +42,6 @@ def end_of_filenames():
 def parse_info(line):
     f_key, f_value = line.split(':', 1)
     log.warning(f'key: {f_key}, value: {f_value}')
-
-
-class Voice:   # struct to characterize a v
-    """ Multi stave music
-    abctab2ps supports multi stave music (scores). There are two different
-    ways for the notation of scores. You can either define the different voices
-    in V: lines at the end of the header just before the first music line
-    and use inline V: references "[V:...]" to associate music lines with specific
-    voices, as in the following example:
-
-    X:1
-    T:Sonata II
-    C:B. Marcello, 1712
-    M:C
-    L:1/8
-    K:DDorian
-    %
-    V:F clef=treble    name=Flauto space=+5pt
-    V:B clef=bass      name=Basso
-    %
-    Q:"Adagio"
-    [V:F] ad fe/d/ eA z A | dd d/e/f/g/ aA z a |
-    [V:B] d2 d'2 ^c'2 =c'2 | =b2 _b2 aa/g/ fd |
-
-    Alternatively, you can write all music of a specific v immediately
-    after its v definition. In this notation the above example reads:
-
-    X:1
-    T:Sonata II
-    C:B. Marcello, 1712
-    M:C
-    L:1/8
-    K:DDorian
-    %
-    Q:"Adagio"
-    V:F clef=treble    name=Flauto space=+5pt
-    ad fe/d/ eA z A | dd d/e/f/g/ aA z a |
-    %
-    V:B clef=bass      name=Basso
-    d2 d'2 ^c'2 =c'2 | =b2 _b2 aa/g/ fd |
-    """
-    body: bool = False
-    header: bool = False
-
-    def __init__(self):
-        self.label: int = 0   # identifier string, eg. a number
-        self.name = ''   # full name of this v
-        self.sname = ''   # short name
-        self.meter = Meter()   # meter
-        self.meter0 = Meter()   # meter
-        self.meter1 = Meter()   # meter
-        self.key = Key()   # keysig
-        self.key0 = Key()   # keysig
-        self.key1 = Key()   # keysig
-        self.stems = 0   # +1 or -1 to force stem direction
-        self.staves = 0
-        self.brace = 0
-        self.bracket = 0
-        self.do_gch = 0   # 1 to output gchords for this v
-        self.sep = 0.0   # for space to next v below
-        self.syms = list()    # number of music
-        self.nsym = len(self.syms)
-        self.draw = False   # flag if want to draw this v
-        self.select = True   # flag if selected for output
-        self.insert_btype = constants.B_INVIS
-        self.insert_num = 0   # to split bars over linebreaks
-        self.insert_bnum = 0   # same for bar number
-        self.insert_space = 0.0   # space to insert after init syms
-        self.end_slur = 0   # for a-b slurs
-        self.insert_text = ''   # string over inserted barline
-        self.timeinit = 0.0   # carryover time between parts
-
-    def __call__(self, line: str, body: bool = False) -> None:
-        Voice.body = body
-        max_vc = 5
-        if len(common.voices) >= max_vc:
-            log.error("Too many voices; use -maxv to increase limit. "
-                      f"Its now {max_vc}")
-        self.switch_voice(line)
-        log.warning(f'Make new v with id "{self.label}"')
-
-    def add_sym(self, s_type) -> int:
-        """
-        Add an empty symbol instance to the syms list.
-        Returns index for new symbol at end of list. This may not be
-        necessary when using python.
-
-        :param str s_type:
-        """
-        sym = symbol.Symbol()
-        sym.type = s_type
-        self.syms.append(sym)
-        return len(self.syms)
-
-    @staticmethod
-    def find_voice(vc: str) -> bool:
-        """ return bool is a voice is in voices """
-        for voice in common.voices:
-            return vc == voice.label
-
-    # /* ----- find_voice ----- */
-    # int find_voice (char *vid, int *newv)
-    # {
-    #   int i;
-    #
-    #   for (i=0;i<nvoice;i++)
-    #     if (!strcmp(vid,v[i].id)) {
-    #       *newv=0;
-    #       return i;
-    #     }
-    #
-    #   i=nvoice;
-    #   if (i>=maxVc) {
-    #     realloc_structs(maxSyms,maxVc+allocVc);
-    #   }
-    #
-    #   strcpy(v[i].id,    vid);
-    #   strcpy(v[i].name,  "");
-    #   strcpy(v[i].sname, "");
-    #   v[i].meter = default_meter;
-    #   v[i].key   = default_key;
-    #   v[i].stems    = 0;
-    #   v[i].staves = v[i].brace = v[i].bracket = 0;
-    #   v[i].do_gch   = 1;
-    #   v[i].sep      = 0.0;
-    #   v[i].nsym     = 0;
-    #   v[i].select   = 1;
-    #   // new systems must start with invisible bar as anchor for barnumbers
-    #   //v[i].insert_btype = v[i].insert_num = 0;
-    #   //v[i].insert_bnum = 0;
-    #   v[i].insert_btype = B_INVIS;
-    #   v[i].insert_num = 0;
-    #   v[i].insert_bnum = barinit;
-    #   v[i].insert_space = 0.0;
-    #   v[i].end_slur = 0;
-    #   v[i].timeinit = 0.0;
-    #   strcpy(v[i].insert_text, "");
-    #   nvoice++;
-    #   if (verbose>5)
-    #     printf ("Make new v %d with id \"%s\"\n", i,v[i].id);
-    #   *newv=1;
-    #   return i;
-    #
-    # }
-
-    def switch_voice(self, line: str) -> bool:
-        """  read spec for a v, return v number
-        example of a string:
-
-         The syntax of a v definition is
-
-        V: <label> <par1>=<value1> <par2>=<value2>  ...
-
-        where <label> is used to switch to the v in later V: lines.
-        Each <par> = <value> pair sets one parameter for the current v.
-        <par> can be any of the following parameters or abbreviations:
-
-
-        :param line:
-        :return:
-        """
-
-        if not common.do_this_tune:
-            return False
-        if not line:
-            exit(0)
-        self.label, voice_fields = parse_voice(line)
-        for field in voice_fields:
-            if '=' not in field:
-                continue
-            else:
-                k, v = field.split('=')
-                if k == 'name' or k == 'nm':
-                    setattr(self, 'name', v)
-                elif k == 'sname' or k == 'snm':
-                    setattr(self, 'sname', v)
-                elif k == 'staves' or k == 'stv':
-                    setattr(self, 'staves', int(v))
-                elif k == 'brace' or k == 'brc':
-                    setattr(self, 'brace', int(v))
-                elif k == 'bracket' or k == 'brk':
-                    setattr(self, 'bracket', int(v))
-                elif k == 'gchords' or k == 'gch':
-                    setattr(self, 'do_gch', format.g_logv(v))
-                elif k == 'space' or k == 'spc':
-                    if not v.startswith(' ') or not v.startswith('-'):
-                        setattr(self, 'sep', format.g_unum(v) + 2000)
-                    else:
-                        setattr(self, k, format.g_unum(v))
-                    setattr(self, 'bracket', int(v))
-                elif k == 'clef' or k == 'cl':
-                    if not field.key.set_clef(v):
-                        log.error(f'Unknown clef in v spec: {v}')
-                elif k == 'strms' or k == 'stm':
-                    if v == 'up':
-                        setattr(self, k, 1)
-                    elif v == 'down':
-                        setattr(self, k, -1)
-                    elif v == 'free':
-                        setattr(self, k, 0)
-                    else:
-                        log.error(f'Unknown stem setting in v spec: {v}')
-                elif k == 'octave':
-                    pass   # ignore abc2midi parameter for compatibility
-                else:
-                    log.error(f'Unknown option in v spec: {k}')
-        common.voices.append(self)
-
-    #
-    # /* ----- switch_voice: read spec for a v, return v number ----- */
-    # int switch_voice (std::string str)
-    # {
-    #     int j,np,newv;
-    #     const char *r;
-    #     char *q;
-    #     char t1[STRLINFO],t2[STRLINFO];
-    #
-    #     if (!do_this_tune) return 0;
-    #
-    #     j=-1;
-    #
-    #     /* start loop over v options: parse t1=t2 */
-    #     r = str.c_str();
-    #     np=newv=0;
-    #     for (;;) {
-    #         while (isspace(*r)) r += 1;
-    #         if (*r=='\0') break;
-    #         strcpy(t1,"");
-    #         strcpy(t2,"");
-    #         q=t1;
-    #         while (!isspace(*r) && *r!='\0' && *r!='=') { *q=*r; r += 1; q++; }
-    #         *q='\0';
-    #         if (*r=='=') {
-    #             r += 1;
-    #             q=t2;
-    #             if (*r=='"') {
-    #                 r += 1;
-    #                 while (*r!='"' && *r!='\0') { *q=*r; r += 1; q++; }
-    #                 if (*r=='"') r += 1;
-    #             }
-    #             else {
-    #                 while (!isspace(*r) && *r!='\0') { *q=*r; r += 1; q++; }
-    #             }
-    #             *q='\0';
-    #         }
-    #         np++;
-    #
-    #         /* interpret the parsed option. First case is identifier. */
-    #         if (np==1) {
-    #             j=find_voice (t1,&newv);
-    #         } else {                         /* interpret option */
-    #             if (j<0) bug("j invalid in switch_voice", true);
-    #             if      (!strcmp(t1,"name")    || !strcmp(t1,"nm"))
-    #                 strcpy(v[j].name,  t2);
-    #
-    #             else if (!strcmp(t1,"sname")   || !strcmp(t1,"snm"))
-    #                 strcpy(v[j].sname, t2);
-    #
-    #             else if (!strcmp(t1,"staves")  || !strcmp(t1,"stv"))
-    #                 v[j].staves  = atoi(t2);
-    #
-    #             else if (!strcmp(t1,"brace")   || !strcmp(t1,"brc"))
-    #                 v[j].brace   = atoi(t2);
-    #
-    #             else if (!strcmp(t1,"bracket") || !strcmp(t1,"brk"))
-    #                 v[j].bracket = atoi(t2);
-    #
-    #             else if (!strcmp(t1,"gchords") || !strcmp(t1,"gch"))
-    #                 g_logv (str.c_str(),t2,&v[j].do_gch);
-    #
-    #             /* for sspace: add 2000 as flag if not incremental */
-    #             else if (!strcmp(t1,"space")   || !strcmp(t1,"spc")) {
-    #                 g_unum (str.c_str(),t2,&v[j].sep);
-    #                 if (t2[0]!='+' && t2[0]!='-') v[j].sep += 2000.0;
-    #             }
-    #
-    #             else if (!strcmp(t1,"clef")    || !strcmp(t1,"cl")) {
-    #                 if (!set_clef(t2,&v[j].key))
-    #                     std::cerr << "Unknown clef in v spec: " << t2 << std::endl;
-    #             }
-    #             else if (!strcmp(t1,"stems") || !strcmp(t1,"stm")) {
-    #                 if      (!strcmp(t2,"up"))    v[j].stems=1;
-    #                 else if (!strcmp(t2,"down"))  v[j].stems=-1;
-    #                 else if (!strcmp(t2,"free"))  v[j].stems=0;
-    #                 else std::cerr << "Unknown stem setting in v spec: " << t2 << std::endl;
-    #             }
-    #             else if (!strcmp(t1,"octave")) {
-    #                 ; /* ignore abc2midi parameter for compatibility */
-    #             }
-    #             else std::cerr << "Unknown option in v spec: " << t1 << std::endl;
-    #         }
-    #
-    #     }
-    #
-    #     /* if new v was initialized, save settings im meter0, key0 */
-    #     if (newv) {
-    #         v[j].meter0 = v[j].meter;
-    #         v[j].key0   = v[j].key;
-    #     }
-    #
-    #     if (verbose>7)
-    #         printf ("Switch to v %d  <%s> <%s> <%s>  clef=%d\n",
-    #                 j,v[j].id,v[j].name,v[j].sname,
-    #                 v[j].key.ktype);
-    #
-    #     nsym0=v[j].nsym;  /* set nsym0 to decide about eoln later.. ugly */
-    #     return j;
-    #
-    # }
 
 
 def parse_voice(line):
@@ -384,7 +79,7 @@ def parse_vocals(line: str) -> bool:
         return False
 
     # increase vocal line counter in first symbol of current line
-    common.voices[common.ivc].syms[common.nsym0].wlines += 1
+    voices[ivc].syms[common.nsym0].wlines += 1
     isym = common.nsym0 - 1
     p = line[2:].strip()
     c = 0
@@ -416,10 +111,10 @@ def parse_vocals(line: str) -> bool:
 
         if '|' in word:  # skip forward to next bar
             isym += 1
-            while common.voices[common.ivc].syms[isym].type != constants.BAR and \
-                    isym < common.voices[common.ivc].nsym:
+            while voices[ivc].syms[isym].type != constants.BAR and \
+                    isym < voices[ivc].nsym:
                 isym += 1
-            if isym >= len(common.voices[common.ivc].syms):
+            if isym >= len(voices[ivc].syms):
                 raise SyntaxError("Not enough bar lines for |", line)
         else:  # store word in next note
             w = 0
@@ -431,12 +126,12 @@ def parse_vocals(line: str) -> bool:
                 word = word.replace('\\', ' ')
                 w += 1
             isym += 1
-            while common.voices[common.ivc].sym[isym].type != constants.NOTE and \
-                    isym < common.voices[common.ivc].nsym:
+            while voices[ivc].sym[isym].type != constants.NOTE and \
+                    isym < voices[ivc].nsym:
                 isym += 1
-            if isym >= len(common.voices[common.ivc].nsym):
+            if isym >= len(voices[ivc].nsym):
                 SyntaxError("Not enough notes for words", line)
-            common.voices[common.ivc].sym[isym].wordp[common.nwline] = parse.add_wd(word)
+            voices[ivc].sym[isym].wordp[common.nwline] = parse.add_wd(word)
 
         if p[c] == '\0':
             break
@@ -502,7 +197,7 @@ class Titles:
             return
 
         common.bskip(fp, cfmt.subtitlefont.size + 0.2 * constants.CM)
-        font.set_font(fp, cfmt.subtitlefont, 0)
+        cfmt.subtitlefont.set_font(fp, False)
 
         if cfmt.titlecaps:
             t = self.titles[0].upper()
@@ -581,8 +276,7 @@ class Words:
     def __init__(self, appendable=False):
         self.appendable = appendable
         self.line = ''
-        self.text_type: list[str] = list()
-
+        self.text_type: list[int] = list()
 
     def __call__(self, line):
         if self.appendable:
@@ -590,39 +284,39 @@ class Words:
         else:
             self.line = line
 
-    def put_words(self, fp):
+    @staticmethod
+    def put_words(fp):
         cfmt.wordsfont.set_font(fp, False)
         cfmt.wordsfont.set_font_str(common.page_init)
 
-        n=0
-        for t_type in self.text_type:
-            if t_type == constants.TEXT_W:
+        n = 0
+        for i in range(common.ntext):
+            if common.text_type[i] == constants.TEXT_W:
                 n += 1
         if not n:
             return
 
         common.bskip(fp, cfmt.wordsspace)
-        for t_type in self.text_type:
-            if t_type == constants.TEXT_W:
+        for i in range(common.ntext):
+            if common.text_type == constants.TEXT_W:
                 common.bskip(fp, cfmt.lineskipfac*cfmt.wordsfont.size)
-                p = text[i][0]
-                q = s[0]   # what is str
-                if text[i][0].isdigit():
-                    p = 0
-                    while(*p != '\0') {
-                        *q=*p
-                        q++
-                        p++
-                        if(*p==' ') break
-                        if(*(p-1)==':') break
-                        if(*(p-1)=='.') break
-                    }
-                    if(*p==' ') p++
-                }
-                q = '\0'
+                ct = common.text[i]
+                p = 0
+                s: str = ''   # what is str
+                if common.text[i][0].isdigit():
+                    while ct[p] != '\0':
+                        s += ct[p]
+                        if ct[p] == ' ':
+                            break
+                        if ct[p-1] == ':':
+                            break
+                        if ct[p-1] == '.':
+                            break
+                    if ct[p] == ' ':
+                        p += 1
 
                 # permit page break at empty lines or stanza start
-                nw = nwords(text[i])
+                nw = util.nwords(common.text[i])
                 if not nw or s:
                     buffer.buffer_eob(fp)
 
@@ -632,25 +326,23 @@ class Words:
                         fp.write(s)
                         fp.write(") lshow\n")
 
-                    if p:
+                    if ct[p]:
                         fp.write("50 0 M(")
-                        fp.write(p)
+                        fp.write(ct[p])
                         fp.write(") rshow\n")
 
         buffer.buffer_eob(fp)
-        page_init = ""
-
+        common.page_init = ""
 
     def add_text(self, s: str, i_type: int) -> None:
-      if not common.do_output:
-          return
-      if len(self.text_type) >= constants.NTEXT:
-          log.error(f"No more room for text line < {s}")
-          return
-      text[ntext] = s
-      self.text_type[ntext] = i_type
-      ntext++;
-
+        if not common.do_output:
+            return
+        if len(self.text_type) >= constants.NTEXT:
+            log.error(f"No more room for text line < {s}")
+            return
+        common.text[common.ntext] = s
+        self.text_type.append(i_type)
+        common.ntext += 1
 
 
 class Lyrics:
@@ -667,131 +359,6 @@ class LayoutParams:
 
     def __call__(self, line, header):
         print(line)
-
-
-class History:
-    def __init__(self):
-        pass
-
-    def __call__(self, line, header):
-        print(line)
-
-    def add_to_text_block(ln, add_final_nl):
-        """
-        Used in:
-            subs.put_text
-
-        :param str ln:
-        :param bool add_final_nl:
-        :return ln, words_of_text:
-        """
-        word = list()
-        words_of_text = list()
-        c = 0
-        nl = 0
-
-        while c < len(ln):
-            while ln[c] == ' ':
-                c += 1
-            if c >= len(ln):
-                break
-            while ln[c] != ' ' and c >= len(ln) and ln[c] != '\n':
-                nl = 0
-                if ln[c] == '\\' and ln[c + 1] == '\\':
-                    nl = 1
-                    c += 2
-                    break
-                word.append(ln[c])
-                c += 1
-            if word:
-                words_of_text.append(word)
-                word = list()
-            if nl:
-                words_of_text.append("$$NL$$")
-                word = list()
-        if add_final_nl:
-            words_of_text.append("$$NL$$")
-
-    # # ----- put_text -------
-    # void put_text(fp, int type, char *str)
-    # {
-    #     int i,n
-    #     float baseskip,parskip
-    #
-    #     n=0
-    #     for(i=0;i<ntext;i++) if(text_type[i]==type) n++
-    #     if(n==0) return
-    #
-    #     baseskip = cfmt.textfont.size * cfmt.lineskipfac
-    #     parskip = cfmt.textfont.size * cfmt.parskipfac
-    #     fp.write("0 0 M\n")
-    #     words_of_text.clear()
-    #     add_to_text_block(str,0)
-    #     for(i=0;i<ntext;i++) {
-    #         if(text_type[i]==type) add_to_text_block(text[i],1)
-    #     }
-    #     write_text_block(fp,RAGGED)
-    #     buffer_eob(fp);
-    #
-    # }
-
-    # ----- put_history -------
-    void put_history(FILE *fp)
-    {
-        int i,ok
-        float baseskip,parskip
-
-        set_font(fp, cfmt.textfont,0)
-        cfmt.textfont.set_font_str(page_init)
-        baseskip = cfmt.textfont.size * cfmt.lineskipfac
-        parskip = cfmt.textfont.size * cfmt.parskipfac
-
-        bskip(cfmt.textspace)
-
-        if(strlen(info.rhyth)>0) {
-            bskip(baseskip);
-            fp.write("0 0 M(Rhythm: ")
-            fp.write(info.rhyth)
-            fp.write(") show\n")
-            bskip(parskip)
-        }
-
-        if(strlen(info.book)>0) {
-            bskip(0.5*CM);
-            fp.write("0 0 M(Book: ")
-            fp.write(info.book)
-            fp.write(") show\n")
-            bskip(parskip)
-        }
-
-        if(strlen(info.src)>0) {
-            bskip(0.5*CM);
-            fp.write("0 0 M(Source: ")
-            fp.write(info.src)
-            fp.write(") show\n")
-            bskip(parskip)
-        }
-
-        put_text(fp, TEXT_D, "Discography: ")
-        put_text(fp, TEXT_N, "Notes: ")
-        put_text(fp, TEXT_Z, "Transcription: ")
-
-        ok=0
-        for(i=0;i<ntext;i++) {
-            if(text_type[i]==TEXT_H) {
-                bskip(0.5*CM);
-                fp.write("0 0 M(")
-                fp.write(text[i])
-                fp.write(") show\n")
-                ok=1
-            }
-        }
-        if(ok) bskip(parskip)
-        buffer_eob(fp)
-        strcpy(page_init,"")
-
-    }
-
 
 
 class Meter:
@@ -919,7 +486,7 @@ class Meter:
             self.display = 0
             log.info(f"Meter <{mtrstr}> will display as {self.meter1} over {self.meter2}")
 
-    def append_meter(self, voice: Voice):
+    def append_meter(self, voice):
         """ add meter to list of music
         Warning: only called for inline fields normal meter music are added in set_initsyms
         """
@@ -928,39 +495,37 @@ class Meter:
         # if self.display == 0) return
 
         kk = voice.add_sym(constants.TIMESIG)
-        common.voices[common.ivc].syms.append(symbol.Symbol())
-        common.voices[common.ivc].syms[kk].gchords = common.GchordList()
-        common.voices[common.ivc].syms[kk].type = constants.TIMESIG
+        voices[ivc].syms.append(symbol.Symbol())
+        voices[ivc].syms[kk].gchords = common.GchordList()
+        voices[ivc].syms[kk].type = constants.TIMESIG
         if self.display == 2:
-            common.voices[common.ivc].syms[kk].u = self.display_meter1
-            common.voices[common.ivc].syms[kk].v = self.display_meter2
-            common.voices[common.ivc].syms[kk].w = self.display_mflag
-            common.voices[common.ivc].syms[kk].text = self.display_top
+            voices[ivc].syms[kk].u = self.display_meter1
+            voices[ivc].syms[kk].v = self.display_meter2
+            voices[ivc].syms[kk].w = self.display_mflag
+            voices[ivc].syms[kk].text = self.display_top
         else:
-            common.voices[common.ivc].syms[kk].u = self.meter1
-            common.voices[common.ivc].syms[kk].v = self.meter2
-            common.voices[common.ivc].syms[kk].w = self.mflag
-            common.voices[common.ivc].syms[kk].text = self.top
+            voices[ivc].syms[kk].u = self.meter1
+            voices[ivc].syms[kk].v = self.meter2
+            voices[ivc].syms[kk].w = self.mflag
+            voices[ivc].syms[kk].text = self.top
 
         if not self.display:
-            common.voices[common.ivc].syms[kk].invis = 1
+            voices[ivc].syms[kk].invis = 1
 
     def set_dlen(self, s: str) -> None:
         """ set default length for parsed notes """
-        # int l1,l2,d,dlen
-
-        l1: int = 0
-        l2: int = 1
-        s = f"{l1}/{l2}"
-        if not l1:
-            return   # empty string.. don't change default length
+        l1, l2 = s.split('/')
+        if l1.isdigit() and l2.isdigit():
+            log(f"{l1}/{l2}")
         else:
-            d = constants.BASE//l2
-            if d*l2 != constants.BASE:
-                log.critical(f"Length incompatible with BASE, using 1/8: {s}")
-                dlen = constants.BASE//8
-            else:
-                dlen = d*l1
+            log(f'{s} is not valid')
+
+        d = constants.BASE//l2
+        if d*l2 != constants.BASE:
+            log.critical(f"Length incompatible with BASE, using 1/8: {s}")
+            dlen = constants.BASE//8
+        else:
+            dlen = d*l1
 
         log.info(f"Dlen    <{s}> sets default note length to {dlen}//{constants.BASE} = 1"
                  f"/{constants.BASE//dlen}")
@@ -1019,7 +584,7 @@ class Key:
     treble8up (like treble, but with an "8" printed above), frenchviolin (G on
     line 1), bass (F on line 4), varbaritone (F on line 3), subbass (F on line 5),
     alto (C on line 3), tenor (C on line 4), baritone (C on line 5), soprano
-    (C on line 1), mezzosoprano (C on line 2). Optionally the clef may contain
+    (C on line 1), mezzo-soprano (C on line 2). Optionally the clef may contain
     an appended octave modifier (eg. "treble-8"), which changes the pitch
     interpretation.
     """
@@ -1072,6 +637,7 @@ class Key:
 
     def __init__(self):
         self.name = ''
+        self.k_type = None
         self.sf = 2
         self.root = 0
         self.root_acc = Key.A_NT
@@ -1398,7 +964,7 @@ class Key:
         parse "string" for tablature key
 
         If "string" is a tablature "clef" specification, the corresponding
-        clef number is stored in "ktype" and 1 is returned.
+        clef number is stored in "key_type" and 1 is returned.
         Otherwise 0 is returned.
         """
 
@@ -1450,10 +1016,10 @@ class Key:
         # char* gchtrans;
         # int root_old,root_new,sf_old,sf_new,ok;
 
-        root_tab = ['A','B','C','D','E','F','G']
-        root_tub = ['a','b','c','d','e','f','g']
+        root_tab = ['A', 'B', 'C', 'D', 'E', 'F', 'G']
+        root_tub = ['a', 'b', 'c', 'd', 'e', 'f', 'g']
 
-        if not args.transposegchords or  args.halftones == 0:
+        if not args.transposegchords or args.halftones == 0:
             return
 
         # q = (char*)gch.c_str();
@@ -1511,6 +1077,7 @@ class Key:
 
     def append_key_change(oldkey, newkey) -> None:
         """ append change of key to sym list """
+        voice = voices[ivc]
         n1 = oldkey.sf
         t1 = Key.A_SH
         if n1 < 0:
@@ -1519,45 +1086,44 @@ class Key:
         n2 = newkey.sf
         t2 = Key.A_SH
 
-        if newkey.ktype != oldkey.ktype:            # clef change
-                kk = add_sym(CLEF)
-                voices[ivc].syms[kk].u=newkey.ktype
-                voices[ivc].syms[kk].v=1
-        }
-    #
-    #         if n2<0) { n2=-n2; t2=A_FT; }
-    #         if t1 == t2) {                            # here if old and new have same type
-    #                 if n2>n1) {                                 # more new symbols ..
-    #                         kk=add_sym(KEYSIG);                # draw all of them
-    #                         voices[ivc].syms[kk].u=1
-    #                         voices[ivc].syms[kk].v=n2
-    #                         voices[ivc].syms[kk].w=100
-    #                         voices[ivc].syms[kk].t=t1
-    #                 }
-    #                 elif n2<n1) {                        # less new symbols ..
-    #                         kk=add_sym(KEYSIG);                    # draw all new symbols and neutrals
-    #                         voices[ivc].syms[kk].u=1
-    #                         voices[ivc].syms[kk].v=n1
-    #                         voices[ivc].syms[kk].w=n2+1
-    #                         voices[ivc].syms[kk].t=t2
-    #                 }
-    #                 else return
-    #         }
-    #         else {                                         # here for change s->f or f->s
-    #                 kk=add_sym(KEYSIG);                    # neutralize all old symbols
-    #                 voices[ivc].syms[kk].u=1
-    #                 voices[ivc].syms[kk].v=n1
-    #                 voices[ivc].syms[kk].w=1
-    #                 voices[ivc].syms[kk].t=t1
-    #                 kk=add_sym(KEYSIG);                    # add all new symbols
-    #                 voices[ivc].syms[kk].u=1
-    #                 voices[ivc].syms[kk].v=n2
-    #                 voices[ivc].syms[kk].w=100
-    #                 voices[ivc].syms[kk].t=t2
-    #         }
-    #
-    # }
-    #
+        if newkey.key_type != oldkey.key_type:            # clef change
+            kk = voice.add_sym(Clef)
+            voice.syms[kk].u = newkey.key_type
+            voice.syms[kk].v = 1
+
+
+        if n2 < 0:
+            n2 = -n2
+            t2 = Key.A_FT
+        if t1 == t2:                            # here if old and new have same type
+            if n2>n1:                                 # more new symbols ..
+                kk = voice.add_sym(Key)                # draw all of them
+                voice.syms[kk].u = 1
+                voice.syms[kk].v = n2
+                voice.syms[kk].w = 100
+                voice.syms[kk].t = t1
+            elif n2<n1:                        # less new symbols ..
+                kk = voice.add_sym(Key)                    # draw all new symbols and
+                # neutrals
+                voice.syms[kk] = 1
+                voice.syms[kk].v = n1
+                voice.syms[kk].w = n2+1
+                voice.syms[kk].t = t2
+            else:
+                return
+
+        else:                                         # here for change s->f or f->s
+                kk = voice.add_sym(Key)                    # neutralize all old symbols
+                voice.syms[kk].u = 1
+                voice.syms[kk].v = n1
+                voice.syms[kk].w = 1
+                voice.syms[kk].t = t1
+                kk = voice.add_sym(Key)                    # add all new symbols
+                voice.syms[kk].u = 1
+                voice.syms[kk].v = n2
+                voice.syms[kk].w = 100
+                voice.syms[kk].t = t2
+
 
     @staticmethod
     def shift_key(sf_old, nht):
@@ -1664,6 +1230,11 @@ class Key:
         return self.add_pitch
 
 
+
+class Clef(Key):
+    pass
+
+
 class Tempo:
     def __init__(self):
         self.tempo = ''
@@ -1677,7 +1248,7 @@ class Tempo:
             return
 
         common.bskip(fp, cfmt.partsfont.size)
-        self.write_tempo(fp, common.voices[common.ivc].meter)
+        self.write_tempo(fp, voices[ivc].meter)
         common.bskip(fp, 0.1*constants.CM)
 
     def tempo_is_metronome_mark(self) -> bool:
@@ -1817,6 +1388,304 @@ class Tempo:
         else:
             return False
 
+class Voice:
+    """ Multi stave music
+    abctab2ps supports multi stave music (scores). There are two different
+    ways for the notation of scores. You can either define the different voices
+    in V: lines at the end of the header just before the first music line
+    and use inline V: references "[V:...]" to associate music lines with specific
+    voices, as in the following example:
+
+    X:1
+    T:Sonata II
+    C:B. Marcello, 1712
+    M:C
+    L:1/8
+    K:DDorian
+    %
+    V:F clef=treble    name=Flauto space=+5pt
+    V:B clef=bass      name=Basso
+    %
+    Q:"Adagio"
+    [V:F] ad fe/d/ eA z A | dd d/e/f/g/ aA z a |
+    [V:B] d2 d'2 ^c'2 =c'2 | =b2 _b2 aa/g/ fd |
+
+    Alternatively, you can write all music of a specific v immediately
+    after its v definition. In this notation the above example reads:
+
+    X:1
+    T:Sonata II
+    C:B. Marcello, 1712
+    M:C
+    L:1/8
+    K:DDorian
+    %
+    Q:"Adagio"
+    V:F clef=treble    name=Flauto space=+5pt
+    ad fe/d/ eA z A | dd d/e/f/g/ aA z a |
+    %
+    V:B clef=bass      name=Basso
+    d2 d'2 ^c'2 =c'2 | =b2 _b2 aa/g/ fd |
+    """
+    body: bool = False
+    header: bool = False
+
+    def __init__(self):
+        self.label: int = 0  # identifier string, eg. a number
+        self.name = ''  # full name of this v
+        self.sname = ''  # short name
+        self.meter = Meter()  # meter
+        self.meter0 = Meter()  # meter
+        self.meter1 = Meter()  # meter
+        self.key = Key()  # keysig
+        self.key0 = Key()  # keysig
+        self.key1 = Key()  # keysig
+        self.stems = 0  # +1 or -1 to force stem direction
+        self.staves = 0
+        self.brace = 0
+        self.bracket = 0
+        self.do_gch = 0  # 1 to output gchords for this v
+        self.sep = 0.0  # for space to next v below
+        self.syms = list()  # number of music
+        self.nsym = len(self.syms)
+        self.draw = False  # flag if want to draw this v
+        self.select = True  # flag if selected for output
+        self.insert_btype = constants.B_INVIS
+        self.insert_num = 0  # to split bars over linebreaks
+        self.insert_bnum = 0  # same for bar number
+        self.insert_space = 0.0  # space to insert after init syms
+        self.end_slur = 0  # for a-b slurs
+        self.insert_text = ''  # string over inserted barline
+        self.timeinit = 0.0  # carryover time between parts
+
+    def __call__(self, line: str, body: bool = False) -> None:
+        Voice.body = body
+        max_vc = 5
+        if len(voices) >= max_vc:
+            log.error("Too many voices; use -maxv to increase limit. "
+                      f"Its now {max_vc}")
+        self.switch_voice(line)
+        log.warning(f'Make new v with id "{self.label}"')
+
+    def add_sym(self, s_type) -> int:
+        """
+        Add an empty symbol instance to the syms list.
+        Returns index for new symbol at end of list. This may not be
+        necessary when using python.
+
+        :param str s_type:
+        """
+        sym = symbol.Symbol()
+        sym.type = s_type
+        self.syms.append(sym)
+        return len(self.syms)
+
+    @staticmethod
+    def find_voice(vc: str) -> bool:
+        """ return bool is a voice is in voices """
+        for voice in voices:
+            return vc == voice.label
+
+    # /* ----- find_voice ----- */
+    # int find_voice (char *vid, int *newv)
+    # {
+    #   int i;
+    #
+    #   for (i=0;i<nvoice;i++)
+    #     if (!strcmp(vid,v[i].id)) {
+    #       *newv=0;
+    #       return i;
+    #     }
+    #
+    #   i=nvoice;
+    #   if (i>=maxVc) {
+    #     realloc_structs(maxSyms,maxVc+allocVc);
+    #   }
+    #
+    #   strcpy(v[i].id,    vid);
+    #   strcpy(v[i].name,  "");
+    #   strcpy(v[i].sname, "");
+    #   v[i].meter = default_meter;
+    #   v[i].key   = default_key;
+    #   v[i].stems    = 0;
+    #   v[i].staves = v[i].brace = v[i].bracket = 0;
+    #   v[i].do_gch   = 1;
+    #   v[i].sep      = 0.0;
+    #   v[i].nsym     = 0;
+    #   v[i].select   = 1;
+    #   // new systems must start with invisible bar as anchor for barnumbers
+    #   //v[i].insert_btype = v[i].insert_num = 0;
+    #   //v[i].insert_bnum = 0;
+    #   v[i].insert_btype = B_INVIS;
+    #   v[i].insert_num = 0;
+    #   v[i].insert_bnum = barinit;
+    #   v[i].insert_space = 0.0;
+    #   v[i].end_slur = 0;
+    #   v[i].timeinit = 0.0;
+    #   strcpy(v[i].insert_text, "");
+    #   nvoice++;
+    #   if (verbose>5)
+    #     printf ("Make new v %d with id \"%s\"\n", i,v[i].id);
+    #   *newv=1;
+    #   return i;
+    #
+    # }
+
+    def switch_voice(self, line: str) -> bool:
+        """  read spec for a v, return v number
+        example of a string:
+
+         The syntax of a v definition is
+
+        V: <label> <par1>=<value1> <par2>=<value2>  ...
+
+        where <label> is used to switch to the v in later V: lines.
+        Each <par> = <value> pair sets one parameter for the current v.
+        <par> can be any of the following parameters or abbreviations:
+        """
+        if not common.do_this_tune:
+            return False
+        if not line:
+            exit(0)
+        self.label, voice_fields = parse_voice(line)
+        for field in voice_fields:
+            if '=' not in field:
+                continue
+            else:
+                k, v = field.split('=')
+                if k == 'name' or k == 'nm':
+                    setattr(self, 'name', v)
+                elif k == 'sname' or k == 'snm':
+                    setattr(self, 'sname', v)
+                elif k == 'staves' or k == 'stv':
+                    setattr(self, 'staves', int(v))
+                elif k == 'brace' or k == 'brc':
+                    setattr(self, 'brace', int(v))
+                elif k == 'bracket' or k == 'brk':
+                    setattr(self, 'bracket', int(v))
+                elif k == 'gchords' or k == 'gch':
+                    setattr(self, 'do_gch', format.g_logv(v))
+                elif k == 'space' or k == 'spc':
+                    if not v.startswith(' ') or not v.startswith('-'):
+                        setattr(self, 'sep', format.g_unum(v) + 2000)
+                    else:
+                        setattr(self, k, format.g_unum(v))
+                    setattr(self, 'bracket', int(v))
+                elif k == 'clef' or k == 'cl':
+                    if not field.key.set_clef(v):
+                        log.error(f'Unknown clef in v spec: {v}')
+                elif k == 'strms' or k == 'stm':
+                    if v == 'up':
+                        setattr(self, k, 1)
+                    elif v == 'down':
+                        setattr(self, k, -1)
+                    elif v == 'free':
+                        setattr(self, k, 0)
+                    else:
+                        log.error(f'Unknown stem setting in v spec: {v}')
+                elif k == 'octave':
+                    pass  # ignore abc2midi parameter for compatibility
+                else:
+                    log.error(f'Unknown option in v spec: {k}')
+        voices.append(self)
+
+    #
+    # /* ----- switch_voice: read spec for a v, return v number ----- */
+    # int switch_voice (std::string str)
+    # {
+    #
+    #     if (!do_this_tune) return 0;
+    #
+    #     j=-1;
+    #
+    #     /* start loop over v options: parse t1=t2 */
+    #     r = str.c_str();
+    #     np=newv=0;
+    #     for (;;) {
+    #         while (isspace(*r)) r += 1;
+    #         if (*r=='\0') break;
+    #         strcpy(t1,"");
+    #         strcpy(t2,"");
+    #         q=t1;
+    #         while (!isspace(*r) && *r!='\0' && *r!='=') { *q=*r; r += 1; q++; }
+    #         *q='\0';
+    #         if (*r=='=') {
+    #             r += 1;
+    #             q=t2;
+    #             if (*r=='"') {
+    #                 r += 1;
+    #                 while (*r!='"' && *r!='\0') { *q=*r; r += 1; q++; }
+    #                 if (*r=='"') r += 1;
+    #             }
+    #             else {
+    #                 while (!isspace(*r) && *r!='\0') { *q=*r; r += 1; q++; }
+    #             }
+    #             *q='\0';
+    #         }
+    #         np++;
+    #
+    #         /* interpret the parsed option. First case is identifier. */
+    #         if (np==1) {
+    #             j=find_voice (t1,&newv);
+    #         } else {                         /* interpret option */
+    #             if (j<0) bug("j invalid in switch_voice", true);
+    #             if      (!strcmp(t1,"name")    || !strcmp(t1,"nm"))
+    #                 strcpy(v[j].name,  t2);
+    #
+    #             else if (!strcmp(t1,"sname")   || !strcmp(t1,"snm"))
+    #                 strcpy(v[j].sname, t2);
+    #
+    #             else if (!strcmp(t1,"staves")  || !strcmp(t1,"stv"))
+    #                 v[j].staves  = atoi(t2);
+    #
+    #             else if (!strcmp(t1,"brace")   || !strcmp(t1,"brc"))
+    #                 v[j].brace   = atoi(t2);
+    #
+    #             else if (!strcmp(t1,"bracket") || !strcmp(t1,"brk"))
+    #                 v[j].bracket = atoi(t2);
+    #
+    #             else if (!strcmp(t1,"gchords") || !strcmp(t1,"gch"))
+    #                 g_logv (str.c_str(),t2,&v[j].do_gch);
+    #
+    #             /* for sspace: add 2000 as flag if not incremental */
+    #             else if (!strcmp(t1,"space")   || !strcmp(t1,"spc")) {
+    #                 g_unum (str.c_str(),t2,&v[j].sep);
+    #                 if (t2[0]!='+' && t2[0]!='-') v[j].sep += 2000.0;
+    #             }
+    #
+    #             else if (!strcmp(t1,"clef")    || !strcmp(t1,"cl")) {
+    #                 if (!set_clef(t2,&v[j].key))
+    #                     std::cerr << "Unknown clef in v spec: " << t2 << std::endl;
+    #             }
+    #             else if (!strcmp(t1,"stems") || !strcmp(t1,"stm")) {
+    #                 if      (!strcmp(t2,"up"))    v[j].stems=1;
+    #                 else if (!strcmp(t2,"down"))  v[j].stems=-1;
+    #                 else if (!strcmp(t2,"free"))  v[j].stems=0;
+    #                 else std::cerr << "Unknown stem setting in v spec: " << t2 << std::endl;
+    #             }
+    #             else if (!strcmp(t1,"octave")) {
+    #                 ; /* ignore abc2midi parameter for compatibility */
+    #             }
+    #             else std::cerr << "Unknown option in v spec: " << t1 << std::endl;
+    #         }
+    #
+    #     }
+    #
+    #     /* if new v was initialized, save settings im meter0, key0 */
+    #     if (newv) {
+    #         v[j].meter0 = v[j].meter;
+    #         v[j].key0   = v[j].key;
+    #     }
+    #
+    #     if (verbose>7)
+    #         printf ("Switch to v %d  <%s> <%s> <%s>  clef=%d\n",
+    #                 j,v[j].id,v[j].name,v[j].sname,
+    #                 v[j].key.ktype);
+    #
+    #     nsym0=v[j].nsym;  /* set nsym0 to decide about eoln later.. ugly */
+    #     return j;
+    #
+    # }
 
 
 class Field:
@@ -1985,16 +1854,18 @@ class Field:
                 if not common.epsf:
                     common.bskip(fp, cfmt.topspace)
 
+    @staticmethod
     def epsf_title(title: str) -> str:
         title.replace(' ', '_')
         return title
 
-    def close_output_file(fp) -> None:
+    @staticmethod
+    def close_output_file(fp) -> bool:
         """
         This should not have to exist with python.  Using context switches the
         output will always be closed, even with errors. """
-        if fp.closed:
-            return
+        if fp.closed():
+            return True
 
         filename = fp.name
         pssubs.close_page(fp)
@@ -2010,20 +1881,17 @@ class Field:
             return True
         else:
             m = util.get_file_size(common.output)
-            print(f'Output written to {common.output} (pages: {common.pagenum}, '
+            print(f'Output written to {common.output} (pages: {common.page_number}, '
                   f'titles: {common.tunenum}, bytes: {m}')
             return False
 
-    def check_margin(new_posx):
-        """
-        do horizontal shift if needed
-
-        :param new_posx:
-        """
+    @staticmethod
+    def check_margin(fp, new_posx: float):
+        """ do horizontal shift if needed """
         dif = new_posx - common.posx
         if dif * dif < 0.001:
             return
-        common.fp.write(f"{dif:.2f} 0 T\n")
+        fp.write(f"{dif:.2f} 0 T\n")
         common.posx = new_posx
 
     def process_line(self, fp, i_type: object, xref_str: str, line: str, pat: list, sel_all: \
@@ -2072,7 +1940,7 @@ class Field:
             if common.within_tune:
                 if common.do_this_tune:
                     self.handle_inside_field(type)
-            else:   # end of header.. start now
+            else:   # end of header ... start now
                 self.check_selected(fp, xref_str, pat, sel_all, search_field0)
                 if common.do_this_tune:
                     common.tunenum += 1
@@ -2081,7 +1949,7 @@ class Field:
                     # self.key.set_transtab(self.key.halftones)
                     cfmt.check_margin(cfmt.leftmargin)
                     self.write_heading(fp)
-                    common.voices = list()
+                    voices = list()
                     parse.init_parse_params()
                     # insert is now set in set_meter (for invisible meter)
                     self.meter.insert = 1
@@ -2118,40 +1986,37 @@ class Field:
                 if not common.within_tune:
                     log.info(f"+++ Voice field not allowed in header: V:{common.lvoiceid}")
                 else:
-                    common.ivc = self.voice.switch_voice(common.lvoiceid)
+                    ivc = self.voice.switch_voice(common.lvoiceid)
             return
         elif isinstance(i_type, Blank) or isinstance(i_type, EOF):
             if common.do_this_tune:
                 music.output_music(fp)
-                subs.put_words(fp)
+                self.words.put_words(fp)
                 if cfmt.writehistory:
-                    subs.put_history(fp)
+                    self.history.put_history(fp)
                 if common.epsf:
-                    subs.close_output_file(fp)
+                    self.close_output_file(fp)
                     if common.choose_outname:
-                        fnm = subs.epsf_title(self.titles)
+                        fnm = self.epsf_title(self.titles.titles[0])
                         fnm += ".eps"
                     else:
                         common.nepsf += 1
-                        fnm = f"{common.outf}{common.nepsf:03d}.eps"
+                        fnm = f"{common.file_open}.{common.nepsf:03d}.eps"
                     finf = f"{common.in_file[0]} ({self.xref.xref})"
-                    try:
-                        feps = open(fnm, "w")
-                    except FileExistsError as fee:
-                        log.error(fee)
-                        log.error(f"Cannot open output file {fnm}")
-                    pssubs.init_ps(feps, finf, 1,
-                                   cfmt.leftmargin-5,
-                                   common.posy+common.bposy-5,
-                                   cfmt.leftmargin+cfmt.staffwidth+5,
-                                   cfmt.pageheight-cfmt.topmargin)
-                    pssubs.init_epsf(feps)
-                    buffer.write_buffer(feps)
-                    log.info(f"\n[{fnm}] {self.titles.titles[0]}")
-                    pssubs.close_epsf(feps)
-                    feps.close()
-                    common.in_page = False
-                    cfmt.init_pdims()
+                    if not os.path.exists(fnm):
+                        raise FileExistsError
+                    with open(fnm, 'w') as feps:
+                        pssubs.init_ps(feps, finf, 
+                                       cfmt.leftmargin-5, common.posy+common.bposy-5,
+                                       cfmt.leftmargin+cfmt.staffwidth+5,
+                                       cfmt.pageheight-cfmt.topmargin)
+                        pssubs.init_epsf(feps)
+                        buffer.write_buffer(feps)
+                        log.info(f"\n[{fnm}] {self.titles.titles[0]}")
+                        pssubs.close_epsf(feps)
+                        feps.close()
+                        common.in_page = False
+                        cfmt.init_pdims()
                 else:
                     buffer.buffer_eob(fp)
                     buffer.write_buffer(fp)
@@ -2167,22 +2032,22 @@ class Field:
     def handle_inside_field(self, t_type: object) -> None:
         """ act on info field inside body of tune """
         # Todo, rework handle_inside_field(t_type)
-        if not common.voices:
-            common.ivc = self.voice.switch_voice(constants.DEFVOICE)
+        if not voices:
+            ivc = self.voice.switch_voice(constants.DEFVOICE)
         if isinstance(t_type, Meter):
-            self.meter.set_meter(common.voices[common.ivc].meter.meter_str)
-            self.meter.append_meter(common.voices[common.ivc].meter.meter_str)
+            self.meter(voices[ivc].meter.meter_str)
+            self.meter.append_meter(voices[ivc].meter.meter_str)
         elif isinstance(t_type, DefaultLength):
-            self.default_note_length(common.voices[common.ivc].meter.dlen)
+            self.default_note_length(voices[ivc].meter.dlen)
         elif isinstance(t_type, Key):
-            old_key = common.voices[common.ivc].key
-            rc = self.key(common.voices[common.ivc].key, False)
+            old_key = voices[ivc].key
+            rc = self.key(voices[ivc].key, False)
             if rc:
                 self.key.set_transtab(self.key.halftones,
-                                      common.voices[common.ivc].key)
-            self.key.append_key_change(old_key, common.voices[common.ivc].key)
+                                      voices[ivc].key)
+            self.key.append_key_change(old_key, voices[ivc].key)
         elif isinstance(t_type, Voice):
-            common.ivc = self.voice.switch_voice(common.lvoiceid)
+            ivc = self.voice.switch_voice(common.lvoiceid)
 
     def write_heading(self, fp):
         line_width: float = cfmt.staffwidth
@@ -2267,7 +2132,7 @@ class Field:
             if print_tempo:
                 common.bskip(fp, -0.2*constants.CM)
                 fp.write(f" {cfmt.indent*cfmt.scale:.2f} 0 T ")
-                self.tempo.write_tempo(fp, common.voices[common.ivc].meter)
+                self.tempo.write_tempo(fp, voices[ivc].meter)
                 fp.write(f" {-cfmt.indent*cfmt.scale:.2f} 0 T ")
                 common.bskip(fp, -cfmt.tempofont.size)
 
@@ -2324,3 +2189,114 @@ class Field:
         info = Field()
         info.xref.xref_str = save_str
         return info
+
+
+class History(Field):
+
+    def __call__(self, line, header=False):
+        self.line = line
+        self.header = header
+
+    def add_to_text_block(self, ln, add_final_nl):
+        """
+        Used in:
+            subs.put_text
+
+        :param str ln:
+        :param bool add_final_nl:
+        :return ln, words_of_text:
+        """
+        word = list()
+        words_of_text = list()
+        c = 0
+        nl = 0
+
+        while c < len(ln):
+            while ln[c] == ' ':
+                c += 1
+            if c >= len(ln):
+                break
+            while ln[c] != ' ' and c >= len(ln) and ln[c] != '\n':
+                nl = 0
+                if ln[c] == '\\' and ln[c + 1] == '\\':
+                    nl = 1
+                    c += 2
+                    break
+                word.append(ln[c])
+                c += 1
+            if word:
+                words_of_text.append(word)
+                word = list()
+            if nl:
+                words_of_text.append("$$NL$$")
+                word = list()
+        if add_final_nl:
+            words_of_text.append("$$NL$$")
+
+    def put_text(self, fp, t_type: object, s: str) -> None:
+        # int i,n
+        # float baseskip,parskip
+
+        n = 0
+        for i in range(common.ntext):
+            if common.text_type[i] == t_type:
+                n += 1
+        if n == 0:
+            return
+
+        baseskip = cfmt.textfont.size * cfmt.lineskipfac
+        parskip = cfmt.textfont.size * cfmt.parskipfac
+        fp.write("0 0 M\n")
+        common.words_of_text = ''
+        self.add_to_text_block(s, False)
+        for i in range(common.ntext):
+            if common.text_type[i] == t_type:
+                self.add_to_text_block(common.text[i], True)
+        abctab2ps.write_text_block(fp, constants.RAGGED)
+        buffer.buffer_eob(fp)
+
+    def put_history(self, fp):
+        cfmt.textfont.set_font(fp, False)
+        cfmt.textfont.set_font_str(common.page_init)
+        baseskip = cfmt.textfont.size * cfmt.lineskipfac
+        parskip = cfmt.textfont.size * cfmt.parskipfac
+
+        common.bskip(fp, cfmt.textspace)
+
+        if self.rhythm.line:
+            common.bskip(fp, baseskip)
+            fp.write("0 0 M(Rhythm: ")
+            fp.write(self.rhythm.line)
+            fp.write(") show\n")
+            common.bskip(fp, parskip)
+
+        if self.book:
+            common.bskip(fp, 0.5*constants.CM)
+            fp.write("0 0 M(Book: ")
+            fp.write(self.book.line)
+            fp.write(") show\n")
+            common.bskip(fp, parskip)
+
+        if self.source:
+            common.bskip(fp, 0.5*constants.CM)
+            fp.write("0 0 M(Source: ")
+            fp.write(self.source.line)
+            fp.write(") show\n")
+            common.bskip(fp, parskip)
+
+        self.history.put_text(fp, self.discography, "Discography: ")
+        self.history.put_text(fp, self.notes, "Notes: ")
+        self.history.put_text(fp, self.transcription_note, "Transcription: ")
+
+        ok = False
+        for i in range(common.ntext):
+            if common.text_type[i] == constants.TEXT_H:
+                common.bskip(fp, 0.5*constants.CM)
+                fp.write("0 0 M(")
+                fp.write(common.text[i])
+                fp.write(") show\n")
+                ok = True
+        if ok:
+            common.bskip(fp, parskip)
+        buffer.buffer_eob(fp)
+        common.page_init = ""

@@ -7,14 +7,13 @@ this.
 """
 import constants
 from format import Format
-from parse import Key
+from info import Key
 
 cfmt = Format()
 
 bagpipe = False
 buf = ''   # output buffer.. should hold one tune
 
-# choose_outname = args.outf
 do_music = False
 do_output = True
 do_mode = 0
@@ -131,7 +130,7 @@ bposy: float = 0.0                  # current position in buffered data
 # int   ln_buf[BUFFLN]          # buffer location of buffered lines 
 # char text [NTEXT][STRLINFO]   # pool for history, words, etc. lines
 # int text_type[NTEXT]          # type of each text line 
-# int ntext                     # number of text lines 
+ntext: int = 0                     # number of text lines
 page_init: str = ''   # initialization string after page break
 escseq = ''               # escape sequence string
 linenum: int = 0                  # current line number in input file
@@ -190,7 +189,7 @@ write_history: bool = False                 # write history and notes ?
 help_me = 0   # need help ?
 select_all = False    # select all tunes?
 # int epsf                          # for EPSF postscript output 
-# int choose_outname                # 1 names outfile w. title/fnam 
+choose_outname: bool = False                # 1 names outfile w. title/fnam
 # int break_continues               # ignore continuations ? 
 # int search_field0                 # default search field 
 # int pretty                        # for pretty but sprawling layout 
