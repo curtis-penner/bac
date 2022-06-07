@@ -6,10 +6,7 @@ variable. I know it is not elegant but for now this is how I will work
 this.
 """
 import constants
-import info
-from format import Format
-
-cfmt: Format = Format()
+from format import cfmt
 
 bagpipe: bool = False
 buf: str = ''   # output buffer.. should hold one tune
@@ -46,7 +43,7 @@ text_type: list = list()   # type of each text line int NTEXT
 
 use_buffer: bool = False   # 1 if lines are being accumulated
 
-voices: list[info.Voice] = list()
+voices: list = list()
 
 within_block: bool = False
 do_this_tune: bool = False
@@ -148,7 +145,7 @@ GchordList: list = list()   # prep_gchlst          # guitar chords for preparsin
 # int bagpipe                     # switch for HP mode 
 # int within_tune, within_block   # where we are in the file 
 # int do_this_tune                # are we typesetting the current one ? 
-posx: float = cfmt.left_margin
+posx: float = cfmt.left_margin   # todo assign these values when posx and posy are first used
 posy: float = cfmt.page_height - cfmt.top_margin   # overall scale, position on page
 # int barinit                     # carryover bar number between parts 
 #
