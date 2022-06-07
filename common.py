@@ -6,56 +6,52 @@ variable. I know it is not elegant but for now this is how I will work
 this.
 """
 import constants
+import info
 from format import Format
-from info import Key
 
-cfmt = Format()
+cfmt: Format = Format()
 
-bagpipe = False
-buf = ''   # output buffer.. should hold one tune
+bagpipe: bool = False
+buf: str = ''   # output buffer.. should hold one tune
 
-do_music = False
-do_output = True
-do_mode = 0
-do_this_tune = False
+do_music: bool = False
+do_output: bool = True
+do_mode: int = 0
 
-epsf = False
+epsf: bool = False
 
-output = 'out.ps'
-# fp = open(output, 'a')
+output: str = 'out.ps'
 
-in_page = False
-in_file = list()
-index_initialized = False
-is_epsf = False
-istab = False
+in_page: bool = False
+in_file: list = list()
+index_initialized: bool = False
+is_epsf: bool = False
+istab: bool = False
 
-key = Key()
-
-ln_num = 0   # number of lines in buffer
+ln_num: int = 0   # number of lines in buffer
 ln_pos: list = list()   # vertical positions of buffered lines float
 ln_buf: list = list()   # buffer location of buffered lines int
 
-nbuf = 0   # number of bytes buffered
-notab = 0   # ???
+nbuf: int = 0   # number of bytes buffered
+notab: bool = False   # ???
 
-maxSyms = 800
+maxSyms: int = 800
 
-nsym0 = 0   # nsym at start of parsing a line
+nsym0: int = 0   # nsym at start of parsing a line
 
 search_field0 = constants.S_TITLE
 
-text = list()  # pool for history, words, etc. lines char
-text_type = list()   # type of each text line int NTEXT
+text: list = list()  # pool for history, words, etc. lines char
+text_type: list = list()   # type of each text line int NTEXT
 
-use_buffer = False   # 1 if lines are being accumulated
+use_buffer: bool = False   # 1 if lines are being accumulated
 
-voices = list()
+voices: list[info.Voice] = list()
 
-within_block = False
-
-within_tune = False
-write_num = 0   # calls to write_buffer for each one tune
+within_block: bool = False
+do_this_tune: bool = False
+within_tune: bool = False
+write_num: int = 0   # calls to write_buffer for each one tune
 
 
 class XPOS:            # struct for a horizontal position
@@ -86,32 +82,30 @@ xp: list[XPOS] = []
 # default_info = Field()
 
 # string from last V: line
-last_voice_id = ''
-lvoiceid = ""
+last_voice_id: str = ''
+lvoiceid: str = ""
 
 # number of voices defd, nonempty
 # number_voice
 # number_nonempty_voice
-nvoice = 0
-mvoice = 0
-ivc = None   # current v
-ivc0 = 0   # top nonempty v 
+nvoice: int = 0
+mvoice: int = 0
+ivc: int = 0   # current v
+ivc0: int = 0   # top nonempty v
 # int ixpfree                      # first free element in xp array
 #                           # things to alloc: 
 # int            *nsym_st
 #
-# int halftones                    # number of halftones to transpose by 
+halftones: int = 0                    # number of halftones to transpose by
 #
 # float f0p,f5p,f1p,f0x,f5x,f1x            #   mapping fct 
 # float lnnp,bnnp,fnnp,lnnx,bnnx,fnnx      #   note-note spacing 
 # float lbnp,bbnp,rbnp,lbnx,bbnx,rbnx      #   bar-note spacing 
-# float lnbp,bnbp,rnbp,lnbx,bnbx,rnbx      #   note-bar spacing 
-#
-#
+# float lnbp,bnbp,rnbp,lnbx,bnbx,rnbx      #   note-bar spacing
 
-wpool = ''   # pool for vocal strings, NWPOOL
-nwpool = 0   # globals to handle wpool
-nwline = 0   # globals to handle wpool
+wpool: str = ''   # pool for vocal strings, NWPOOL
+nwpool: int = 0   # globals to handle wpool
+nwline: int = 0   # globals to handle wpool
 
 #
 # char fontnames[50][STRLFMT]           # list of needed fonts 
@@ -119,7 +113,7 @@ nwline = 0   # globals to handle wpool
 #
 # //char txt[MAXNTEXT][MAXWLEN]           # for output of text 
 # //int  ntxt
-words_of_text = ''           # for output of text
+words_of_text: str = ''           # for output of text
 #
 #
 # char mbf[501]                 # mini-buffer for one line 
@@ -132,7 +126,7 @@ bposy: float = 0.0                  # current position in buffered data
 # int text_type[NTEXT]          # type of each text line 
 ntext: int = 0                     # number of text lines
 page_init: str = ''   # initialization string after page break
-escseq = ''               # escape sequence string
+escseq: str = ''               # escape sequence string
 linenum: int = 0                  # current line number in input file
 tunenum: int = 0                  # number of current tune
 tnum1: int = 0
@@ -149,7 +143,7 @@ page_number: int = 0                   # current page in output file
 # float index_posx, index_posy
 # int index_initialized
 #
-GchordList = list()   # prep_gchlst          # guitar chords for preparsing
+GchordList: list = list()   # prep_gchlst          # guitar chords for preparsing
 # Deco prep_deco                  # decorations for preparsing 
 # int bagpipe                     # switch for HP mode 
 # int within_tune, within_block   # where we are in the file 
@@ -163,8 +157,8 @@ posy: float = cfmt.page_height - cfmt.top_margin   # overall scale, position on 
 word = False
 slur = False                   # variables used for parsing...
 
-last_note = 0
-last_real_note = 0
+last_note: int = 0
+last_real_note: int = 0
 # int pplet,qplet,rplet
 # int carryover                   # for interpreting > and < chars 
 # int ntinext,tinext[MAXHD]       # for chord ties 
@@ -186,7 +180,7 @@ last_real_note = 0
 # int one_per_page                  # new page for each tune ? 
 # int pagenumbers                   # write page numbers ? 
 write_history: bool = False                 # write history and notes ?
-help_me = 0   # need help ?
+help_me: bool = False   # need help ?
 select_all = False    # select all tunes?
 # int epsf                          # for EPSF postscript output 
 choose_outname: bool = False                # 1 names outfile w. title/fnam
@@ -197,7 +191,7 @@ choose_outname: bool = False                # 1 names outfile w. title/fnam
 # int continue_lines                # flag to continue all lines 
 # int landscape                     # flag for landscape output 
 # int barnums                       # interval for bar numbers 
-make_index = False   # write index file
+make_index: bool = False   # write index file
 # int notab                         # do not process tablature 
 # int transposegchords              # transpose gchords 
 # float alfa_c                      # max compression allowed 
@@ -214,7 +208,7 @@ make_index = False   # write index file
 # float alfa_last,beta_last       # for last short short line.. 
 #
 # char in_file[MAXINF][STRLFILE]  # list of input file names 
-number_input_files = 0   # number of input file names
+number_input_files: int = 0   # number of input file names
 # FILE *fin                       # for input file 
 #
 # char outf[STRLFILE]             # output file name 

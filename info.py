@@ -740,7 +740,7 @@ class Key:
     def get_halftones(self, t):
         """
         figure out how by many halftones to transpose
-        In the transposing routines: pitches A..G are coded as with 0..7
+        In the transposing routines: pitches A ... G are coded as with 0..7
 
         :param str t:
         :return int:
@@ -803,7 +803,7 @@ class Key:
         if pit_new > 11:
             pit_new -= 12
 
-        # get pitch as number from 0 - 11 for root of new key * /
+        # get pitch as number from 0 to 11 for root of new key
         pit_new = pit_tab[root_new]
         if racc_new == Key.A_FT:
             pit_new -= 1
@@ -828,21 +828,16 @@ class Key:
 
         return nht
 
-    def set_transtab(self, nht, key):
+    def set_transtab(self, nht: int):
         """
         setup for transposition by nht halftones
-
-        :param int nht:
-        :param instande key:
-        :return:
         """
-        # int a, b, sf_old, sf_new, add_t, i, j, acc_old, acc_new, root_old, root_acc;
-        # for each note A..G, these tables tell how many sharps (resp. flats)
-        # the keysig must have to get the accidental on this note.Phew.
+        # for each note A to G, these tables tell how many sharps (resp. flats)
+        # the key must have to get the accidental on this note.Phew.
         sh_tab = [5, 7, 2, 4, 6, 1, 3]
         fl_tab = [3, 1, 6, 4, 2, 7, 5]
         # tables for pretty printout only
-        # root_tab = ['A', 'B', 'C', 'D', 'E', 'F', 'G']
+        # root_tab = ['A', 'B', 'C', 'D', 'E', 'F', 'G']   # todo
         # acc_tab = ["bb", "b ", "    ", "# ", "x "]
 
         # nop if no transposition is wanted
@@ -873,9 +868,9 @@ class Key:
                 acc_new = 1
             if -sf_new >= fl_tab[j]:
                 acc_new = -1
-            key.add_acc[i] = acc_new - acc_old
+            self.add_accs[i] = acc_new - acc_old
 
-        # printout keysig change
+        # printout key change
         # if (verbose >= 3):
         #     i = root_old;
         #     j = i + add_t;
@@ -1051,7 +1046,7 @@ class Key:
                     sf_old = 1
                     q += 1
                 root_new = root_old + self.add_transp
-                root_new = (root_new+28)%7
+                root_new = (root_new+28) % 7
                 sf_new = sf_old + self.add_accs[root_old]
                 if ok == 1:
                     r = root_tab[root_new]
@@ -1066,8 +1061,7 @@ class Key:
                     r = '#'
                     r += 1
 
-
-            while gch[q] !=' ' and gch[q] != '/' and gch[q] != '\0':
+            while gch[q] != ' ' and gch[q] != '/' and gch[q] != '\0':
                 r += q
                 q += 1
             if gch[q] == '/':
@@ -1075,34 +1069,34 @@ class Key:
                 q += 1
         return r
 
-    def append_key_change(oldkey, newkey) -> None:
+    @staticmethod
+    def append_key_change(old_key, new_key) -> None:
         """ append change of key to sym list """
         voice = voices[ivc]
-        n1 = oldkey.sf
+        n1 = old_key.sf
         t1 = Key.A_SH
         if n1 < 0:
             n1 = -n1
             t1 = Key.A_FT
-        n2 = newkey.sf
+        n2 = new_key.sf
         t2 = Key.A_SH
 
-        if newkey.key_type != oldkey.key_type:            # clef change
+        if new_key.key_type != old_key.key_type:            # clef change
             kk = voice.add_sym(Clef)
-            voice.syms[kk].u = newkey.key_type
+            voice.syms[kk].u = new_key.key_type
             voice.syms[kk].v = 1
-
 
         if n2 < 0:
             n2 = -n2
             t2 = Key.A_FT
         if t1 == t2:                            # here if old and new have same type
-            if n2>n1:                                 # more new symbols ..
+            if n2 > n1:                                 # more new symbols ..
                 kk = voice.add_sym(Key)                # draw all of them
                 voice.syms[kk].u = 1
                 voice.syms[kk].v = n2
                 voice.syms[kk].w = 100
                 voice.syms[kk].t = t1
-            elif n2<n1:                        # less new symbols ..
+            elif n2 < n1:                        # less new symbols ..
                 kk = voice.add_sym(Key)                    # draw all new symbols and
                 # neutrals
                 voice.syms[kk] = 1
@@ -1113,17 +1107,16 @@ class Key:
                 return
 
         else:                                         # here for change s->f or f->s
-                kk = voice.add_sym(Key)                    # neutralize all old symbols
-                voice.syms[kk].u = 1
-                voice.syms[kk].v = n1
-                voice.syms[kk].w = 1
-                voice.syms[kk].t = t1
-                kk = voice.add_sym(Key)                    # add all new symbols
-                voice.syms[kk].u = 1
-                voice.syms[kk].v = n2
-                voice.syms[kk].w = 100
-                voice.syms[kk].t = t2
-
+            kk = voice.add_sym(Key)                    # neutralize all old symbols
+            voice.syms[kk].u = 1
+            voice.syms[kk].v = n1
+            voice.syms[kk].w = 1
+            voice.syms[kk].t = t1
+            kk = voice.add_sym(Key)                    # add all new symbols
+            voice.syms[kk].u = 1
+            voice.syms[kk].v = n2
+            voice.syms[kk].w = 100
+            voice.syms[kk].t = t2
 
     @staticmethod
     def shift_key(sf_old, nht):
@@ -1230,7 +1223,6 @@ class Key:
         return self.add_pitch
 
 
-
 class Clef(Key):
     pass
 
@@ -1264,10 +1256,10 @@ class Tempo:
         while len(t) > r:
             while t[r] == ' ':
                 r += 1   # skip blanks
-            if t[r] =='\0':
+            if t[r] == '\0':
                 break
 
-            if t[r] =='"':   # write string
+            if t[r] == '"':   # write string
                 r += 1
                 q = ''
                 while t[r] != '"' and t[r] != '\0':
@@ -1288,7 +1280,7 @@ class Tempo:
                 value = 0
                 i = 0
                 while i < len(q):
-                    dlen = constants.QUARTER
+                    # dlen = constants.QUARTER
                     if '=' in q:
                         if q[i] == 'C' or q[i] == 'c':
                             i += 1
@@ -1308,10 +1300,10 @@ class Tempo:
                                     fac = 2
                                 if dlen % fac:
                                     log.error(f"Bad length divisor in tempo: {q}")
-                                dlen = dlen/fac
+                                # dlen = dlen/fac
                             else:
                                 if fac > 0:
-                                    dlen = dlen*fac
+                                    dlen *= fac
                             if q[i] != '=':
                                 err = True
                             i += 1
@@ -1321,9 +1313,9 @@ class Tempo:
                         elif q[i].isdigit:
                             t = q[i:]
                             f, value = t.split('=', 1)
-                            top, bot = f.split('/')
+                            # top, bot = f.split('/')
                             # sscanf(q,"%d/%d=%d", &top,&bot,&value)
-                            dlen = constants.BASE*top/bot
+                            # dlen = constants.BASE*top/bot
                         else:
                             err = True
                     else:
@@ -1345,7 +1337,7 @@ class Tempo:
                         fp.write("Hd")
                     if s.head == constants.H_FULL:
                         fp.write("hd")
-                    dx=4.0
+                    dx = 4.0
                     if s.dots:
                         dotx = 8
                         doty = 0
@@ -1384,9 +1376,10 @@ class Tempo:
             else:
                 break
         if p:
-            return True # only when actually text found
+            return True  # only when actually text found
         else:
             return False
+
 
 class Voice:
     """ Multi stave music
@@ -1790,7 +1783,8 @@ class Field:
             elif key == 'W':
                 self.words(value)
 
-    def is_selected(self, xref_str: str, pat: list, select_all: bool, search_field: str) -> bool:
+    def is_selected(self, xref_str: str, pat: list,
+                    select_all: bool, search_field: str) -> bool:
         """ check selection for current info fields """
         # true if select_all or if no selectors given
         if select_all:
@@ -1799,21 +1793,21 @@ class Field:
             return True
 
         m = 0
-        for i in range(len(pat)):                        #patterns
+        for i in range(len(pat)):
             if search_field == constants.S_COMPOSER:
                 for j in range(len(self.composer)):
                     if not m:
                         m = re.match(self.composer.composers[j], pat[i])
             elif search_field == constants.S_SOURCE:
-                    m = re.match(self.source.line, pat[i])
+                m = re.match(self.source.line, pat[i])
             elif search_field == constants.S_RHYTHM:
-                    m = re.match(self.rhythm.line, pat[i])
+                m = re.match(self.rhythm.line, pat[i])
             else:
-                    m = re.match(self.titles.titles[0], pat[i])
-                    if not m and len(self.titles) >= 2:
-                        m = re.match(self.titles.titles[1], pat[i])
-                    if not m and len(self.titles.titles[2]) == 3:
-                        m = re.match(self.titles.titles[2], pat[i])
+                m = re.match(self.titles.titles[0], pat[i])
+                if not m and len(self.titles) >= 2:
+                    m = re.match(self.titles.titles[1], pat[i])
+                if not m and len(self.titles.titles[2]) == 3:
+                    m = re.match(self.titles.titles[2], pat[i])
             if m:
                 return True
 
@@ -1837,7 +1831,6 @@ class Field:
         if self.xref.xref == a:
             return True
         return False
-
 
     def check_selected(self, fp, xref_str: str, pat: list, sel_all: bool, search_field: str):
         """
@@ -1894,9 +1887,8 @@ class Field:
         fp.write(f"{dif:.2f} 0 T\n")
         common.posx = new_posx
 
-    def process_line(self, fp, i_type: object, xref_str: str, line: str, pat: list, sel_all: \
-        bool,
-                     search_field0: str):
+    def process_line(self, fp, i_type: object, xref_str: str, pat: list,
+                     sel_all: bool, search_field0: str):
         if common.within_block:
             log.info(f"process_line, type {i_type.__name__} ")
 
@@ -1949,7 +1941,7 @@ class Field:
                     # self.key.set_transtab(self.key.halftones)
                     cfmt.check_margin(cfmt.leftmargin)
                     self.write_heading(fp)
-                    voices = list()
+                    # voices = list()
                     parse.init_parse_params()
                     # insert is now set in set_meter (for invisible meter)
                     self.meter.insert = 1
@@ -1986,7 +1978,8 @@ class Field:
                 if not common.within_tune:
                     log.info(f"+++ Voice field not allowed in header: V:{common.lvoiceid}")
                 else:
-                    ivc = self.voice.switch_voice(common.lvoiceid)
+                    pass
+                    # ivc = self.voice.switch_voice(common.lvoiceid)
             return
         elif isinstance(i_type, Blank) or isinstance(i_type, EOF):
             if common.do_this_tune:
@@ -2021,7 +2014,7 @@ class Field:
                     buffer.buffer_eob(fp)
                     buffer.write_buffer(fp)
 
-            info = Info()
+            # info = Info()
             if common.within_block and not common.within_tune:
                 log.debug(f"\n+++ Header not closed in tune {self.xref.xref}")
             common.within_tune = False
@@ -2033,21 +2026,20 @@ class Field:
         """ act on info field inside body of tune """
         # Todo, rework handle_inside_field(t_type)
         if not voices:
-            ivc = self.voice.switch_voice(constants.DEFVOICE)
+            common.ivc = self.voice.switch_voice(constants.DEFVOICE)
         if isinstance(t_type, Meter):
-            self.meter(voices[ivc].meter.meter_str)
-            self.meter.append_meter(voices[ivc].meter.meter_str)
+            self.meter(voices[common.ivc].meter.meter_str)
+            self.meter.append_meter(voices[common.ivc].meter.meter_str)
         elif isinstance(t_type, DefaultLength):
-            self.default_note_length(voices[ivc].meter.dlen)
+            self.default_note_length(voices[common.ivc].meter.dlen)
         elif isinstance(t_type, Key):
-            old_key = voices[ivc].key
-            rc = self.key(voices[ivc].key, False)
+            old_key = voices[common.ivc].key
+            rc = self.key(voices[common.ivc].key, False)
             if rc:
-                self.key.set_transtab(self.key.halftones,
-                                      voices[ivc].key)
-            self.key.append_key_change(old_key, voices[ivc].key)
+                voices[ivc].key.set_transtab(common.halftones, )
+            self.key.append_key_change(old_key, voices[common.ivc].key)
         elif isinstance(t_type, Voice):
-            ivc = self.voice.switch_voice(common.lvoiceid)
+            common.ivc = self.voice.switch_voice(common.lvoiceid)
 
     def write_heading(self, fp):
         line_width: float = cfmt.staffwidth
@@ -2182,7 +2174,6 @@ class Field:
 #     else:
 #         print("UNKNOWN LINE TYPE")
 
-
     def get_default_info(self) -> object:
         """ set info to default, except xref field """
         save_str = self.xref.xref_str
@@ -2197,7 +2188,8 @@ class History(Field):
         self.line = line
         self.header = header
 
-    def add_to_text_block(self, ln, add_final_nl):
+    @staticmethod
+    def add_to_text_block(ln, add_final_nl):
         """
         Used in:
             subs.put_text
@@ -2244,8 +2236,8 @@ class History(Field):
         if n == 0:
             return
 
-        baseskip = cfmt.textfont.size * cfmt.lineskipfac
-        parskip = cfmt.textfont.size * cfmt.parskipfac
+        # baseskip = cfmt.textfont.size * cfmt.lineskipfac
+        # parskip = cfmt.textfont.size * cfmt.parskipfac
         fp.write("0 0 M\n")
         common.words_of_text = ''
         self.add_to_text_block(s, False)
