@@ -1,17 +1,18 @@
+
+import field
 import pytest
-import info
 
 
 class TestXRef:
     def test_is_info_field(self):
         s = 'X: 1'
-        assert info.is_info_field(s)
+        assert field.is_info_field(s)
         s = 'X:'
-        assert info.is_info_field(s)
+        assert field.is_info_field(s)
         s = "X 1"
-        assert info.is_info_field(s)
+        assert field.is_info_field(s)
         s = "|: A"
-        assert info.is_info_field(s)
+        assert field.is_info_field(s)
 
 #     def test_00(self):
 #         self.assertEqual(self.field.X.xref_str, '1')
@@ -20,42 +21,42 @@ class TestXRef:
 #
 #     def test_01(self):
 #         s = 'X: 1a'
-#         self.assertTrue(info.is_field_line(s))
+#         self.assertTrue(field.is_field_line(s))
 #         self.assertEqual(self.field.X.xref, 0)
 #         self.assertIsNone(self.field.X.xref_str)
 #         self.assertFalse(self.field.X.do_tune)
 #
 #     def test_02(self):
 #         s = 'X: jh'
-#         self.assertTrue(info.is_field_line(s))
+#         self.assertTrue(field.is_field_line(s))
 #         self.assertEqual(self.field.X.xref, 0)
 #         self.assertIsNone(self.field.X.xref_str)
 #         self.assertFalse(self.field.X.do_tune)
 #
 #     def test_03(self):
 #         s = 'X: 1.0'
-#         self.assertTrue(info.is_field_line(s))
+#         self.assertTrue(field.is_field_line(s))
 #         self.assertEqual(self.field.X.xref, 0)
 #         self.assertIsNone(self.field.X.xref_str)
 #         self.assertFalse(self.field.X.do_tune)
 #
 #     def test_04(self):
 #         s = 'X: 0'
-#         self.assertTrue(info.is_field_line(s))
+#         self.assertTrue(field.is_field_line(s))
 #         self.assertEqual(self.field.X.xref, 0)
 #         self.assertIsNone(self.field.X.xref_str)
 #         self.assertFalse(self.field.X.do_tune)
 #
 #     def test_05(self):
 #         s = 'X: -2'
-#         self.assertTrue(info.is_field_line(s))
+#         self.assertTrue(field.is_field_line(s))
 #         self.assertEqual(self.field.X.xref, 0)
 #         self.assertIsNone(self.field.X.xref_str)
 #         self.assertFalse(self.field.X.do_tune)
 #
 #     def test_06(self):
 #         s = 'X:14'
-#         self.assertTrue(info.is_field_line(s))
+#         self.assertTrue(field.is_field_line(s))
 #         self.field.process(s)
 #         self.assertEqual(self.field.X.xref_str, '14')
 #         self.assertEqual(self.field.X.xref, 14)
@@ -63,7 +64,7 @@ class TestXRef:
 #
 #     def test_07(self):
 #         s = 'X:1234567890'
-#         self.assertTrue(info.is_field_line(s))
+#         self.assertTrue(field.is_field_line(s))
 #         self.field.process(s)
 #         self.assertEqual(self.field.X.xref_str, '1234567890')
 #         self.assertEqual(self.field.X.xref, 1234567890)
@@ -75,22 +76,22 @@ class TestXRef:
 #
 #     @classmethod
 #     def setUpClass(cls):
-#         cls.field = info.Info()
+#         cls.field = field.Info()
 #
 #     @classmethod
 #     def tearDownClass(cls):
 #         del cls.field
 #
 #     def test_00(self):
-#         area = info.SingleField()
+#         area = field.SingleField()
 #         lines = ['X: 1', 'A: England']
-#         self.assertTrue(info.is_field_line(lines[0]))
-#         self.assertTrue(info.is_field_line(lines[1]))
+#         self.assertTrue(field.is_field_line(lines[0]))
+#         self.assertTrue(field.is_field_line(lines[1]))
 #         area('England')
 #         self.assertEqual('England', area.field)
 #
 #     def test_01(self):
-#         book = info.SingleField()
+#         book = field.SingleField()
 #         book('Russia')
 #         self.assertEqual('Russia', book.field)
 #         book('France')
@@ -102,7 +103,7 @@ class TestXRef:
 #     field = None
 #
 #     def setUp(self):
-#         self.field = info.Info()
+#         self.field = field.Info()
 #
 #     def tearDown(self):
 #         del self.field
@@ -112,9 +113,9 @@ class TestXRef:
 #
 #     def test_01(self):
 #         s = 'X:1'
-#         self.assertTrue(info.is_field_line(s))
+#         self.assertTrue(field.is_field_line(s))
 #         s = 'T: title first'
-#         self.assertTrue(info.is_field_line(s))
+#         self.assertTrue(field.is_field_line(s))
 #
 #
 # class TestMeter(unittest.TestCase):
@@ -122,7 +123,7 @@ class TestXRef:
 #     field = None
 #
 #     def setUp(self):
-#         self.m = info.Meter()
+#         self.m = field.Meter()
 #
 #     def tearDown(self):
 #         del self.m
@@ -144,7 +145,7 @@ class TestXRef:
 #     v = None
 #
 #     def setUp(self):
-#         self.v = info.Voice()
+#         self.v = field.Voice()
 #
 #     def tearDown(self):
 #         del self.v

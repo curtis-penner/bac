@@ -32,7 +32,7 @@ import pssubs
 import util
 import tab
 from symbol import Symbol
-from info import Meter
+from field import Meter
 
 args = cmdline.options()
 #    subroutines connected with output of music

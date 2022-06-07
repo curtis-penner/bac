@@ -9,7 +9,7 @@ import pssubs
 import syms
 import parse
 import util
-import info
+import field
 import common
 import constants
 

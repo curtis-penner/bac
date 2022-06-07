@@ -1,10 +1,13 @@
 # Copyright (c) 2019. Curtis Penner
+import time
 
+import common
+import field
 import parse
 from log import log
 from util import put
 import constants
-from common import voices, ivc, cfmt, key
+from common import voices, ivc, cfmt
 
 
 class Grace():
@@ -91,7 +94,7 @@ class Grace():
             if self.agr[n]:
                 p += 1
 
-            self.pgr[n] = key.numeric_pitch(gs[p])
+            self.pgr[n] = field.Key().numeric_pitch(gs[p])
             p += 1
             while gs[p] == '\'':
                 self.pgr[n] += 7
@@ -100,7 +103,8 @@ class Grace():
                 self.pgr[n] -= 7
                 p += 1
 
-            self.pgr[n], self.agr[n] = key.do_transpose(voices[ivc].key)
+            self.pgr[n], self.agr[n] = field.Key().do_transpose(voices[ivc].key,
+                                                               field.Key().root_acc)
 
             # parse_length() returns default length when no length specified
             # => we may only call it when explicit length specified
@@ -173,7 +177,7 @@ class Grace():
                 a = -constants.BEAM_SLOPE
             b = (sy - a * sx) / s1
 
-            if key.bagpipe:
+            if common.bagpipe:
                 a = 0
                 b = 35
 
@@ -236,7 +240,7 @@ class Grace():
                     put(f"{xg[i]:.1f} {y} ghl ")
 
         if n > 1:  # beam
-            if not gr_len and key.bagpipe:
+            if not gr_len and common.bagpipe:
                 put(f"{px[0]:.1f} {py[0]:.1f} {px[n - 1]:.1f} {py[n - 1]:.1f} gbm3 ")
             elif not gr_len:
                 put(f"{px[0]:.1f} {py[0]:.1f} {px[n - 1]:.1f} {py[n - 1]:.1f} gbm2 ")
@@ -322,7 +326,7 @@ class Gchord(object):
                 self.text = line[1:line.find('"')]
 
 
-class Beam:  # packages info about one beam
+class Beam:  # packages field about one beam
     def __init__(self):
         self.i1 = 0
         self.i2 = 0
@@ -424,6 +428,38 @@ class Symbol:  # struct for a drawable symbol
         self.p = 0  # pointer to entry in posit table
         self.time = 0  # time for symbol start
         self.tabdeco = [0]*10   # tablature decorations inside chord
+
+    def init_parse_params(self):
+        """
+        initialize variables for parsing
+
+        :return:
+        """
+        common.slur = 0
+        common.nwpool = 0
+        common.nwline = 0
+        common.ntinext = 0
+
+        # for continuation after output: reset nsym, switch to first v
+        for voice in common.voices:
+            voice.sym = list()
+            # this would suppress tie/repeat carryover from previous page:
+            voice.insert_btype = 0
+            voice.end_slur = 0
+
+        self.ivc = 0
+        self.word = False
+        self.carryover = False
+        self.last_note = -1
+        self.last_real_note = -1
+        self.pplet = 0
+        self.qplet = 0
+        self.rplet = 0
+        self.num_ending = 0
+        self.mes1 = 0
+        self.mes2 = 0
+        field.prep_gchlst = list()
+        field.prep_deco = list()
 
 
 class Note():

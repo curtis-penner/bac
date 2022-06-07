@@ -11,22 +11,7 @@ import common
 args = cmdline.options()
 
 
-# ----- bskip(h):  ----
-def bskip(h):
-    """
-    translate down by h points in output buffer
-
-    :param h:
-    """
-    # global bposy
-
-    if h*h > 0.0001:
-        put(f'0 {-h:.2f} T\n')
-        common.bposy -= h
-
-
-
-def put(line, fp=common.fp):
+def put(fp, line):
     """ This appends a line to filename. """
     fp.write(line)
 

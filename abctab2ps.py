@@ -8,11 +8,11 @@ import cmdline
 import common
 import format
 import parse
-import voice
 import pssubs
 import buffer
 import music
-import subs
+import field
+import util
 import tab
 import index
 from constants import (VERSION, REVISION, INDEXFILE)
@@ -29,6 +29,10 @@ def signal_handler():
     exit(130)
 
 
+def is_pseudo_comment(line: str) -> bool:
+    line = line.strip()
+    return line.startswith("%%")
+
 
 def write_text_block(fp, job: int, words_of_text='') -> None:
     if not words_of_text:
@@ -38,18 +42,18 @@ def write_text_block(fp, job: int, words_of_text='') -> None:
     parskip = cfmt.textfont.size * cfmt.parskipfac
     cfmt.textfont.set_font_str(common.page_init)
 
-    swfac = set_swfac(cfmt.textfont.name)
+    swfac = music.set_swfac(cfmt.textfont.name)
 
     # Now this is stupid. All that work to just set it to 1.0
 
     spw = util.cwid(' ')
-    put("/LF \{0 "
-        f"{-baseskip:.1f}"
-        " rmoveto} bind def\n")
+    fp.write("/LF \\{0 "
+             f"{-baseskip:.1f}"
+             " rmoveto} bind def\n")
 
     # output by pieces, separate at newline token
     ntxt = len(words_of_text)
-    i1 = 0
+    i1: int = 0
     while i1 < ntxt:
         i2 = -1
         for i in range(i1, ntxt):
@@ -61,75 +65,72 @@ def write_text_block(fp, job: int, words_of_text='') -> None:
         common.bskip(fp, baseskip)
 
         if job == OBEYLINES:
-            put("0 0 M(")
+            fp.write("0 0 M(")
             for i in range(i1, i2):
-                line, wwidth = tex_str(words_of_text[i])
-                put(f"{line} ")
-            put(") rshow\n")
+                line, w_width = music.tex_str(words_of_text[i])
+                fp.write(f"{line} ")
+            fp.write(") rshow\n")
 
         elif job == OBEYCENTER:
-            put(f"{cfmt.staff_width / 2:.1f} 0 M(")
+            fp.write(f"{cfmt.staff_width / 2:.1f} 0 M(")
             for i in range(i1, i2):
-                line, wwidth = tex_str(words_of_text[i])
-                put(f"{line}")
-                if i<i2-1:
-                    put(" ")
-            put(") cshow\n")
+                line, w_width = music.tex_str(words_of_text[i])
+                fp.write(f"{line}")
+                if i < i2-1:
+                    fp.write(" ")
+            fp.write(") cshow\n")
 
         elif job == OBEYRIGHT:
-            put(f"{cfmt.staff_width:.1f} 0 M(")
+            fp.write(f"{cfmt.staff_width:.1f} 0 M(")
             for i in range(i1, i2):
-                line, wwidth = tex_str(words_of_text[i])
-                put(f"{line}")
-                if i<i2-1:
-                    put(" ")
-            put(") lshow\n")
+                line, w_width = music.tex_str(words_of_text[i])
+                fp.write(f"{line}")
+                if i < i2-1:
+                    fp.write(" ")
+            fp.write(") lshow\n")
 
         else:
-            put("0 0 M mark\n")
+            fp.write("0 0 M mark\n")
             nc = 0
             mc = -1
             wtot = -spw
+            text_width = cfmt.textfont.size
             for i in range(i2-1, i1, -1):
-                line, wwidth = tex_str(words_of_text[i])
+                line, w_width = music.tex_str(words_of_text[i])
                 mc += len(words_of_text)
-                wtot += wwidth+spw
+                wtot += w_width+spw
                 nc += len(line)+2
                 if nc >= 72:
-                    nc = 0
-                    put("\n")
-                put(f"({line})")
+                    fp.write("\n")
+                fp.write(f"({line})")
                 if job == RAGGED:
-                    put(" %.1f P1\n", cfmt.staff_width)
+                    fp.write(" %.1f P1\n", cfmt.staff_width)
                 else:
-                    put(" %.1f P2\n", cfmt.staff_width)
+                    fp.write(" %.1f P2\n", cfmt.staff_width)
                     # first estimate:(total textwidth)/(available width)
-                    textwidth=wtot*swfac*cfmt.textfont.size
+                    text_width = wtot*swfac*cfmt.textfont.size
             if "Courier" in cfmt.textfont.name:
-                textwidth = 0.60 * mc * cfmt.textfont.size
-            ftline0 = textwidth / cfmt.staff_width
+                text_width = 0.60 * mc * cfmt.textfont.size
+            ftline0 = text_width / cfmt.staff_width
             # revised estimate: assume some chars lost at each line end
             nbreak = int(ftline0)
-            textwidth = textwidth + 5 * nbreak * util.cwid('a') * swfac * cfmt.textfont.size
-            ftline = textwidth/cfmt.staff_width
-            ntline = (int)(ftline+1.0)
-            if common.vb >= 10:
-                print(f"first estimate {ftline0:.2f}, revised {ftline:.2f}")
-            if common.vb >= 10:
-                print(f"Output {i2-i1} words, about {ftline:.2f} lines(fac {swfac:.2f})")
-            bskip((ntline-1)*baseskip)
+            text_width = text_width + 5 * nbreak * util.cwid('a') * swfac * cfmt.textfont.size
+            ftline = text_width/cfmt.staff_width
+            ntline = int(ftline + 1.0)
+            log.info(f"first estimate {ftline0:.2f}, revised {ftline:.2f}")
+            log.info(f"Output {i2-i1} words, about {ftline:.2f} lines(fac {swfac:.2f})")
+            common.bskip(fp, (ntline-1)*baseskip)
 
         buffer.buffer_eob(fp)
         # next line to allow pagebreak after each text "line"
         # if(!epsf && !within_tune) write_buffer(fp);
-        i1=i2+1
-    bskip(parskip)
+        i1 = i2+1
+    common.bskip(fp, parskip)
     buffer.buffer_eob(fp)
     # next line to allow pagebreak after each paragraph
     if not common.epsf and not common.within_tune:
         buffer.write_buffer(fp)
     common.page_init = ""
-
 
 
 def process_text_block(fp_in, fp, job: bool) -> None:
@@ -154,12 +155,12 @@ def process_text_block(fp_in, fp, job: bool) -> None:
 
         if job != SKIP:
             if not ln:
-                subs.write_text_block(fp, job)
+                write_text_block(fp, job)
                 common.words_of_text = ''
             else:
-                subs.add_to_text_block(ln, add_final_nl)
+                field.add_to_text_block(ln, add_final_nl)
     if job != SKIP:
-        subs.write_text_block(fp, job)
+        write_text_block(fp, job)
 
 
 def process_ps_comment(fp_in, fp, line):
@@ -208,15 +209,15 @@ def process_ps_comment(fp_in, fp, line):
         common.cfmt.textfont.set_font(fp, False)
         common.words_of_text = ''
         if fstr:
-            subs.add_to_text_block(fstr, True)
+            field.add_to_text_block(fstr, True)
         else:
-            subs.add_to_text_block("", True)
+            field.add_to_text_block("", True)
         if w == "text":
-            subs.write_text_block(fp, OBEYLINES, fstr)
+            write_text_block(fp, OBEYLINES, fstr)
         elif w == "right":
-            subs.write_text_block(fp, OBEYRIGHT, fstr)
+            write_text_block(fp, OBEYRIGHT, fstr)
         else:
-            subs.write_text_block(fp, OBEYCENTER, fstr)
+            write_text_block(fp, OBEYCENTER, fstr)
             buffer.buffer_eob(fp)
 
     elif w == "sep":
@@ -234,9 +235,9 @@ def process_ps_comment(fp_in, fp, line):
             h2 = h1
         if s_len * s_len < 0.0001:
             s_len = 3.0 * CM
-        common.bskip(h1)
+        common.bskip(fp, h1)
         fp.write(f"{l_width / 2 - s_len / 2:.1f} {l_width / 2 + s_len / 2:.1f} sep0\n")
-        common.bskip(h2)
+        common.bskip(fp, h2)
         buffer.buffer_eob(fp)
     elif w == "vskip":
         if common.within_block and not common.do_this_tune:
@@ -247,7 +248,7 @@ def process_ps_comment(fp_in, fp, line):
         h1 = format.g_unum(unum1)
         if h1 * h1 < 0.00001:
             h1 = 0.5 * CM
-        common.bskip(h1)
+        common.bskip(fp, h1)
         buffer.buffer_eob(fp)
     elif w == "newpage":
         if common.within_block and not common.do_this_tune:
@@ -265,7 +266,7 @@ def process_ps_comment(fp_in, fp, line):
             common.cfmt = dfmt
 
 
-def process_file(fp_in, fp_out, xref_str, pat, sel_all, search_field, info=None):
+def process_file(fp_in, fp_out, xref_str, pat, sel_all, search_field):
     # int type;
     common.within_tune = False
     common.within_block = False
@@ -274,17 +275,18 @@ def process_file(fp_in, fp_out, xref_str, pat, sel_all, search_field, info=None)
     # This is where there is the statements of verbose.
     # Just need to understand what the verbose number means to
     #  debug, warning, info, error, critical
-
+    info = field.Field()
     with open(fp_in) as f:
         lines = f.readlines()
+    fp = open(fp_out, 'w')
     if parse.is_cmdline(lines[0].strip()):
-        subs.process_cmdline(lines[0])
+        info.process_line(fp, field.XRef, lines[0], pat, sel_all, search_field)
         del lines[0]
     for line in lines:
         line = line.strip()
         if not line:
             continue
-        if parse.is_pseudocomment(line):
+        if is_pseudo_comment(line):
             process_ps_comment(fp_in, fp_out, line)
             continue
         if parse.is_comment(line):
@@ -293,23 +295,23 @@ def process_file(fp_in, fp_out, xref_str, pat, sel_all, search_field, info=None)
         parse.decomment_line(line)
 
         # reset_info(default_info)
-        field = info.Field()
+        info = field.Field()
         if field.is_field(line):
-            # skip after history field. Nightmarish syntax, that.
+            # skip after history info. Nightmarish syntax, that.
             k, v = line.split(':', 1)
             if k != 'H':
                 pass
             else:
-                field.history(v)
+                info.history(v)
 
         if not common.do_music:
             return
-        if voice.parse_vocals(line):
+        if info.voice.parse_vocals(line):
             return
 
         # now parse a real line of music
         if not common.voices:
-            common.ivc = voice.Voice().switch_voice(DEFVOICE)
+            common.ivc = info.voice.switch_voice(DEFVOICE)
 
         n_sym_0 = len(common.voices[common.ivc].syms)
 
@@ -321,7 +323,7 @@ def process_file(fp_in, fp_out, xref_str, pat, sel_all, search_field, info=None)
 
         log.debug(f"  parsed music symbols {n_sym_0} to"
                   f" {len(common.voices[common.ivc].syms)-1} for voice {common.ivc}")
-        field.process_line(fp_out, xref_str, pat, sel_all, search_field)
+        info.process_line(fp, field.XRef, line, xref_str, pat, sel_all)
 
     if not common.epsf:
         buffer.buffer_eob(fp_out)
@@ -397,8 +399,8 @@ def main():
         print(f"Selected {common.tnum1} title {common.tnum1} of {common.tnum2}")
 
     if common.do_output and common.make_index:
-        subs.close_index_file()
-    subs.close_output_file(fout)
+        index.Index().close_index_file()
+    field.Field().close_output_file(fout)
 
 
 if __name__ == '__main__':

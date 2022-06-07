@@ -11,11 +11,11 @@ from log import log
 import symbol
 import format
 import util
-import parse
 from format import cfmt, font
 import common
 from common import voices, ivc
 import cmdline
+from parse import add_wd, parse_uint
 
 args = cmdline.options()
 
@@ -131,13 +131,49 @@ def parse_vocals(line: str) -> bool:
                 isym += 1
             if isym >= len(voices[ivc].nsym):
                 SyntaxError("Not enough notes for words", line)
-            voices[ivc].sym[isym].wordp[common.nwline] = parse.add_wd(word)
+            voices[ivc].sym[isym].wordp[common.nwline] = add_wd(word)
 
         if p[c] == '\0':
             break
 
     common.nwline += 1
     return True
+
+
+def add_to_text_block(ln, add_final_nl):
+    """
+    Used only in: subs.put_text
+
+    :param str ln:
+    :param bool add_final_nl:
+    :return ln, words_of_text:
+    """
+    word = list()
+    words_of_text = list()
+    c = 0
+    nl = 0
+
+    while c < len(ln):
+        while ln[c] == ' ':
+            c += 1
+        if c >= len(ln):
+            break
+        while ln[c] != ' ' and c >= len(ln) and ln[c] != '\n':
+            nl = 0
+            if ln[c] == '\\' and ln[c + 1] == '\\':
+                nl = 1
+                c += 2
+                break
+            word.append(ln[c])
+            c += 1
+        if word:
+            words_of_text.append(word)
+            word = list()
+        if nl:
+            words_of_text.append("$$NL$$")
+            word = list()
+    if add_final_nl:
+        words_of_text.append("$$NL$$")
 
 
 class Comment:
@@ -496,7 +532,7 @@ class Meter:
 
         kk = voice.add_sym(constants.TIMESIG)
         voices[ivc].syms.append(symbol.Symbol())
-        voices[ivc].syms[kk].gchords = common.GchordList()
+        voices[ivc].syms[kk].gchords = common.GchordList
         voices[ivc].syms[kk].type = constants.TIMESIG
         if self.display == 2:
             voices[ivc].syms[kk].u = self.display_meter1
@@ -1817,10 +1853,10 @@ class Field:
         self.xref.xref_str = self.xref.xref_str.replace("-", " ")
 
         p = self.xref.xref_str.split()
-        a = parse.parse_uint(p[0])
+        a = parse_uint(p[0])
         if not a:
             return False  # can happen if invalid chars in string
-        b = parse.parse_uint(p[1])
+        b = parse_uint(p[1])
         if not b:
             if self.xref.xref >= a:
                 return True
@@ -1942,7 +1978,7 @@ class Field:
                     cfmt.check_margin(cfmt.leftmargin)
                     self.write_heading(fp)
                     # voices = list()
-                    parse.init_parse_params()
+                    symbol.Symbol().init_parse_params()
                     # insert is now set in set_meter (for invisible meter)
                     self.meter.insert = 1
 
@@ -2182,70 +2218,34 @@ class Field:
         return info
 
 
+def put_text(fp, t_type: object, s: str) -> None:
+    # int i,n
+    # float baseskip,parskip
+
+    n = 0
+    for i in range(common.ntext):
+        if common.text_type[i] == t_type:
+            n += 1
+    if n == 0:
+        return
+
+    # baseskip = cfmt.textfont.size * cfmt.lineskipfac
+    # parskip = cfmt.textfont.size * cfmt.parskipfac
+    fp.write("0 0 M\n")
+    common.words_of_text = ''
+    add_to_text_block(s, False)
+    for i in range(common.ntext):
+        if common.text_type[i] == t_type:
+            add_to_text_block(common.text[i], True)
+    abctab2ps.write_text_block(fp, constants.RAGGED)
+    buffer.buffer_eob(fp)
+
+
 class History(Field):
 
     def __call__(self, line, header=False):
         self.line = line
         self.header = header
-
-    @staticmethod
-    def add_to_text_block(ln, add_final_nl):
-        """
-        Used in:
-            subs.put_text
-
-        :param str ln:
-        :param bool add_final_nl:
-        :return ln, words_of_text:
-        """
-        word = list()
-        words_of_text = list()
-        c = 0
-        nl = 0
-
-        while c < len(ln):
-            while ln[c] == ' ':
-                c += 1
-            if c >= len(ln):
-                break
-            while ln[c] != ' ' and c >= len(ln) and ln[c] != '\n':
-                nl = 0
-                if ln[c] == '\\' and ln[c + 1] == '\\':
-                    nl = 1
-                    c += 2
-                    break
-                word.append(ln[c])
-                c += 1
-            if word:
-                words_of_text.append(word)
-                word = list()
-            if nl:
-                words_of_text.append("$$NL$$")
-                word = list()
-        if add_final_nl:
-            words_of_text.append("$$NL$$")
-
-    def put_text(self, fp, t_type: object, s: str) -> None:
-        # int i,n
-        # float baseskip,parskip
-
-        n = 0
-        for i in range(common.ntext):
-            if common.text_type[i] == t_type:
-                n += 1
-        if n == 0:
-            return
-
-        # baseskip = cfmt.textfont.size * cfmt.lineskipfac
-        # parskip = cfmt.textfont.size * cfmt.parskipfac
-        fp.write("0 0 M\n")
-        common.words_of_text = ''
-        self.add_to_text_block(s, False)
-        for i in range(common.ntext):
-            if common.text_type[i] == t_type:
-                self.add_to_text_block(common.text[i], True)
-        abctab2ps.write_text_block(fp, constants.RAGGED)
-        buffer.buffer_eob(fp)
 
     def put_history(self, fp):
         cfmt.textfont.set_font(fp, False)
@@ -2276,9 +2276,9 @@ class History(Field):
             fp.write(") show\n")
             common.bskip(fp, parskip)
 
-        self.history.put_text(fp, self.discography, "Discography: ")
-        self.history.put_text(fp, self.notes, "Notes: ")
-        self.history.put_text(fp, self.transcription_note, "Transcription: ")
+        put_text(fp, self.discography, "Discography: ")
+        put_text(fp, self.notes, "Notes: ")
+        put_text(fp, self.transcription_note, "Transcription: ")
 
         ok = False
         for i in range(common.ntext):

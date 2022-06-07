@@ -2,36 +2,25 @@ import re
 
 from log import log
 from constants import (S_SOURCE, S_RHYTHM, S_COMPOSER)
-from constants import (NWPOOL, NTEXT, TEXT_D)
-from constants import (BASE, EIGHTH, SIXTEENTH)
-from constants import DEFVOICE, TIMESIG
-from constants import (A_NT, A_FT, A_SH)
-from constants import (TREBLE, TREBLE8, TREBLE8UP, BASS, ALTO, TENOR,
-                       SOPRANO, MEZZOSOPRANO, BARITONE, VARBARITONE, SUBBASS)
-from constants import FRENCHVIOLIN
-from constants import (FRENCHTAB, FRENCH5TAB, FRENCH4TAB, SPANISHTAB, SPANISH5TAB,
-                       SPANISH4TAB, ITALIANTAB, ITALIAN8TAB, ITALIAN7TAB, ITALIAN5TAB,
-                       ITALIAN4TAB, GERMANTAB)
-from common import voices, ivc, cfmt
-import common
-import voice
-import symbol
-import subs
-import info
-
-
-symb = symbol.Symbol()
-info = info.Field()
-
-# subroutines connected with parsing the input file
-
-# "void syntax" is replaced with SyntaxError Exception
-
-
-
+from constants import (NWPOOL, NTEXT)
+# from constants import (BASE, EIGHTH, SIXTEENTH, TEXT_D)
+# from constants import DEFVOICE, TIMESIG
+# from constants import (A_NT, A_FT, A_SH)
+# from constants import (TREBLE, TREBLE8, TREBLE8UP, BASS, ALTO, TENOR,
+#                        SOPRANO, MEZZOSOPRANO, BARITONE, VARBARITONE, SUBBASS)
+# from constants import FRENCHVIOLIN
+# from constants import (FRENCHTAB, FRENCH5TAB, FRENCH4TAB, SPANISHTAB, SPANISH5TAB,
+#                        SPANISH4TAB, ITALIANTAB, ITALIAN8TAB, ITALIAN7TAB, ITALIAN5TAB,
+#                        ITALIAN4TAB, GERMANTAB)
 
 # zero_sym: moved to symbol.py
 # add_sym: moved to Voice in voice.py
+from common import voices, ivc
+import common
+import symbol
+
+symb = symbol.Symbol()
+
 
 def char_delta(c: str, d: str) -> int:
     """ find int difference between to characters """
@@ -56,33 +45,6 @@ def get_xref(s: str) -> int:
 
 
 
-def init_parse_params():
-    """
-    initialize variables for parsing
-
-    :return:
-    """
-    common.slur = 0
-    common.nwpool = 0
-    common.nwline = 0
-    common.ntinext = 0
-
-    # for continuation after output: reset nsym, switch to first v
-    for voice in common.voices:
-        voice.sym = list()
-        # this would suppress tie/repeat carryover from previous page:
-        voice.insert_btype = 0
-        voice.end_slur = 0
-
-    symb.ivc = 0
-    symb.word = False
-    symb.carryover = False
-    symb.last_note = symb.last_real_note = -1
-    symb.pplet = symb.qplet = symb.rplet = 0
-    symb.num_ending = 0
-    symb.mes1 = symb.mes2 = 0
-    field.prep_gchlst = list()
-    field.prep_deco = list()
 
 
 def add_text(s: str, t_type: int) -> None:
@@ -294,8 +256,8 @@ def info_field(s: str) -> bool:
     # struct ISTRUCT *inf
     # int i
 
-    if not common.within_block:
-        inf = info.Field()
+    # if not common.within_block:
+    #     inf = info.Field()
 
     if info.is_field(s):
         return False
@@ -342,7 +304,7 @@ def info_field(s: str) -> bool:
     elif s.startswith( 'V'):
         info.voice(s)
     elif s.startswith( 'Z'):
-        info.transciptoin_note(s)
+        info.transcription_note(s)
     elif s.startswith( 'Q'):
         info.tempo(s)
     elif s.startswith( 'E'):
@@ -714,7 +676,7 @@ def parse_length(line, p) -> int:
 
 
         if line[p].isdigit():    # multiply note length
-                fac = parse_uint()
+                fac = parse_uint(line[p])
                 if not fac:
                     fac = 1
                 n_len *= fac
@@ -723,7 +685,7 @@ def parse_length(line, p) -> int:
             while line[p] == '/':
                 p += 1
                 if line[p].isdigit():
-                    fac = parse_uint()
+                    fac = parse_uint(line[p])
                 else:
                     fac = 2
                 if n_len % fac:
@@ -1213,172 +1175,171 @@ def add_wd(s: str) -> str:
 #         nwline += 1
 #         return 1
 # }
-#
-#
-# # ----- parse_music_line:-----
+
+
 def parse_music_line(line: str) -> int:
-    """ parse a music line into symbols """
-    # int num,nbr,n,itype,i
-    # char msg[81]
-
-
-    if ivc >= len(voices):
-        log.critical(f"Trying to parse undefined voice {True}")
-        exit(1)
-
-    common.nwline = 0
-    s_type = 0
-    nsym0 = len(voices[ivc].syms)
-
-    nbr = 0
-    p0 = line
-    p = 0
-
-    while p < len(line):
-        if p > len(line):
-            break   # emergency exit
-        s_type = parse_sym()
-        n = (voices[ivc].syms)
-        i = n-1
-        if common.db > 4 and s_type:
-            print(f"     sym[{n-1}] code ({voices[ivc].syms[n-1].type},{voices[ivc].syms[n-1].u}")
-
-        if s_type == NEWLINE:
-            if n > 0 and not cfmt.continueall and not cfmt.barsperstaff:
-                voices[ivc].syms[i].eoln=1
-                if common.word:
-                    voices[ivc].syms[common.last_note].word_end = True
-                    common.word = False
-                    
-        if s_type == ESCSEQ:
-            if db > 3:
-                print(f"Handle escape sequence <{escseq}>")
-            itype = info_field(escseq)
-            handle_inside_field(itype)
-
-        if s_type == REST:
-            if pplet:   # n-plet can start on rest
-                voices[ivc].syms[i].p_plet = pplet
-                voices[ivc].syms[i].q_plet = qplet
-                voices[ivc].syms[i].r_plet = rplet
-                pplet=0
-            common.last_note = i     # need this so > and < work
-            p1 = p
-
-        if s_type == NOTE:
-            if not common.word:
-                voices[ivc].syms[i].word_st = True
-                word = True
-            if nbr and cfmt.slurisligatura:
-                voices[ivc].syms[i].lig1 += nbr
-            else:
-                voices[ivc].syms[i].slur_st += nbr
-            nbr=0
-            if voices[ivc].end_slur:
-                voices[ivc].syms[i].slur_end += 1
-            voices[ivc].end_slur = 0
-    
-            if pplet:                                    # start of n-plet
-                voices[ivc].syms[i].p_plet = pplet
-                voices[ivc].syms[i].q_plet = qplet
-                voices[ivc].syms[i].r_plet = rplet
-                pplet=0
-            last_note = last_real_note = i
-            p1 = p
-
-        if common.word and s_type == BAR or s_type == SPACE:
-            if last_real_note >= 0:
-                voices[ivc].syms[last_real_note].word_end = True
-                common.word = False
-
-        if not s_type:
-            if p == '-':   # a-b tie
-                voices[ivc].syms[common.last_note].slur_st += 1
-                voices[ivc].end_slur=1
-                p += 1
-
-            elif p == '(':
-                p += 1
-                if p.isdigit():
-                    pplet = char_delta(line[p],'0')
-                    qplet = 0
-                    rplet = pplet
-                    p += 1
-                    if p == ':':
-                        p += 1
-                        if p.isdigit():
-                            qplet = char_delta(line[p],'0')
-                            p += 1
-                        if p == ':':
-                            p += 1
-                            if p.isdigit():
-                                rplet = char_delta(line[p],'0')
-                                p += 1
-                else:
-                    nbr += 1
-            elif *p == ')':
-                if common.last_note > 0:
-                    if cfmt.slurisligatura:
-                        voices[ivc].syms[common.last_note].lig2 += 1
-                    else:
-                        voices[ivc].syms[common.last_note].slur_end += 1
-                else:
-                    SyntaxError(f"Unexpected symbol {p}")
-                p += 1
-            elif *p == '>':
-                num=1
-                p += 1
-                while *p == '>':
-                    num += 1
-                    p += 1
-                if last_note < 0:
-                    SyntaxError("No note before > sign", p)
-                else:
-                    double_note(last_note, num, 1, p1)
-            elif *p == '<':
-                    num = 1
-                    p += 1
-                    while *p == '<':
-                        num += 1
-                        p += 1
-                    if last_note < 0:
-                            SyntaxError("No note before < sign", p)
-                    else:
-                            double_note (last_note, num, -1, p1)
-            elif *p == '*':      # ignore stars for now
-                p += 1
-            elif *p == '!':      # ditto for '!'
-                p += 1
-            else:
-                if *p != '\0':
-                    msg = f"Unexpected symbol '{line[p]}'"
-                else:
-                    msg = f"Unexpected end of line"
-                SyntaxError(msg, line[p])
-                p += 1
-
-    # maybe set end-of-line marker, if symbols were added
-    n = len(voices[ivc].syms)
-
-    if n > nsym0:
-        if s_type == CONTINUE or cfmt.barsperstaff or cfmt.continueall:
-            voices[ivc].syms[n-1].eoln = False
-        else:
-            # add invisible bar, if last symbol no bar
-            if voices[ivc].syms[n-1].s_type != BAR:
-                i = add_sym(BAR)
-                voices[ivc].syms[i].u = B_INVIS
-                n = i+1
-            }
-            voices[ivc].syms[n-1].eoln=1
-
-    # break words at end of line
-    if common.word and voices[ivc].syms[n-1].eoln:
-        voices[ivc].syms[common.last_note].word_end = True
-        common.word = False
-
-    return TO_BE_CONTINUED
-
+    NotImplementedError()
+    return 0
+#     """ parse a music line into symbols """
+#     # int num,nbr,n,itype,i
+#     # char msg[81]
+#
+#     if ivc >= len(voices):
+#         log.critical(f"Trying to parse undefined voice {True}")
+#         exit(1)
+#
+#     common.nwline = 0
+#     s_type = 0
+#     nsym0 = len(voices[ivc].syms)
+#
+#     nbr = 0
+#     p = 0
+#
+#     while p < len(line):
+#         if p > len(line):
+#             break   # emergency exit
+#         s_type = parse_sym()
+#         n = (voices[ivc].syms)
+#         i = n-1
+#         if common.db > 4 and s_type:
+#             print(f"     sym[{n-1}] code ({voices[ivc].syms[n-1].type},{voices[ivc].syms[n-1].u}")
+#
+#         if s_type == NEWLINE:
+#             if n > 0 and not cfmt.continueall and not cfmt.barsperstaff:
+#                 voices[ivc].syms[i].eoln=1
+#                 if common.word:
+#                     voices[ivc].syms[common.last_note].word_end = True
+#                     common.word = False
+#
+#         if s_type == ESCSEQ:
+#             if db > 3:
+#                 print(f"Handle escape sequence <{escseq}>")
+#             itype = info_field(escseq)
+#             handle_inside_field(itype)
+#
+#         if s_type == REST:
+#             if pplet:   # n-plet can start on rest
+#                 voices[ivc].syms[i].p_plet = pplet
+#                 voices[ivc].syms[i].q_plet = qplet
+#                 voices[ivc].syms[i].r_plet = rplet
+#                 pplet=0
+#             common.last_note = i     # need this so > and < work
+#             p1 = p
+#
+#         if s_type == NOTE:
+#             if not common.word:
+#                 voices[ivc].syms[i].word_st = True
+#                 word = True
+#             if nbr and cfmt.slurisligatura:
+#                 voices[ivc].syms[i].lig1 += nbr
+#             else:
+#                 voices[ivc].syms[i].slur_st += nbr
+#             nbr=0
+#             if voices[ivc].end_slur:
+#                 voices[ivc].syms[i].slur_end += 1
+#             voices[ivc].end_slur = 0
+#
+#             if pplet:                                    # start of n-plet
+#                 voices[ivc].syms[i].p_plet = pplet
+#                 voices[ivc].syms[i].q_plet = qplet
+#                 voices[ivc].syms[i].r_plet = rplet
+#                 pplet=0
+#             last_note = last_real_note = i
+#             p1 = p
+#
+#         if common.word and s_type == BAR or s_type == SPACE:
+#             if last_real_note >= 0:
+#                 voices[ivc].syms[last_real_note].word_end = True
+#                 common.word = False
+#
+#         if not s_type:
+#             if p == '-':   # a-b tie
+#                 voices[ivc].syms[common.last_note].slur_st += 1
+#                 voices[ivc].end_slur=1
+#                 p += 1
+#
+#             elif p == '(':
+#                 p += 1
+#                 if p.isdigit():
+#                     pplet = char_delta(line[p],'0')
+#                     qplet = 0
+#                     rplet = pplet
+#                     p += 1
+#                     if p == ':':
+#                         p += 1
+#                         if p.isdigit():
+#                             qplet = char_delta(line[p],'0')
+#                             p += 1
+#                         if p == ':':
+#                             p += 1
+#                             if p.isdigit():
+#                                 rplet = char_delta(line[p],'0')
+#                                 p += 1
+#                 else:
+#                     nbr += 1
+#             elif *p == ')':
+#                 if common.last_note > 0:
+#                     if cfmt.slurisligatura:
+#                         voices[ivc].syms[common.last_note].lig2 += 1
+#                     else:
+#                         voices[ivc].syms[common.last_note].slur_end += 1
+#                 else:
+#                     SyntaxError(f"Unexpected symbol {p}")
+#                 p += 1
+#             elif *p == '>':
+#                 num=1
+#                 p += 1
+#                 while *p == '>':
+#                     num += 1
+#                     p += 1
+#                 if last_note < 0:
+#                     SyntaxError("No note before > sign", p)
+#                 else:
+#                     double_note(last_note, num, 1, p1)
+#             elif *p == '<':
+#                     num = 1
+#                     p += 1
+#                     while *p == '<':
+#                         num += 1
+#                         p += 1
+#                     if last_note < 0:
+#                             SyntaxError("No note before < sign", p)
+#                     else:
+#                             double_note (last_note, num, -1, p1)
+#             elif *p == '*':      # ignore stars for now
+#                 p += 1
+#             elif *p == '!':      # ditto for '!'
+#                 p += 1
+#             else:
+#                 if *p != '\0':
+#                     msg = f"Unexpected symbol '{line[p]}'"
+#                 else:
+#                     msg = f"Unexpected end of line"
+#                 SyntaxError(msg, line[p])
+#                 p += 1
+#
+#     # maybe set end-of-line marker, if symbols were added
+#     n = len(voices[ivc].syms)
+#
+#     if n > nsym0:
+#         if s_type == CONTINUE or cfmt.barsperstaff or cfmt.continueall:
+#             voices[ivc].syms[n-1].eoln = False
+#         else:
+#             # add invisible bar, if last symbol no bar
+#             if voices[ivc].syms[n-1].s_type != BAR:
+#                 i = add_sym(BAR)
+#                 voices[ivc].syms[i].u = B_INVIS
+#                 n = i+1
+#             }
+#             voices[ivc].syms[n-1].eoln=1
+#
+#     # break words at end of line
+#     if common.word and voices[ivc].syms[n-1].eoln:
+#         voices[ivc].syms[common.last_note].word_end = True
+#         common.word = False
+#
+#     return TO_BE_CONTINUED
+#
 
 
 def is_selected(xref_str: str, pat: list, select_all: bool, search_field: int) -> bool:
@@ -1461,6 +1422,7 @@ def rehash_selectors(sel_str: list[str]) -> tuple:
 
     return pat, xref_str
 
+
 def decomment_line(ln: str) -> str:
     """ cut off after % """
     in_quotes = False   # do not remove inside double quotes
@@ -1478,7 +1440,7 @@ def decomment_line(ln: str) -> str:
 def do_index(filename, xref_str: str, pat: list, select_all: bool, search_field: int) -> None:
     """ index of abc file """
     import constants
-    import info
+    import field
 
     common.within_tune = False
     common.within_block = False
@@ -1535,4 +1497,3 @@ def do_index(filename, xref_str: str, pat: list, select_all: bool, search_field:
             info = info.Field()
     if common.within_block and not common.within_tune:
         log.info(f"+++ Header not closed in for tune {info.xref.xref}", )
-

@@ -2,7 +2,7 @@
 
 import unittest
 
-from info import Key
+from field import Key
 import constants
 
 
