@@ -3,4 +3,5 @@ venv/
 *.ps
 *.pyc
 *.log
+.pytest_cache/
 

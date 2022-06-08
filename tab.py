@@ -6,18 +6,17 @@ from constants import (RHSIMPLE, RHMODERN, RHDIAMOND, RHNONE, RHGRID, RHMODERNBE
 from constants import (BRUMMER_ABC, BRUMMER_1AB, BRUMMER_123)
 from constants import (TABFONTDIRS, STAFFHEIGHT)
 from constants import (GCHORD, NEWLINE, ESCSEQ)
-import common
+import symbol
 from log import log
 import format
-import parse
 import cmdline
-import voice
-import key
+import field
+import parse
 
 
 args = cmdline.options()
-tab_key = key.Key()
-voice = voice.Voice()
+tab_key = field.Key()
+voice = field.Voice()
 voices = list()
 
 TAB_prevlen = 0   # no previous notelength
@@ -230,140 +229,140 @@ class Tabformat:
             log.info("    tabbrummer         123")
         log.info(f"    tabgermansepline  {self.germansepline}")
 
-def parse_tab_line(line):
-    """ parse a tablature line into music """
-    if not voice:
-        log.critical("Trying to parse undefined v")
-        exit(-1)
-
-    # check for mixing of tablature and music within one line
-    voicespec, line = util.get_field_value('V', line)
-
-    if not tab_key.is_tab_key():
-        print(f"+++ Error line {common.linenum}: "
-              "Tablature and music must not be mixed within one line")
-
-    common.nwline = 0
-    nsym0 = len(voice.syms)
-
-    nbr = 0
-    p0 = line
-    pmx = ''
-
-    tab_type = 0
-    p = 0
-    while p < len(line):
-        tab_type = parse_tab_sym()
-        n = len(voices[common.ivc].nsyms)
-        i = n-1
-        if common.db > 4 and tab_type:
-            log.debug(f"     sym[{n-1}] code ({voices[common.ivc].syms[n-1].type},"
-                  f"{voices[common.ivc].syms[n-1].u})\n")
-
-
-        if tab_type == NEWLINE:
-            if n > 0 and not common.cfmt.continueall and not common.cfmt.barsperstaff:
-                voices[common.ivc].syms[i].eoln = True
-                if common.word:
-                    voices[ common.ivc].syms[common.last_note].word_end = True
-                    common.word = False
-
-        if tab_type == ESCSEQ:
-            if common.db > 3:
-                log.debug(f"Handle escape sequence <{common.escseq}>")
-            if parse.info_field(common.escseq):
-                handle_inside_field(itype)
-
-        if (tab_type == REST) {
-            if (pplet) {                                     # n-plet can start on rest
-                voices[common.ivc].syms[i].p_plet=pplet;
-                voices[common.ivc].syms[i].q_plet=qplet;
-                voices[common.ivc].syms[i].r_plet=rplet;
-                pplet=0;
-            }
-            last_note=i;                                 # need this so > and < work
-            p1=p;
-        }
-
-        if (tab_type==NOTE) {
-            if (!word) {
-                voices[common.ivc].syms[i].word_st=1;
-                word=1;
-            }
-            voices[common.ivc].syms[i].slur_st+=nbr;
-            nbr=0;
-            if (voice[ivc].end_slur) voices[common.ivc].syms[i].slur_end++;
-            voice[ivc].end_slur=0;
-
-            if (pplet) {                                     # start of n-plet
-                voices[common.ivc].syms[i].p_plet=pplet;
-                voices[common.ivc].syms[i].q_plet=qplet;
-                voices[common.ivc].syms[i].r_plet=rplet;
-                pplet=0;
-            }
-            last_note=last_real_note=i;
-            p1=p;
-        }
-
-        if (word && ((tab_type==BAR)||(tab_type==SPACE))) {
-            if (last_real_note>=0) symv[ivc][last_real_note].word_end=1;
-            word=0;
-        }
-
-        if (!type) {
-
-            if (*p == '-') {                                    # a-b tie
-                symv[ivc][last_note].slur_st++;
-                voice[ivc].end_slur=1;
-                p++;
-            }
-
-            else if (*p == '(') {
-                p++;
-                if (isdigit(*p)) {
-                    pplet=*p-'0'; qplet=0; rplet=pplet;
-                    p++;
-                    if (*p == ':') {
-                        p++;
-                        if (isdigit(*p)) { qplet=*p-'0';    p++; }
-                        if (*p == ':') {
-                            p++;
-                            if (isdigit(*p)) { rplet=*p-'0';    p++; }
-                        }
-                    }
-                }
-                else {
-                    nbr++;
-                }
-            }
-            else if (*p == ')') {
-                if (last_note>0)
-                    symv[ivc][last_note].slur_end++;
-                else
-                    syntax ("Unexpected tablature symbol",p);
-                p++;
-            }
-            else if (*p == '>') {
-                num=1;
-                p++;
-                while (*p == '>') { num++; p++; }
-                if (last_note<0) {
-                    syntax ("No note before > sign", p);
-                } else {
-                    double_note (last_note, num, 1, p1);
-                    symv[ivc][last_note].invis = 0;
-                }
-            }
-            else if (*p == '<') {
-                num=1;
-                p++;
-                while (*p == '<') { num++; p++; }
-                if (last_note<0) {
-                    syntax ("No note before < sign", p);
-                } else {
-                    double_note (last_note, num, -1, p1);
-                    symv[ivc][last_note].invis = 0;
-                }
+# def parse_tab_line(line):
+#     """ parse a tablature line into music """
+#     if not voice:
+#         log.critical("Trying to parse undefined v")
+#         exit(-1)
+#
+#     # check for mixing of tablature and music within one line
+#     voicespec, line = util.get_field_value('V', line)
+#
+#     if not tab_key.is_tab_key():
+#         print(f"+++ Error line {common.linenum}: "
+#               "Tablature and music must not be mixed within one line")
+#
+#     common.nwline = 0
+#     nsym0 = len(voice.syms)
+#
+#     nbr = 0
+#     p0 = line
+#     pmx = ''
+#
+#     tab_type = 0
+#     p = 0
+#     while p < len(line):
+#         tab_type = parse_tab_sym()
+#         n = len(voices[common.ivc].nsyms)
+#         i = n-1
+#         if common.db > 4 and tab_type:
+#             log.debug(f"     sym[{n-1}] code ({voices[common.ivc].syms[n-1].type},"
+#                   f"{voices[common.ivc].syms[n-1].u})\n")
+#
+#
+#         if tab_type == NEWLINE:
+#             if n > 0 and not common.cfmt.continueall and not common.cfmt.barsperstaff:
+#                 voices[common.ivc].syms[i].eoln = True
+#                 if common.word:
+#                     voices[ common.ivc].syms[common.last_note].word_end = True
+#                     common.word = False
+#
+#         if tab_type == ESCSEQ:
+#             if common.db > 3:
+#                 log.debug(f"Handle escape sequence <{common.escseq}>")
+#             if parse.info_field(common.escseq):
+#                 handle_inside_field(itype)
+#
+#         if (tab_type == REST) {
+#             if (pplet) {                                     # n-plet can start on rest
+#                 voices[common.ivc].syms[i].p_plet=pplet;
+#                 voices[common.ivc].syms[i].q_plet=qplet;
+#                 voices[common.ivc].syms[i].r_plet=rplet;
+#                 pplet=0;
+#             }
+#             last_note=i;                                 # need this so > and < work
+#             p1=p;
+#         }
+#
+#         if (tab_type==NOTE) {
+#             if (!word) {
+#                 voices[common.ivc].syms[i].word_st=1;
+#                 word=1;
+#             }
+#             voices[common.ivc].syms[i].slur_st+=nbr;
+#             nbr=0;
+#             if (voice[ivc].end_slur) voices[common.ivc].syms[i].slur_end++;
+#             voice[ivc].end_slur=0;
+#
+#             if (pplet) {                                     # start of n-plet
+#                 voices[common.ivc].syms[i].p_plet=pplet;
+#                 voices[common.ivc].syms[i].q_plet=qplet;
+#                 voices[common.ivc].syms[i].r_plet=rplet;
+#                 pplet=0;
+#             }
+#             last_note=last_real_note=i;
+#             p1=p;
+#         }
+#
+#         if (word && ((tab_type==BAR)||(tab_type==SPACE))) {
+#             if (last_real_note>=0) symv[ivc][last_real_note].word_end=1;
+#             word=0;
+#         }
+#
+#         if (!type) {
+#
+#             if (*p == '-') {                                    # a-b tie
+#                 symv[ivc][last_note].slur_st++;
+#                 voice[ivc].end_slur=1;
+#                 p++;
+#             }
+#
+#             else if (*p == '(') {
+#                 p++;
+#                 if (isdigit(*p)) {
+#                     pplet=*p-'0'; qplet=0; rplet=pplet;
+#                     p++;
+#                     if (*p == ':') {
+#                         p++;
+#                         if (isdigit(*p)) { qplet=*p-'0';    p++; }
+#                         if (*p == ':') {
+#                             p++;
+#                             if (isdigit(*p)) { rplet=*p-'0';    p++; }
+#                         }
+#                     }
+#                 }
+#                 else {
+#                     nbr++;
+#                 }
+#             }
+#             else if (*p == ')') {
+#                 if (last_note>0)
+#                     symv[ivc][last_note].slur_end++;
+#                 else
+#                     syntax ("Unexpected tablature symbol",p);
+#                 p++;
+#             }
+#             else if (*p == '>') {
+#                 num=1;
+#                 p++;
+#                 while (*p == '>') { num++; p++; }
+#                 if (last_note<0) {
+#                     syntax ("No note before > sign", p);
+#                 } else {
+#                     double_note (last_note, num, 1, p1);
+#                     symv[ivc][last_note].invis = 0;
+#                 }
+#             }
+#             else if (*p == '<') {
+#                 num=1;
+#                 p++;
+#                 while (*p == '<') { num++; p++; }
+#                 if (last_note<0) {
+#                     syntax ("No note before < sign", p);
+#                 } else {
+#                     double_note (last_note, num, -1, p1);
+#                     symv[ivc][last_note].invis = 0;
+#                 }
 #
 #
 # def only_tabvoices(voices):
@@ -419,14 +418,14 @@ def parse_tab_sym():
     :return int:
     """
     i = 0
-    if parse_gchord():
-        return GCHORD;
+    if symbol.Gchord().parse_gchord():
+        return symbol.Gchord
     if parse_tabdeco():
-        return DECO;
-    if parse_bar():
-        return BAR;
-    if parse_space():
-        return SPACE;
+        return symbol.Deco
+    if parse.parse_bar():
+        return symbol.Bar;
+    if parse.parse_space():
+        return symbol.Space
     if parse_nl():
         return NEWLINE;
     i = parse_esc()
@@ -739,7 +738,8 @@ def parse_tab_sym():
 #      *     decos are stored in global variable prep_deco
 #      *     returns the number of decorations
 #      *************************************************************************
-#     int parse_tabdeco ()
+def parse_tabdeco(self) -> bool:
+    return False   # Todo
 #     {
 #         int deco,n;
 #         # mapping abc code to decorations
@@ -2387,547 +2387,7 @@ def parse_tab_sym():
 #         return nextc;
 #     }
 #
-    def open_tabfontfile(self, basename):
-        """
-        find first fontfile in directorylist $ABCTABFONTS
-        and open it. If $ABCTABFONTS is unset, standard directories are
-        searched. If the file cannot be found, NULL is returned.
 
-        :param self:
-        :param basename:
-        :return:
-        """
-        # get font directory list
-        font_dirs = os.environ.get('ABCTABFONT', None)
-        if not font_dirs:
-            font_dirs = TABFONTDIRS
-        font_file = '.'.join([basename, 'ps'])
-
-        for font_dir in font_dirs:
-            t = [f for f in os.listdir(font_dir)
-                 if os.path.isfile(os.path.join(font_dir, font_file))]
-            if t:
-                return t
-        return
-
-    def def_tabfonts(self, fp):
-        """
-        writes font definitions into outfile
-        from fontfile is removed by getline() and rewritten,
-        to achieve native line breaks on each platform
-
-        It is not possible to decide automatically, whether tab
-        is needed, because only one tune is accessible at a time
-
-        - load french font (can be suppressed with %%tabfontfrench none)
-        - load italian font (can be suppressed with %%tabfontitalian none)
-        - load german font (can be suppressed with %%tabfontgerman none)
-
-        :param fp:
-        :return:
-        """
-        if args.notab:    # when global flag set
-            return
-
-        font_list = [self.frfont, self.itfont, self.defont]
-        for tab_font in font_list:
-            if tab_font == "none":
-                fp.write('\n')
-                with self.open_tabfontfile(tab_font) as fontfp:
-                    if not fontfp:
-                        log.error('Please check the environment variable '
-                                  'ABCTABFONTS\n'
-                                  f'Cannot find tablature font file: {self.frfont}')
-                    lines = fontfp.readlines()
-                    for line in lines:
-                        if line.startswith('%!'):
-                            fp.write(line)
-
-
-    def def_tabsyms(self, fp, cfmt):
-        """
-        writes PS macros for tablature into outfile
-
-        :param fp:
-        :param cfmt:
-        :return:
-        """
-
-        # when global flag set
-        if args.notab:
-            return
-
-        # It is not possible to decide automatically, whether tab is needed,
-        # because only one tune is accessible at a time
-
-        # tablature system
-        fp.write("\n/tabN { %% l n tabN - n line tab\n"
-                 "    gsave %3.2f setlinewidth 0 0 moveto\n"
-                 "    {dup 0 rlineto dup neg %d rmoveto} repeat\n"
-                 "    pop stroke grestore\n"
-                 "} bind def\n" % (cfmt.stafflinethickness, self.size))
-
-        fp.write("\n/tab1 { %% l y tab1 - tab separator line\n"
-                 "    gsave %3.2f setlinewidth 0 exch moveto 0 rlineto\n"
-                 "    stroke grestore\n"
-                 "} bind def\n" % cfmt.stafflinethickness)
-
-        # time signatures
-        fp.write("\n/tabcsig { %% x n tabcsig - C time sig\n"
-                 "    gsave 1.2 setlinewidth\n"
-                 "    6 sub %.1f mul %.1f add moveto currentpoint\n"
-                 "    -10 0 -10 %d 0 %d rcurveto\n"
-                 "    -15 0 -15 -%d 0 -%d rcurveto\n"
-                 "    fill moveto 7 3.5 rmoveto\n"
-                 "    -3.5 -3.5 -3.5 -3.5 -7 -3.5 rcurveto\n"
-                 "    -15 0 -15 %d 0 %d rcurveto\n"
-                 "    3.5 0 3.5 0 7 -3.5 rcurveto\n"
-                 "    currentpoint stroke moveto 0.5 0 rmoveto\n"
-                 "    currentpoint exch -2 add exch -2 add 2 0 360 arc\n"
-                 "    fill grestore\n"
-                 "} bind def\n" % (self.size * 0.5, self.size * 1.5,
-                                   self.size * 2, self.size * 2,
-                                   self.size * 2, self.size * 2,
-                                   self.size * 2, self.size * 2))
-
-        fp.write("\n/tabctsig { %% x n tabctsig - C| timesig\n"
-                 "    2 copy tabcsig\n"
-                 "    6 sub %.1f mul %.1f add moveto 0 %d rlineto stroke\n"
-                 "} bind def\n" % (self.size * 0.5,
-                                   self.size * 0.5,
-                                   self.size * 4))
-        # beware that tab is higher than music
-        fp.write("\n/tabtsig { %% x n (top) (bot) tabtsig - time signature\n"
-                 "    4 -2 roll -5 add %d mul moveto /bx false def\n"
-                 "    gsave /NewCenturySchlbk-Bold 16 selectfont %.1f %.1f scale\n"
-                 "    0 1.0 rmoveto currentpoint 3 -1 roll cshow\n"
-                 "    moveto 0 %d %.1f div rmoveto cshow grestore\n"
-                 "} bind def\n" % (self.size,
-                                   3 * self.size / STAFFHEIGHT,
-                                   3 * self.size / STAFFHEIGHT,
-                                   2 * self.size,
-                                   3 * self.size / STAFFHEIGHT))
-        fp.write(
-            "\n/tabt1sig { %% x n (top) tabt1sig - timesig without denominator\n"
-            "    3 1 roll 6 sub %.1f mul %.1f add moveto /bx false def\n"
-            "    gsave /NewCenturySchlbk-Bold 16 selectfont %.1f %.1f scale\n"
-            "    cshow grestore\n"
-            "} bind def\n" % (self.size * 0.5,
-                              self.size * 1.8,
-                              3 * self.size / STAFFHEIGHT,
-                              3 * self.size / STAFFHEIGHT))
-
-        # tablature letter
-        fp.write(
-            "\n/tabfshow { %% x n (c) tabfshow - french tabletter c on course n\n"
-            "    3 1 roll\n"
-            # raise one point so that line is not touched
-            "    -6 add -%d mul 1 add moveto\n"
-            #                                ^^^^^
-            "    gsave /FrenchTabfont %.1f selectfont\n"
-            "    /bx false def cshow grestore\n"
-            "} bind def\n" % (self.size, self.size * self.scale))
-        fp.write(
-            "\n/tabsshow { %% x n (c) tabsshow - spanish tabletter c on course n\n"
-            "    3 1 roll\n"
-            "    -5.5 add -%d mul moveto\n"
-            "    gsave /ItalianTabfont %.1f selectfont\n"
-            "    /bx false def cshow grestore\n"
-            "} bind def\n" % (self.size, self.size * self.scale))
-        fp.write("\n/tabgshow { %% x n (c) tabgshow - german tabletter c at pos n\n"
-                 "    3 1 roll\n"
-                 "    -4.25 add -%d mul moveto\n"
-                 "    gsave /GermanTabfont %.1f selectfont\n"
-                 "    /bx false def cshow grestore\n"
-                 "} bind def\n" % (self.size, self.size * self.scale))
-
-        # rhythm flags
-        fp.write("\n/tabbrevis { %% x y tabbrevis - brevis\n"
-                 "    gsave 0.8 setlinewidth\n"
-                 "    2 copy moveto -4 1.5 rmoveto\n"
-                 "    8 0 rlineto 0 1.5 rlineto -8 0 rlineto 0 -1.5 rlineto fill\n"
-                 "    2 copy moveto -4 5.5 rmoveto\n"
-                 "    8 0 rlineto 0 1.5 rlineto -8 0 rlineto 0 -1.5 rlineto fill\n"
-                 "    2 copy moveto -4 0 rmoveto 0 9 rlineto stroke\n"
-                 "    moveto 4 0 rmoveto 0 9 rlineto stroke\n"
-                 "    grestore\n"
-                 "} bind def\n")
-        fp.write("\n/tablonga { %% x y tablonga - longa\n"
-                 "    gsave 0.8 setlinewidth\n"
-                 "    2 copy 4 add tabbrevis\n"
-                 "    moveto 4 0 rmoveto 0 5 rlineto stroke\n"
-                 "    grestore\n"
-                 "} bind def\n")
-        fp.write(
-            "\n/tabsflag { %% x y n tabsflag - stem with n flags (simple style)\n"
-            "    gsave 1 setlinewidth\n"
-            "    3 1 roll moveto 0 20 rlineto\n"
-            "    currentpoint stroke moveto\n"
-            "    dup 0 lt {\n"
-            "        dup neg {\n"
-            "            -4 -2 rlineto 1 -1 rlineto 3 2 rlineto 0 1 rlineto\n"
-            "            currentpoint fill moveto 0 -5 rmoveto\n"
-            "        } repeat\n"
-            "    } if\n"
-            "    dup 0 gt {\n"
-            "        {\n"
-            "            1.2 -1 rlineto \n"
-            "            2 -1 6 -1 6 -3 rcurveto\n"
-            "            -1.2 -1.2 rlineto\n"
-            "            0 2 -4 2 -6 3 rcurveto\n"
-            "            0 2.2 rlineto\n"
-            "            currentpoint fill moveto\n"
-            "            0 -5 rmoveto\n"
-            "        } repeat\n"
-            "    } {pop} ifelse    grestore\n"
-            "} bind def\n")
-        fp.write(
-            "\n/tabdflag { %% x y n tabdflag - stem with n flags (diamond style)\n"
-            "    gsave 1 setlinewidth\n"
-            "    3 1 roll moveto\n"
-            "    dup 0 lt {\n"
-            "        4 4 rlineto currentpoint\n"
-            "        -0.4 0.4 rlineto -4 -4 rlineto 0.4 -0.4 rlineto fill moveto\n"
-            "        -4 4 rlineto currentpoint\n"
-            "        -1.1 -1.1 rlineto 4 -4 rlineto 1.1 1.1 rlineto fill moveto\n"
-            "        -4 -4 rlineto currentpoint\n"
-            "        0.4 -0.4 rlineto 4 4 rlineto -0.4 0.4 rlineto fill moveto\n"
-            "        4 -4 rlineto currentpoint\n"
-            "        1.1 1.1 rlineto -4 4 rlineto -1.1 -1.1 rlineto fill moveto\n"
-            "        0 8 rmoveto\n"
-            "    } {\n"
-            "        4 4 rlineto -4 4 rlineto -4 -4 rlineto 4 -4 rlineto\n"
-            "        currentpoint fill moveto 0 8 rmoveto\n"
-            "    } ifelse\n"
-            "    dup -2 gt {\n"
-            "        0 setlinejoin 0 setlinecap\n"
-            "        0 20 8 sub rlineto \n"
-            "    } if\n"
-            "    dup 0 gt {\n"
-            "        {\n"
-            "            6 -3 rlineto\n"
-            "            -6 0 rmoveto\n"
-            "        } repeat\n"
-            "    } {pop} ifelse\n"
-            "    stroke grestore\n"
-            "} bind def\n")
-        fp.write(
-            "\n/tabmflag { %% x y n tabmflag - stem with n flags (modern style)\n"
-            "    gsave 1 setlinewidth\n"
-            "    3 1 roll moveto\n"
-            "    dup 0 lt {\n"
-            "        2.5 7 rmoveto\n"
-            "        0 -1 0 -7 -5 -7 rcurveto -2 0 0 7 5 7 rcurveto\n"
-            "        currentpoint stroke moveto\n"
-            "    } {\n"
-            "        3 7 rmoveto\n"
-            "        0 -1 0 -7 -5 -7 rcurveto -2 0 0 7 5 7 rcurveto\n"
-            "        currentpoint fill moveto -0.5 0 rmoveto\n"
-            "    } ifelse\n"
-            "    dup -2 gt {\n"
-            "        0 20 7 sub rlineto\n"
-            "        currentpoint stroke moveto\n"
-            "    } if \n"
-            "    dup 0 gt {\n"
-            "        1.2 -0.2 rlineto currentpoint\n"
-            "        -1.2 -1.2 rlineto closepath fill moveto\n"
-            "        {\n"
-            "            2.4 -0.4 7 0 3.5 -5 rcurveto\n"
-            "            -1.2 -1.2 rlineto currentpoint\n"
-            "            3.5 5 -1.1 4.6 -3.5 5 rcurveto 1.2 1.2 rlineto\n"
-            "            fill moveto\n"
-            "        } repeat\n"
-            "    } {pop} ifelse grestore\n"
-            "} bind def\n")
-
-        # rests (only modern style has own implemetation)
-        fp.write(
-            "\n/tabsrest { %% usage x y n tabsrest - rest with n flags (simple style)\n"
-            "    tabsflag\n"
-            "} bind def\n")
-        fp.write(
-            "\n/tabdrest { %% usage x y n tabdrest - rest with n flags (diamond style)\n"
-            "    tabdflag\n"
-            "} bind def\n")
-        fp.write(
-            "\n/tabmrest { %% usage x y n tabmrest - rest with n flags (modern style)\n"
-            "    gsave 1 setlinewidth\n"
-            "    3 1 roll moveto\n"
-            "    dup -4 le { %% longa rest\n"
-            "        gsave 0.8 setlinewidth\n"
-            "        currentpoint -5 5 rmoveto\n"
-            "        10 0 rlineto 0 3 rlineto -10 0 rlineto 0 -3 rlineto fill\n"
-            "        moveto currentpoint -5 4 rmoveto 0 5 rlineto stroke\n"
-            "        moveto 5 0 rmoveto 0 9 rlineto stroke grestore\n"
-            "    } if\n"
-            "    dup -3 eq { %% brevis rest\n"
-            "        gsave 0.8 setlinewidth\n"
-            "        currentpoint -5 1 rmoveto\n"
-            "        10 0 rlineto 0 3 rlineto -10 0 rlineto 0 -3 rlineto fill\n"
-            "        moveto currentpoint -5 0 rmoveto 0 5 rlineto stroke\n"
-            "        moveto 5 0 rmoveto 0 5 rlineto stroke grestore\n"
-            "    } if\n"
-            "    dup -2 eq { %% whole note rest\n"
-            "        -5 3 rmoveto 10 0 rlineto\n"
-            "        currentpoint stroke moveto -2 -3 rmoveto\n"
-            "        0 3 rlineto -6 0 rlineto 0 -3 rlineto 6 0 rlineto fill\n"
-            "    } if\n"
-            "    dup -1 eq { %% half note rest\n"
-            "        -5 0 rmoveto 10 0 rlineto\n"
-            "        currentpoint stroke moveto -2 0 rmoveto\n"
-            "        0 3 rlineto -6 0 rlineto 0 -3 rlineto 6 0 rlineto fill\n"
-            "} if\n"
-            "    dup 0 eq { %% crotchet rest\n"
-            "        -2 4 1 4 3 3 rcurveto currentpoint -1.5 1.5 rlineto\n"
-            "        -2 1 -5 1 -3 -3 rcurveto 1.5 -1.5 rlineto fill moveto\n"
-            "        -1 1 rmoveto\n"
-            "        -5 5 3 4 -2 9 rcurveto -1.5 1.5 rlineto\n"
-            "        5 -5 -3 -4 2 -9 rcurveto 1.5 -1.5 rlineto fill\n"
-            "    } if\n"
-            "    dup 1 ge { %% (semi)quaver rests\n"
-            "        2 8 rlineto dup dup 0.5 mul exch 2 mul rlineto\n"
-            "        currentpoint stroke moveto\n"
-            "        {\n"
-            "            -2 -2 -3 -2 -5 -2 rcurveto \n"
-            "            currentpoint 1.5 add 1.5 -90 0 arcn \n"
-            "            0 -1 2.5 0 3.5 0.5 rcurveto\n"
-            "            currentpoint fill moveto\n"
-            "            -1 -4 rmoveto\n"
-            "        } repeat\n"
-            "    } {pop} ifelse grestore\n"
-            "} bind def\n")
-
-        # multibar rests
-        fp.write("\n/tabbrest { %% usage (n) x yn x y tabbrest - multibar rest\n"
-                 "     gsave moveto currentpoint 0.8 setlinewidth\n"
-                 "     0 -6 rmoveto 0 12 rlineto 40 0 rmoveto 0 -12 rlineto stroke\n"
-                 "     3 setlinewidth moveto 40 0 rlineto stroke\n"
-                 "     moveto 20 0 rmoveto /Times-Bold 13 selectfont cshow grestore\n"
-                 "} bind def\n")
-
-        # dots after flag
-        fp.write("\n/tabdt { %% x y n tabdt - n dots after flag\n"
-                 "    3 1 roll moveto 1 1 rmoveto currentpoint 3 2 roll\n"
-                 "    {\n"
-                 "        exch 3 add exch newpath\n"
-                 "        1 0 360 arc\n"
-                 "        currentpoint fill closepath\n"
-                 "    } repeat\n"
-                 "    pop pop\n"
-                 "} bind def\n")
-
-        # Bourdon string
-        # version with ledger lines BEFORE letter
-        fp.write(
-            "\n/tabfbourdon { %% x m n (c) - n-th bourdon stopped at c drawn at course 7+m in frenchtab\n"
-            "    gsave .75 setlinewidth\n"
-            "    4 1 roll 2 index\n"
-            "    -%.1f add 2 index -%d mul -2 add moveto\n"
-            "    { -%.1f -%d rlineto %.1f %d rmoveto} repeat stroke\n"
-            "    1 add -%d mul 1 add moveto\n"
-            "    /FrenchTabfont %.1f selectfont\n"
-            "    /bx false def cshow grestore\n"
-            "} bind def\n" % (self.scale, self.size,
-                              0.5 * self.size, self.size - 2,
-                              0.5 * self.size - 2.5, self.size - 2,
-                              self.size, self.size * self.scale))
-        # alternative version with ledger lines ABOVE letter
-        fp.write(
-            "\n/tabf1bourdon { %% x m n (c) - n-th bourdon stopped at c drawn at course 7+m in frenchtab\n"
-            "    gsave .75 setlinewidth\n"
-            "    4 1 roll 3 1 roll 2 index exch 2 index 2 index\n"
-            "    .5 mul neg -%.1f add add 1 index -%d mul -7 add moveto\n"
-            "    4 -1 roll 3 -1 roll\n"
-            "    {%d 4 rlineto -%.1f -7 rmoveto} repeat stroke\n"
-            "    -3 mul -%d add 1 add exch -%d mul add moveto\n"
-            "    /FrenchTabfont %.1f selectfont\n"
-            "    /bx false def cshow grestore\n"
-            "} bind def\n" % (0.5 * self.size, self.size,
-                              self.size, -0.5 + self.size,
-                              self.size, self.size,
-                              self.size * self.scale))
-        # italian tablature seventh course
-        fp.write(
-            "\n/tabibourdon { %% x (c) tabibourdon - (c) on 7th course in italiantab\n"
-            "    gsave .75 setlinewidth\n"
-            "    exch dup %d moveto -%d 0 rmoveto %d 0 rlineto stroke\n"
-            "    0 3 -1 roll tabsshow grestore\n"
-            "} bind def\n" % (
-                6 * self.size, self.size // 2, self.size + 1
-            ))
-        # italian tablature eighth course
-        fp.write(
-            "\n/tabi8bourdon { %% x (c) tabi8bourdon - (c) on 8th course in italiantab\n"
-            "    gsave .75 setlinewidth\n"
-            "    exch dup %d moveto -%d 0 rmoveto %d 0 rlineto currentpoint stroke\n"
-            "    moveto 0 %d rmoveto -14 0 rlineto stroke\n"
-            "    -1 3 -1 roll tabsshow grestore\n"
-            "} bind def\n" % (
-                6 * self.size, self.size // 2, self.size + 1,
-                self.size
-            ))
-
-        # different bar lines
-        fp.write(
-            "\n/tabbar { %% x h tabbar - single bar in tab\n"
-            "    exch 0 moveto 0 exch rlineto stroke\n"
-            "} bind def\n"
-        )
-        fp.write(
-            "\n/tabdbar { %% x h tabdbar - thin double bar in tab\n"
-            "    exch 0 moveto dup 0 exch rlineto dup -3 exch neg rmoveto\n"
-            "    0 exch rlineto stroke\n"
-            "} bind def\n"
-        )
-        fp.write(
-            "\n/tabfbar1 { %% x h tabfbar1 - fat double bar at start\n"
-            "    exch 0 moveto dup 0 exch rlineto 3 0 rlineto \n"
-            "    dup 0 exch neg rlineto currentpoint fill moveto\n"
-            "    3 0 rmoveto dup 0 exch rlineto stroke\n"
-            "} bind def\n"
-        )
-        fp.write(
-            "\n/tabfbar2 { %% x tabfbar2 - fat double bar at end\n"
-            "    exch 0 moveto dup 0 exch rlineto -3 0 rlineto \n"
-            "    dup 0 exch neg rlineto currentpoint fill moveto\n"
-            "    -3 0 rmoveto dup 0 exch rlineto stroke\n"
-            "} bind def\n"
-        )
-
-        # repeat dots
-        fp.write(
-            "\n/tabrdots { %% x n rdots - n repeat dots\n"
-            "    exch 0 moveto 0 %.1f rmoveto currentpoint 2 copy 1.2 0 360 arc\n"
-            "    3 -1 roll 2 sub {moveto 0 %d rmoveto    currentpoint 2 copy 1.2 0 360 arc} repeat\n"
-            "    moveto 0 %d rmoveto    currentpoint 1.2 0 360 arc fill\n"
-            "} bind def\n" % (
-                0.5 * self.size, self.size, self.size
-            ))
-
-        # first/second endings
-        dy = 15  # use dy=6 for small boxes
-        fp.write("\n/tabend1 { %% x1 x2 h (str) tabend1 - mark first ending\n"
-                 "    4 1 roll -%d add dup 3 1 roll moveto 0 %d rlineto 2 copy %d add lineto 0 -%d rlineto stroke\n"
-                 "    moveto 4 %d rmoveto gsave /Times-Roman 13 selectfont 1.2 0.95 scale\n"
-                 "    show grestore\n"
-                 "} bind def\n" % (dy, dy, dy, dy, dy - 10))
-        fp.write("\n/tabend2 { %% x1 x2 h (str) tabend2 - mark second ending\n"
-                 "    4 1 roll dup 3 1 roll moveto 2 copy lineto 0 -%d rlineto stroke\n"
-                 "    moveto 4 -10 rmoveto gsave /Times-Roman 13 selectfont 1.2 0.95 scale\n"
-                 "    show grestore\n"
-                 "} bind def\n" % dy)
-
-        # grace signs
-        fp.write(
-            "\n/tabtrl { %% x y tabtrl - trill\n"
-            "    gsave /Times-BoldItalic 14 selectfont\n"
-            "    moveto -4 0 rmoveto (tr.) show grestore\n"
-            "} bind def\n"
-        )
-        fp.write(
-            "\n/tabacc { %% usage x n tabacc - accent from above\n"
-            "    -6 add -%d mul -2.5 add moveto\n"
-            "    1 1 2 1 2 4 rcurveto\n"
-            "    currentpoint 1.5 add 1.5 -90 0 arcn\n"
-            "    0 -3 -3 -3.5 -3.5 -5.5 rcurveto fill\n"
-            "} bind def\n" % self.size)
-        fp.write(
-            "\n/tabx { %% usage x n tabx - mordent\n"
-            "    -6 add -%d mul -3.5 add moveto\n"
-            "    gsave 0.7 setlinewidth\n"
-            "    5 7 rlineto -5 0 rmoveto 5 -7 rlineto\n"
-            "    stroke grestore\n"
-            "} bind def\n" % self.size)
-        fp.write(
-            "\n/tabu { %% usage x n tabu - arc starting at x\n"
-            "    -6 add -%d mul -2 add moveto\n"
-            "    gsave 1.0 setlinewidth\n"
-            "    2 -4 5 -4 7 0 rcurveto\n"
-            "    stroke grestore\n"
-            "} bind def\n" % self.size)
-        fp.write(
-            "\n/tabv { %% usage x n tabu - arc centered at x\n"
-            "    -6 add -%d mul -2 add exch -3.5 add exch moveto\n"
-            "    gsave 1.0 setlinewidth\n"
-            "    2 -4 5 -4 7 0 rcurveto\n"
-            "    stroke grestore\n"
-            "} bind def\n" % self.size)
-        fp.write(
-            "\n/tabstar { %% usage x n tabstar - asterisque\n"
-            "    -6 add -%d mul -%.1f add moveto\n"
-            "    /Helvetica 21 selectfont (*) show\n"
-            "} bind def\n" % (
-                self.size, 0.5 * self.size
-            ))
-        fp.write(
-            "\n/tabcross { %% usage x n tabcross - double cross\n"
-            "    -6 add -%d mul -1 add moveto\n"
-            "    /Helvetica 14 selectfont (#) show\n"
-            "} bind def\n" % self.size)
-        fp.write(
-            "\n/taboline { %% usage x n taboline - oblique line\n"
-            "    -5.5 add -%d mul moveto\n"
-            "    gsave 1.2 setlinewidth\n"
-            "    -5 -1.5 rmoveto 12 3 rlineto stroke grestore\n"
-            "} bind def\n" % self.size)
-        fp.write(
-            "\n/tabstrup { %% x y tabstrup - strum up arrow\n"
-            "    -12 add moveto gsave 1 setlinewidth\n"
-            "    0 12 rlineto -3 -4 rmoveto 3 4 rlineto 3 -4 rlineto\n"
-            "    stroke grestore\n"
-            "} bind def\n"
-        )
-        fp.write(
-            "\n/tabstrdn { %% x y tabstrdn - strum down arrow\n"
-            "    moveto gsave 1 setlinewidth\n"
-            "    0 -12 rlineto -3 4 rmoveto 3 -4 rlineto 3 4 rlineto\n"
-            "    stroke grestore\n"
-            "} bind def\n"
-        )
-
-        # right hand indications
-        fp.write(
-            "\n/tabi { %% x n tabi - index finger\n"
-            "    -5.5 add -%d mul moveto\n"
-            "    currentpoint 2 copy 1.2 0 360 arc fill\n"
-            "} bind def\n" % self.size)
-        fp.write(
-            "\n/tabm { %% x n tabm - middle finger\n"
-            "    -5.5 add -%d mul moveto -1.3 0 rmoveto\n"
-            "    currentpoint 2 copy 1.2 0 360 arc\n"
-            "    currentpoint fill moveto 2.6 0 rmoveto\n"
-            "    currentpoint 2 copy 1.2 0 360 arc fill\n"
-            "} bind def\n" % self.size)
-        fp.write(
-            "\n/taba { %% x n taba - ring finger\n"
-            "    -5.5 add -%d mul moveto -2.5 0 rmoveto\n"
-            "    currentpoint 2 copy 1.2 0 360 arc\n"
-            "    currentpoint fill moveto 2.5 0 rmoveto\n"
-            "    currentpoint 2 copy 1.2 0 360 arc\n"
-            "    currentpoint fill moveto 2.5 0 rmoveto\n"
-            "    currentpoint 2 copy 1.2 0 360 arc fill\n"
-            "} bind def\n" % self.size)
-
-        fp.write(
-            "\n/tabp { %% x n tabp - thumb\n"
-            "    -5.5 add -%d mul moveto\n"
-            "    gsave 1 setlinewidth\n"
-            "    0 2.5 rmoveto 0 -5 rlineto\n"
-            "    stroke grestore\n"
-            "} bind def\n" % self.size)
-
-        fp.write(
-            "\n/tabpguitar { %% x n tabpguitar - thumb (guitar style)\n"
-            "    -5.5 add -%d mul moveto\n"
-            "    gsave 1 setlinewidth\n"
-            "    0 2.5 rmoveto 0 -5 rlineto\n"
-            "    -2.5 2.5 rmoveto 5 0 rlineto\n"
-            "    stroke grestore\n"
-            "} bind def\n" % self.size)
-
-        fp.write("\n/tabten { %% x1 y1 x2 y2 tenuto stroke\n"
-                 "    gsave 0.4 setlinewidth 4 2 roll moveto lineto stroke grestore\n"
-                 "} bind def\n")
 
 
 def is_tab_line(line):

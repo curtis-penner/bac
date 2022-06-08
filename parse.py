@@ -44,9 +44,6 @@ def get_xref(s: str) -> int:
         return 0
 
 
-
-
-
 def add_text(s: str, t_type: int) -> None:
     if not common.do_output:
         return
@@ -57,35 +54,13 @@ def add_text(s: str, t_type: int) -> None:
     common.text_type.append(t_type)
 
 
-
-# # ----- get_default_info: set info to default, except xref field ---
-# void get_default_info (void)
-# {
-#     char savestr[STRLINFO]
-#
-#     strcpy (savestr, info.xref)
-#     info=default_info
-#     strcpy (info.xref, savestr)
-#
-# }
-#
-# # ----- is_info_field: identify any type of info field ----
-# int is_info_field (char *str)
-# {
-#     if strlen(str)<2) return 0
-#     if str[1]!=':')     return 0
-#     if str[0] == '|')     return 0;     # |: at start of music line
-#     return 1
-# }
-#
-# # ----- is_end_line: identify eof -----
-# int is_end_line (const char *str)
-# {
-#     if strlen(str)<3) return 0
-#     if str[0] == 'E' and str[1] == 'N' and str[2] == 'D') return 1
-#     return 0
-# }
-
+def is_end_line(s: str) -> bool:
+    """ identify eof """
+    if len(s) < 3:
+        return False
+    if s.startswith('END'):
+        return True
+    return False
 
 
 def is_comment(comment: str) -> bool:
@@ -258,8 +233,9 @@ def info_field(s: str) -> bool:
 
     # if not common.within_block:
     #     inf = info.Field()
+    info = field.Field()
 
-    if info.is_field(s):
+    if field.is_field(s):
         return False
 
     index = s.index('%')
@@ -314,11 +290,6 @@ def info_field(s: str) -> bool:
     return True
 
 
-
-
-
-
-
 #
 #
 # # ----- numeric_pitch ------
@@ -354,7 +325,8 @@ def parse_uint(p) -> int:
 
 
 # # ----- parse_bar: parse for some kind of bar ----
-# int parse_bar (void)
+def parse_bar() -> bool:
+    return False
 # {
 #         int k
 #         GchordList::iterator ii
@@ -1412,7 +1384,7 @@ def rehash_selectors(sel_str: list[str]) -> tuple:
     for value in sel_str:
         if not value or value.startswith('-'):   # skip any flags
             pass
-        elif subs.is_xrefstr(value):
+        elif field.is_xrefstr(value):
             xref_str = value
         else:  # pattern with * or +
             if '*' in value or '+' in value:
@@ -1445,7 +1417,7 @@ def do_index(filename, xref_str: str, pat: list, select_all: bool, search_field:
     common.within_tune = False
     common.within_block = False
     common.do_this_tune = False
-    info = info.Field()
+    info = field.Field()
 
     with open(filename) as fp:
         lines = fp.readlines()

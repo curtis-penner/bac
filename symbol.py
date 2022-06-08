@@ -553,3 +553,9 @@ def set_xpwid(xp):
 #         }
 #         return 0
 # }
+class Space:
+    pass
+
+
+class Bar:
+    pass
