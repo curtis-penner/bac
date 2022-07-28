@@ -57,7 +57,7 @@ def process_file(fin):    # , fp_out, xref_str, pat, sel_all, search_field):
 
         for line in lines:
             line = line.strip()
-            if not line:
+            if not line:   # Todo: if within_block end it, otherwise do nothing
                 # if common.within_tune
                 continue
             if is_pseudo_comment(line):

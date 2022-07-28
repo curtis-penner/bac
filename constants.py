@@ -2,11 +2,8 @@
 
 VERSION = "1.8"   # version
 REVISION = "11"   # revison
-VDATE = "Apr 26 2011"   # version date
-VERBOSE0 = 2   # default verbosity
 
 OUTPUTFILE = "Out.ps"   # standard output file
-INDEXFILE: str = "Ind.ps"   # output file for index
 PS_LEVEL = 2   # PS laguage level: must be 1 or 2
 DEFAULT_FDIR = ""   # default directory to search for format files
 
