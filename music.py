@@ -18,15 +18,13 @@ from common import (cfmt, voices)
 import common
 import cmdline
 from log import log
-# from key import Key
+from symbol import Symbol
 from style import (f0p, f0x, f5p, f5x, f1p, f1x)
 import parse
 import pssubs
 import util
 import tab
 import field
-
-info = field.Field()
 
 args = cmdline.options()
 #    subroutines connected with output of music
@@ -469,7 +467,7 @@ def set_stems(n1: int, n2: int, symb: list):
                 symb[j].ys = symb[j].ymx
 
 
-def set_sym_times(n1: int, n2: int, symb: list, meter0: Meter, timeinit: float) -> tuple:
+def set_sym_times(n1: int, n2: int, symb: list, meter0, timeinit: float) -> tuple:
     """
     set timeaxis
     count through bars

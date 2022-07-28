@@ -16,17 +16,6 @@ def put(fp, line):
     fp.write(line)
 
 
-def get_field_value(c, line):
-    s = f'[{c}:'
-    if s in line:
-        n = line.find(s)
-        if ']' in line[n+3]:
-            p = line[n+3:].find(']')
-            return line[n + 3:n + 3 + p].strip(), line[n+3+p+1:]
-        else:
-            log.error('Reached end of line')
-    return line
-
 
 def maximum(a, b):
     """ return the maximum of two arguments

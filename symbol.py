@@ -3,11 +3,10 @@ import time
 
 import common
 import field
-import parse
 from log import log
 from util import put
 import constants
-from common import voices, ivc, cfmt
+from common import voices, cfmt
 
 
 class Grace():

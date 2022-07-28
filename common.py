@@ -86,7 +86,7 @@ within_tune: bool = False
 # # number_nonempty_voice
 # nvoice: int = 0
 # mvoice: int = 0
-# ivc: int = 0   # current v
+ivc: int = 0   # current v
 # ivc0: int = 0   # top nonempty v
 # # int ixpfree                      # first free element in xp array
 # #                           # things to alloc:

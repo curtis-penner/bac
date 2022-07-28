@@ -229,13 +229,13 @@ def options():
                         action='store_true',
                         help='write page numbers')
 
-    parser.add_argument('-o',
-                        dest='outfile',
-                        default='out.ps',
-                        help='output filename')
+    # parser.add_argument('-o',
+    #                     dest='outfile',
+    #                     default='out.ps',
+    #                     help='output filename')
     parser.add_argument('-O',
                         dest='outfile',  # change this to choose_output
-                        default=constants.OUTPUTFILE,
+                        default='out.ps',
                         action='store_true',
                         help=('in PS (EPS) mode, the output is written to outfile.ps '
                               '(outfile001.eps). If the parameter to -O is "=", output '

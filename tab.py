@@ -4,9 +4,9 @@ import os
 import util
 from constants import (RHSIMPLE, RHMODERN, RHDIAMOND, RHNONE, RHGRID, RHMODERNBEAMS)
 from constants import (BRUMMER_ABC, BRUMMER_1AB, BRUMMER_123)
-from constants import (TABFONTDIRS, STAFFHEIGHT)
 from constants import (GCHORD, NEWLINE, ESCSEQ)
 import symbol
+import common
 from log import log
 import format
 import cmdline
@@ -15,11 +15,40 @@ import parse
 
 
 args = cmdline.options()
-key = field.Key()
-voice = field.Voice()
 voices = list()
 
 TAB_prevlen = 0   # no previous notelength
+
+
+def get_field_value(c, line):
+    """ this should be in field.Voice() """
+    s = f'[{c}:'
+    if s in line:
+        n = line.find(s)
+        if ']' in line[n+3:]:
+            p = line[n+3:].find(']')
+            return line[n + 3:n + 3 + p].strip(), line[n+3+p+1:]
+        else:
+            log.error('Reached end of line and no "]"')
+    return line
+
+
+def is_tab_line(line: str) -> bool:
+    """
+    this should be in field.Voice()
+
+    decide whether an input line is tablature
+    Returns true, if the line contains a v specifier [V:...]
+    corresponding to a tablature v or if the current v
+    is tablature by default
+    """
+    info = field.Field()
+    voice_spec, line = get_field_value('V', line)
+    # There is a problem here, this parameter are not used.
+    if info.key.is_tab_key(common.voices[0].switch_voice(voice_spec).key):
+        return True
+    else:   # check default current v
+        return info.key.is_tab_key(voices[0].key)
 
 
 class Tabformat:
@@ -2391,26 +2420,6 @@ def parse_tabdeco(self) -> bool:
 #
 
 
-
-def is_tab_line(line):
-    """
-    decide whether an input line is tablature
-    Returns true, if the line contains a v specifier [V:...]
-    corresponding to a tablature v or if the current v
-    is tablature by default
-
-    :param line:
-    :return:
-    """
-    voice_spec, line = util.get_field_value('V', line)
-    # There is a problem here, these parameter are not used.
-    if key.is_tab_key(voice.switch_voice(voice_spec).key):
-        return True
-    else:
-        # check default current v
-        if key.is_tab_key(voice.key):
-            return True
-    return False
 
 #     def german_tabcode(self, de_course, fret):
 #         """

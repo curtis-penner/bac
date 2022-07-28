@@ -12,7 +12,7 @@ import format
 import util
 from format import cfmt, font
 import common
-from common import voices, ivc
+from common import voices
 import cmdline
 from parse import add_wd, parse_uint
 
@@ -22,6 +22,15 @@ args = cmdline.options()
 def is_field(s: str) -> bool:
     """ Validate a field type """
     return len(s) > 2 and s[1] == ':' and s[0] in 'ABCDEFGHKLMNOPQRSTVWwXZ'
+
+
+def parse_vocals(line):
+    if Voice().parse_vocals(line):
+        return
+
+    # now parse a real line of music
+    if not common.voices:
+        common.voices.append(Voice().switch_voice(constants.DEFVOICE))
 
 
 def parse_voice(line):
@@ -51,7 +60,8 @@ def parse_voice(line):
 
 
 def parse_vocals(line: str) -> bool:
-    """ parse words below a line of music
+    """
+    parse words below a line of music
     Use '^' to mark a '-' between syllables - hope nobody needs '^' !
     """
     word = ''
@@ -353,11 +363,15 @@ class XRef:
         if value.isdigit() and int(value):
             self.xref = int(value)
             self.xref_str = value
-            return True
+            common.within_block = True
+            common.within_tune = True
+            common.do_this_tune = True
         else:
             self.xref = 0
             self.xref_str = ''
-            return False
+            common.within_block = False
+            common.within_tune = False
+            common.do_this_tune = False
 
     def get_xref(self, line: str) -> int:
         """ get xref from string """
@@ -1803,36 +1817,36 @@ class Field:
     body = False
 
     def __init__(self):
-        self.area = Single()   # A:
-        self.book = Single()   # B:
-        self.composer = Composers()   # C:
-        self.discography = Single()   # D:
-        self.layout_parameter = LayoutParams()   # E:
-        self.file_name = Single(True)   # F:
-        self.group = Single()   # G:
-        self.history = History()   # H:
+        # self.area = Single()   # A:
+        # self.book = Single()   # B:
+        # self.composer = Composers()   # C:
+        # self.discography = Single()   # D:
+        # self.layout_parameter = LayoutParams()   # E:
+        # self.file_name = Single(True)   # F:
+        # self.group = Single()   # G:
+        # self.history = History()   # H:
         self.key = Key()   # K:
-        self.default_note_length = DefaultLength()   # L:
+        self.dlen = DefaultLength()   # L:
         self.meter = Meter()   # M:
-        self.notes = Single(True)   # N:
-        self.origin = Single()   # O:
-        self.parts = Parts()   # P:
-        self.tempo = Tempo()   # Q:
+        # self.notes = Single(True)   # N:
+        # self.origin = Single()   # O:
+        # self.parts = Parts()   # P:
+        # self.tempo = Tempo()   # Q:
         self.rhythm = Single()   # R:
-        self.source = Single()   # S:
+        # self.source = Single()   # S:
         self.titles = Titles()   # T:
-        self.voice = Voice()   # V:
-        self.lyrics = Lyrics()   # W:
-        self.words = Words()   # w:
+        # self.voice = Voice()   # V:
+        # self.lyrics = Lyrics()   # W:
+        # self.words = Words()   # w:
         self.xref = XRef()   # X:
-        self.transcription_note = Single()   # Z:
+        # self.transcription_note = Single()   # Z:
 
     def __call__(self, line: str) -> None:
         key, value = line.split(':', 1)
         key = key.strip()
         value = value.strip()
 
-        if is_field(key) and Field.header:
+        if is_field(line):
             if not common.within_block:
                 if key == 'X':
                     ret_val = self.xref(value)
@@ -1865,7 +1879,7 @@ class Field:
             elif key == 'H':
                 self.history(value, Field.header)
             elif key == 'L':
-                self.default_note_length(value, Field.header)
+                self.dlen(value, Field.header)
             elif key == 'N':
                 self.notes(value)
             elif key == 'O':
@@ -1894,7 +1908,7 @@ class Field:
             elif key == 'P':
                 self.parts(value, Field.body)
             elif key == 'L':
-                self.default_note_length(value, Field.body)
+                self.dlen(value, Field.body)
             elif key == 'w':
                 self.lyrics(value)
             elif key == 'W':
@@ -2146,7 +2160,7 @@ class Field:
             self.meter(voices[common.ivc].meter.meter_str)
             self.meter.append_meter(voices[common.ivc].meter.meter_str)
         elif isinstance(t_type, DefaultLength):
-            self.default_note_length(voices[common.ivc].meter.dlen)
+            self.dlen(voices[common.ivc].meter.dlen)
         elif isinstance(t_type, Key):
             old_key = voices[common.ivc].key
             rc = self.key(voices[common.ivc].key, False)

@@ -3,23 +3,11 @@ import re
 from log import log
 from constants import (S_SOURCE, S_RHYTHM, S_COMPOSER)
 from constants import (NWPOOL, NTEXT)
-# from constants import (BASE, EIGHTH, SIXTEENTH, TEXT_D)
-# from constants import DEFVOICE, TIMESIG
-# from constants import (A_NT, A_FT, A_SH)
-# from constants import (TREBLE, TREBLE8, TREBLE8UP, BASS, ALTO, TENOR,
-#                        SOPRANO, MEZZOSOPRANO, BARITONE, VARBARITONE, SUBBASS)
-# from constants import FRENCHVIOLIN
-# from constants import (FRENCHTAB, FRENCH5TAB, FRENCH4TAB, SPANISHTAB, SPANISH5TAB,
-#                        SPANISH4TAB, ITALIANTAB, ITALIAN8TAB, ITALIAN7TAB, ITALIAN5TAB,
-#                        ITALIAN4TAB, GERMANTAB)
-
-# zero_sym: moved to symbol.py
-# add_sym: moved to Voice in voice.py
-from common import voices, ivc
+from common import voices
 import common
 import symbol
 
-symb = symbol.Symbol()
+sym = symbol.Symbol()
 
 
 def char_delta(c: str, d: str) -> int:

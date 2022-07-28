@@ -7,7 +7,7 @@ import signal
 import cmdline
 import common
 import constants
-import field
+from field import Field
 import music
 import parse
 import tab
@@ -36,13 +36,18 @@ def is_cmdline(cmd: str) -> bool:
     return len(cmd) > 2 and cmd.startswith('%!')
 
 
+def is_field(s: str) -> bool:
+    """ Validate a field type """
+    return len(s) > 2 and s[1] == ':' and s[0] in 'ABCDEFGHKLMNOPQRSTVWwXZ'
+
+
 def process_file(fin):    # , fp_out, xref_str, pat, sel_all, search_field):
     # int type;
     common.within_tune = False
     common.within_block = False
     common.do_this_tune = False
 
-    info = field.Field()
+    info = Field()
     # This is where there is the statements of verbose.
     # Just need to understand what the verbose number means to
     #  debug, warning, info, error, critical
@@ -50,7 +55,7 @@ def process_file(fin):    # , fp_out, xref_str, pat, sel_all, search_field):
     with open(fin) as f:
         lines = f.readlines()
 
-    with open(args.output, 'w') as fp:
+    with open(args.outfile, 'w') as fp:
         if is_cmdline(lines[0].strip()):
             cmdline.process_cmdline(lines[0])
             del lines[0]
@@ -69,15 +74,12 @@ def process_file(fin):    # , fp_out, xref_str, pat, sel_all, search_field):
             line = parse.decomment_line(line)
 
             # reset_info(default_info)
-            if field.is_field(line):
+            if is_field(line):
                 info(line)
+                continue
 
-            if info.voice.parse_vocals(line):
-                return
-
-            # now parse a real line of music
-            if not common.voices:
-                common.voices.append(info.voice.switch_voice(constants.DEFVOICE))
+            if not common.do_this_tune:
+                continue
 
             # music or tablature?
             if tab.is_tab_line(line):
@@ -142,13 +144,14 @@ def main():
                 continue
 
         log.info(f"{filename}:")
-        if args.output:
-            common.output = args.output
+        if args.outfile:
+            log.info(args.outfile)
+            common.outfile = args.outfile
         else:
-            common.output = name + '.ps'
+            common.outfile = name + '.ps'
 
         if not common.do_output:
-            log.info(f"{filename=}: not no output")
+            log.info(f"{filename=}: not no outfile")
         # parse.do_index(fin, xref_str, pat, common.select_all, args.search_field0)
 
         # this is the start of the process
