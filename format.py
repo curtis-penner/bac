@@ -21,13 +21,13 @@ class Font:
 
     def _add_font(self):
         """ checks font list, adds font if new font """
-        log.info("Adding fonts from format..")
+        log.debug("Adding fonts from format..")
         if self.name in Font.names:
-            log.info(f"Font {self.name} "
+            log.debug(f"Font {self.name} "
                      f"exists at index {Font.names.index(self.name)}")
         else:
             Font.names.append(self.name)
-            log.info(f"Adding new font {self.name}")
+            log.debug(f"Adding new font {self.name}")
 
     def __str__(self):
         if self.box:

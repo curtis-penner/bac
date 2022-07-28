@@ -1,19 +1,11 @@
 
 import field
-import pytest
 
 
-class TestXRef:
-    def test_is_info_field(self):
-        s = 'X: 1'
-        assert field.is_info_field(s)
-        s = 'X:'
-        assert field.is_info_field(s)
-        s = "X 1"
-        assert field.is_info_field(s)
-        s = "|: A"
-        assert field.is_info_field(s)
-
+def test_info():
+    info = field.Field()
+    info.titles("T: 'This is good'")
+    assert True
 #     def test_00(self):
 #         self.assertEqual(self.field.X.xref_str, '1')
 #         self.assertEqual(self.field.X.xref, 1)

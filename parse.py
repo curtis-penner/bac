@@ -63,9 +63,6 @@ def is_end_line(s: str) -> bool:
     return False
 
 
-def is_comment(comment: str) -> bool:
-    return len(comment) > 1 and (comment[0] == '%' or comment[0] == '\\')
-
 
 def is_cmdline(cmd: str) -> bool:
     """ command line """

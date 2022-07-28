@@ -1,30 +1,30 @@
 import unittest
-import field_info
+import field
 
 
 class TestField(unittest.TestCase):
     def test_xref(self):
-        info = field_info.Field()
+        info = field.Field()
         line = 'X:23'
         info(line)
         self.assertEqual(23, info.xref)
 
     def test_meter(self):
-        info = field_info.Field()
+        info = field.Field()
         info.do_tune = True
         line = 'M: 6/8'
         info(line)
         self.assertEqual((6, 8), info.meter)
 
     def test_length(self):
-        info = field_info.Field()
+        info = field.Field()
         info.do_tune = True
         line = 'L: 1/4'
         info(line)
-        self.assertEqual((1, 4), info.length)
+        self.assertEqual((1, 4), info.default_note_length)
 
     def test_title(self):
-        info = field_info.Field()
+        info = field.Field()
         info.do_tune = True
         line = 'T: First'
         info(line)
@@ -41,21 +41,21 @@ class TestField(unittest.TestCase):
         self.assertEqual(3, len(info.titles))
 
     def test_rhythm(self):
-        info = field_info.Field()
+        info = field.Field()
         info.do_tune = True
         line = 'R: hornpipe'
         info(line)
         self.assertEqual('hornpipe', info.rhythm)
 
     def test_clef(self):
-        info = field_info.Field()
+        info = field.Field()
         info.do_tune = True
         line = 'K: A'
         info(line)
-        self.assertEqual('G', info.clef)
+        self.assertEqual('G', info.key.clef_type)
 
     def test_key(self):
-        info = field_info.Field()
+        info = field.Field()
         info.do_tune = True
         line = 'K:Dmaj'
         info(line)

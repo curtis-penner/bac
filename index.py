@@ -2,6 +2,7 @@
 
 import datetime
 import getpass
+from typing import IO
 
 from log import log
 import cmdline
@@ -14,36 +15,30 @@ import common
 import constants
 
 args = cmdline.options()
-field = info.Field()
+info = field.Field()
+
+
+def close_index_file(fp):
+    log.debug(f'Close index file {fp.name}')
+    close_index_page(fp)
+    fp.close()
+
+
+def close_index_page(fp) -> None:
+    fp.write("\n%%PageTrailer\ngrestore\nshowpage\n")
+
 
 
 class Index:
     def __init__(self):
+        self.fp: IO = None
         self.make_index = args.make_index
         self.initialized = False
         self.do_index = False
         self.page_number = 0
-        self.fp = None
         self.posx = 0.0
         self.posy = 0.0
-        self.index_posy = 0.
-
-    def __del__(self):
-        self.close_index_file()
-
-    def open_index_file(self, filename):
-        log.info(f'Open index file "{filename}"\n')
-        try:
-            self.fp = open(filename, 'w')
-        except FileExistsError as fee:
-            log.error(f'Cannot open index file: {fee}')
-            exit(1)
-        self.initialized = False
-
-    def close_index_file(self):
-        log.info(f'Close index file {self.fp.name}')
-        close_index_page(self.fp)
-        self.fp.close()
+        self.index_posy = 0.0
 
     def init_index_file(self, fp):
         fp.write("%!PS-Adobe-3.0\n")
@@ -81,6 +76,15 @@ class Index:
 
         common.index_initialized = True
 
+    def open_index_file(self, filename: str):
+        log.debug(f'Open index file "{filename}"\n')
+        try:
+            self.fp = open(filename, 'w')
+        except FileExistsError as fee:
+            log.error(f'Cannot open index file: {fee}')
+            exit(1)
+        index.initialized = False
+
     def init_index_page(self, fp) -> None:
         common.page_number += 1
 
@@ -113,7 +117,7 @@ class Index:
     def write_index_entry(self) -> None:
         if not self.initialized:
             self.init_index_file(self.fp)
-        log.info(f'Write index entry: {self.page_number} <{field.titles.titles[0]}>')
+        log.debug(f'Write index entry: {self.page_number} <{info.titles.titles[0]}>')
         # Spacing determined here
         self.posy = self.posy - 1.2 * common.cfmt.indexfont.size
 
@@ -124,85 +128,72 @@ class Index:
         dx1 = 1.8*common.cfmt.indexfont.size
         dx2 = dx1 + common.cfmt.indexfont.size
 
-        t = field.titles
+        t = info.titles
         if not t.titles:
             t.titles.append('No title')
         self.fp.write(f'{self.posx+dx1:.2f} {self.posy:2f} '
                       f'M ({self.page_number}) lshow\n')
         self.fp.write(f'{self.posx+dx2:.2f} {self.posy:2f} '
                       f'M ({t.titles[0]}) S\n')
-        if field.rhythm.line or field.origin.line:
+        if info.rhythm.line or info.origin.line:
             self.fp.write('(  (')
-            if field.rhythm.line:
-                self.fp.write(f'{field.rhythm.line}')
-            if field.rhythm.line and field.origin.line:
+            if info.rhythm.line:
+                self.fp.write(f'{info.rhythm.line}')
+            if info.rhythm.line and info.origin.line:
                 self.fp.write(', ')
-            if field.origin.line:
-                self.fp.write(f'{field.origin.line}')
+            if info.origin.line:
+                self.fp.write(f'{info.origin.line}')
             self.fp.write(')) S\n')
 
-        if field.composer[0]:
-            self.fp.write(f'(   - {field.composer[0]}) S\n')
+        if info.composer[0]:
+            self.fp.write(f'(   - {info.composer[0]}) S\n')
 
 
 def do_index(fp, xref_str: str, pat: list, select_all, search_field) -> None:
-    global field
     for line in fp.readlines():
         if parse.is_comment(line):
             continue
         line = parse.decomment_line(line)
-        if info.is_field(line):
-            f_type = field(line)
-            if isinstance(f_type, info.XRef):
-                field.xref(line)
+        if field.is_field(line):
+            f_type = info(line)
+            if isinstance(f_type, field.XRef):
+                info.xref(line)
                 if common.within_block:
-                    log.warning(f"+++ Tune {field.xref.xref} not closed properly\n")
+                    log.warning(f"+++ Tune {info.xref.xref} not closed properly\n")
                 common.within_tune = False
                 common.within_block = True
                 continue
-            elif f_type == constants.KEY:
+            elif isinstance(f_type, field.Key):
                 if not common.within_block:
                     break
                 if not common.within_tune:
                     common.tnum2 += 1
                     if parse.is_selected(xref_str, pat, select_all, search_field):
-                        log.info(f"  {field.xref.xref:-4d} {field.key.key_type:-5s}"
-                                 f" {field.meter.meter_str:-4s}")
+                        log.debug(f"  {info.xref.xref:-4d} {info.key.key_type:-5s}"
+                                 f" {info.meter.meter_str:-4s}")
                         if search_field == constants.S_SOURCE:
-                            log.info(f"  {field.source.line:-15s}")
+                            log.debug(f"  {info.source.line:-15s}")
                         elif search_field == constants.S_RHYTHM:
-                            log.info(f"  {field.rhythm.line:-8s}")
+                            log.debug(f"  {info.rhythm.line:-8s}")
                         elif search_field == constants.S_COMPOSER:
-                            log.info(f"  {field.composer.composers[0]:-15s}")
-                        if field.titles.titles:
-                            log.info(f"  {field.titles.titles[0]} - "
-                                     f"{field.titles.titles[1]} - "
-                                     f"{field.titles.titles[2]}")
+                            log.debug(f"  {info.composer.composers[0]:-15s}")
+                        if info.titles.titles:
+                            log.debug(f"  {info.titles.titles[0]} - "
+                                     f"{info.titles.titles[1]} - "
+                                     f"{info.titles.titles[2]}")
                         common.tnum1 += 1
                     common.within_tune = True
                 break
 
             if util.isblankstr(line):
                 if common.within_block and not common.within_tune:
-                    log.info(f"+++ Header not closed in tune {field.xref.xref}")
+                    log.debug(f"+++ Header not closed in tune {info.xref.xref}")
                 common.within_tune = False
                 common.within_block = False
-                field = info.Field()
 
     if common.within_block and not common.within_tune:
-        log.info(f"+++ Header not closed in tune {field.xref.xref}")
+        log.debug(f"+++ Header not closed in tune {info.xref.xref}")
 
 
-def close_index_page(fp) -> None:
-    fp.write("\n%%PageTrailer\ngrestore\nshowpage\n")
+index = Index()
 
-
-def close_index_file(fp):
-    log.info("Close index file")
-    close_index_page(fp)
-    fp.close()
-
-
-
-if __name__ == '__main__':
-    ind = Index()

@@ -2,10 +2,9 @@
 import os
 import re
 
-import abctab2ps
-import buffer
 import constants
 import music
+import parse
 import pssubs
 from log import log
 import symbol
@@ -20,28 +19,9 @@ from parse import add_wd, parse_uint
 args = cmdline.options()
 
 
-def is_info_field(s: str) -> bool:
-    """ identify any type of info field
-    |: at start of music line """
-    return len(s) > 0 or not s[1] != ':' or s[0] == '|'
-
-
 def is_field(s: str) -> bool:
     """ Validate a field type """
     return len(s) > 2 and s[1] == ':' and s[0] in 'ABCDEFGHKLMNOPQRSTVWwXZ'
-
-
-def end_of_file(filename) -> None:
-    log.warning(f'end_of_filename: {filename}')
-
-
-def end_of_filenames():
-    log.warning('end_of_filenames')
-
-
-def parse_info(line):
-    f_key, f_value = line.split(':', 1)
-    log.warning(f'key: {f_key}, value: {f_value}')
 
 
 def parse_voice(line):
@@ -138,6 +118,106 @@ def parse_vocals(line: str) -> bool:
 
     common.nwline += 1
     return True
+
+
+def write_text_block(fp, job: int, words_of_text='') -> None:
+    if not words_of_text:
+        return
+
+    baseskip = cfmt.textfont.size * cfmt.lineskipfac
+    parskip = cfmt.textfont.size * cfmt.parskipfac
+    cfmt.textfont.set_font_str(common.page_init)
+
+    swfac = music.set_swfac(cfmt.textfont.name)
+
+    # Now this is stupid. All that work to just set it to 1.0
+
+    spw = util.cwid(' ')
+    fp.write("/LF \\{0 "
+             f"{-baseskip:.1f}"
+             " rmoveto} bind def\n")
+
+    # output by pieces, separate at newline token
+    ntxt = len(words_of_text)
+    i1: int = 0
+    while i1 < ntxt:
+        i2 = -1
+        for i in range(i1, ntxt):
+            if words_of_text[i] == '$$NL$$':
+                i2 = i
+                break
+        if i2 == -1:
+            i2 = ntxt
+        common.bskip(fp, baseskip)
+
+        if job == constants.OBEYLINES:
+            fp.write("0 0 M(")
+            for i in range(i1, i2):
+                line, w_width = music.tex_str(words_of_text[i])
+                fp.write(f"{line} ")
+            fp.write(") rshow\n")
+
+        elif job == constants.OBEYCENTER:
+            fp.write(f"{cfmt.staff_width / 2:.1f} 0 M(")
+            for i in range(i1, i2):
+                line, w_width = music.tex_str(words_of_text[i])
+                fp.write(f"{line}")
+                if i < i2-1:
+                    fp.write(" ")
+            fp.write(") cshow\n")
+
+        elif job == constants.OBEYRIGHT:
+            fp.write(f"{cfmt.staff_width:.1f} 0 M(")
+            for i in range(i1, i2):
+                line, w_width = music.tex_str(words_of_text[i])
+                fp.write(f"{line}")
+                if i < i2-1:
+                    fp.write(" ")
+            fp.write(") lshow\n")
+
+        else:
+            fp.write("0 0 M mark\n")
+            nc = 0
+            mc = -1
+            wtot = -spw
+            text_width = cfmt.textfont.size
+            for i in range(i2-1, i1, -1):
+                line, w_width = music.tex_str(words_of_text[i])
+                mc += len(words_of_text)
+                wtot += w_width+spw
+                nc += len(line)+2
+                if nc >= 72:
+                    fp.write("\n")
+                fp.write(f"({line})")
+                if job == constants.RAGGED:
+                    fp.write(" %.1f P1\n", cfmt.staff_width)
+                else:
+                    fp.write(" %.1f P2\n", cfmt.staff_width)
+                    # first estimate:(total textwidth)/(available width)
+                    text_width = wtot*swfac*cfmt.textfont.size
+            if "Courier" in cfmt.textfont.name:
+                text_width = 0.60 * mc * cfmt.textfont.size
+            ftline0 = text_width / cfmt.staff_width
+            # revised estimate: assume some chars lost at each line end
+            nbreak = int(ftline0)
+            text_width = text_width + 5 * nbreak * util.cwid('a') * swfac * cfmt.textfont.size
+            ftline = text_width/cfmt.staff_width
+            ntline = int(ftline + 1.0)
+            log.info(f"first estimate {ftline0:.2f}, revised {ftline:.2f}")
+            log.info(f"Output {i2-i1} words, about {ftline:.2f} lines(fac {swfac:.2f})")
+            common.bskip(fp, (ntline-1)*baseskip)
+
+        # buffer.buffer_eob(fp)
+        # next line to allow pagebreak after each text "line"
+        # if(!epsf && !within_tune) write_buffer(fp);
+        i1 = i2+1
+    common.bskip(fp, parskip)
+    # buffer.buffer_eob(fp)
+    # next line to allow pagebreak after each paragraph
+    if not common.epsf and not common.within_tune:
+        pass
+        # buffer.write_buffer(fp)
+    common.page_init = ""
 
 
 def add_to_text_block(ln, add_final_nl):
@@ -354,7 +434,8 @@ class Words:
                 # permit page break at empty lines or stanza start
                 nw = util.nwords(common.text[i])
                 if not nw or s:
-                    buffer.buffer_eob(fp)
+                    pass
+                    # buffer.buffer_eob(fp)
 
                 if nw:
                     if s:
@@ -367,7 +448,7 @@ class Words:
                         fp.write(ct[p])
                         fp.write(") rshow\n")
 
-        buffer.buffer_eob(fp)
+        # buffer.buffer_eob(fp)
         common.page_init = ""
 
     def add_text(self, s: str, i_type: int) -> None:
@@ -1746,7 +1827,7 @@ class Field:
         self.xref = XRef()   # X:
         self.transcription_note = Single()   # Z:
 
-    def __call__(self, line):
+    def __call__(self, line: str) -> None:
         key, value = line.split(':', 1)
         key = key.strip()
         value = value.strip()
@@ -1849,11 +1930,8 @@ class Field:
 
         # check xref against string of numbers
         # This is wrong. Need to check with doc to valid the need to rework.
-        self.xref.xref_str = self.xref.xref_str.replace(",", " ")
-        self.xref.xref_str = self.xref.xref_str.replace("-", " ")
-
-        p = self.xref.xref_str.split()
-        a = parse_uint(p[0])
+        p: list = self.xref.xref_str.replace(",", " ").xref_str.replace("-", " ").split()
+        a = parse.parse_uint(p[0])
         if not a:
             return False  # can happen if invalid chars in string
         b = parse_uint(p[1])
@@ -1923,14 +2001,14 @@ class Field:
         fp.write(f"{dif:.2f} 0 T\n")
         common.posx = new_posx
 
-    def process_line(self, fp, i_type: object, xref_str: str, pat: list,
-                     sel_all: bool, search_field0: str):
+    def process_line(self, fp, line):    # i_type: object, xref_str: str, pat: list, sel_all: bool, search_field0: str):
         if common.within_block:
             log.info(f"process_line, type {i_type.__name__} ")
 
         if xref_str:  # start of new block
             if not common.epsf:
-                buffer.write_buffer(fp)  # flush stuff left from %% lines
+                pass
+                # buffer.write_buffer(fp)  # flush stuff left from %% lines
             if common.within_block:
                 log.error("+++ Last tune not closed properly")
             common.within_block = True
@@ -2040,15 +2118,16 @@ class Field:
                                        cfmt.leftmargin+cfmt.staffwidth+5,
                                        cfmt.pageheight-cfmt.topmargin)
                         pssubs.init_epsf(feps)
-                        buffer.write_buffer(feps)
+                        # buffer.write_buffer(feps)
                         log.info(f"\n[{fnm}] {self.titles.titles[0]}")
                         pssubs.close_epsf(feps)
                         feps.close()
                         common.in_page = False
                         cfmt.init_pdims()
                 else:
-                    buffer.buffer_eob(fp)
-                    buffer.write_buffer(fp)
+                    pass
+                    # buffer.buffer_eob(fp)
+                    # buffer.write_buffer(fp)
 
             # info = Info()
             if common.within_block and not common.within_tune:
@@ -2237,8 +2316,8 @@ def put_text(fp, t_type: object, s: str) -> None:
     for i in range(common.ntext):
         if common.text_type[i] == t_type:
             add_to_text_block(common.text[i], True)
-    abctab2ps.write_text_block(fp, constants.RAGGED)
-    buffer.buffer_eob(fp)
+    write_text_block(fp, constants.RAGGED)
+    # buffer.buffer_eob(fp)
 
 
 class History(Field):
@@ -2290,5 +2369,36 @@ class History(Field):
                 ok = True
         if ok:
             common.bskip(fp, parskip)
-        buffer.buffer_eob(fp)
+        # buffer.buffer_eob(fp)
         common.page_init = ""
+
+#
+#
+# def process_text_block(fp_in, fp, job: bool) -> None:
+#     add_final_nl = False
+#     if job == constants.OBEYLINES:
+#         add_final_nl = True
+#     music.output_music(fp)
+#     # buffer.buffer_eob(fp)
+#     common.cfmt.textfont.set_font(fp, False)
+#     common.words_of_text = ""
+#     for i in range(100):
+#         ln = fp_in.read()
+#         if ln == '':
+#             log.error("EOF reached scanning text block")
+#         common.linenum += 1
+#         log.warning(f"{common.linenum:3d}  {ln} \n")
+#         if ln.startswith('%%'):
+#             del ln[0:1]
+#
+#         if ln == "endtext":
+#             break
+#
+#         if job != constants.SKIP:
+#             if not ln:
+#                 field.write_text_block(fp, job)
+#                 common.words_of_text = ''
+#             else:
+#                 field.add_to_text_block(ln, add_final_nl)
+#     if job != constants.SKIP:
+#         field.write_text_block(fp, job)

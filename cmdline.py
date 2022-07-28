@@ -338,8 +338,7 @@ def options():
                         type=float,
                         help='set strictness for note spacing; 0 < strictness < 1.')
     parser.add_argument('filenames',
-                        action='append',
-                        nargs='*',
+                        nargs='+',
                         help='abc files to be processed. There must be one')
 
     # the + options

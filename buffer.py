@@ -1,12 +1,11 @@
 import logging
 
-import index
+# import index
 import common
 from log import log
 from constants import BUFFLN, BUFFSZ
 from pssubs import write_pagebreak
 
-index = index.Index()
 
 
 def clear_buffer() -> None:

@@ -15,7 +15,7 @@ import parse
 
 
 args = cmdline.options()
-tab_key = field.Key()
+key = field.Key()
 voice = field.Voice()
 voices = list()
 
@@ -229,6 +229,8 @@ class Tabformat:
             log.info("    tabbrummer         123")
         log.info(f"    tabgermansepline  {self.germansepline}")
 
+def parse_tab_line(s: str):
+    pass
 # def parse_tab_line(line):
 #     """ parse a tablature line into music """
 #     if not voice:
@@ -238,7 +240,7 @@ class Tabformat:
 #     # check for mixing of tablature and music within one line
 #     voicespec, line = util.get_field_value('V', line)
 #
-#     if not tab_key.is_tab_key():
+#     if not key.is_tab_key():
 #         print(f"+++ Error line {common.linenum}: "
 #               "Tablature and music must not be mixed within one line")
 #
@@ -372,7 +374,7 @@ class Tabformat:
 #     :return bool: search music lines (false); no music line found (true)
 #     """
 #     for voice in voices:
-#         return not (voice.select and not tab_key.is_tab_key(voice.key))
+#         return not (voice.select and not key.is_tab_key(voice.key))
 #
 # }
 #                 else if (*p == '*')         # ignore stars for now
@@ -2402,11 +2404,11 @@ def is_tab_line(line):
     """
     voice_spec, line = util.get_field_value('V', line)
     # There is a problem here, these parameter are not used.
-    if tab_key.is_tab_key(voice.switch_voice(voice_spec).key):
+    if key.is_tab_key(voice.switch_voice(voice_spec).key):
         return True
     else:
         # check default current v
-        if tab_key.is_tab_key(voice.key):
+        if key.is_tab_key(voice.key):
             return True
     return False
 
