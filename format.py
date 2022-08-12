@@ -24,7 +24,7 @@ class Font:
         log.debug("Adding fonts from format..")
         if self.name in Font.names:
             log.debug(f"Font {self.name} "
-                     f"exists at index {Font.names.index(self.name)}")
+                      f"exists at index {Font.names.index(self.name)}")
         else:
             Font.names.append(self.name)
             log.debug(f"Adding new font {self.name}")
@@ -35,7 +35,7 @@ class Font:
         else:
             return f"{self.name} {self.size:.1f}"
 
-    def set_font(self, add_bracket: bool =False) -> None:
+    def set_font(self, fp, add_bracket: bool = False) -> None:
         if self.name not in Font.names:
             font_index = Font.names.index(self.name)
 
@@ -49,8 +49,7 @@ class Font:
             line = f"{self.size:.1f} {self.box:d} F{font_index}("
         else:
             line = f"{self.size:.1f} {self.box:d} F{font_index}"
-        with open('out.ps', 'w') as fp:
-            fp.write(line)
+        fp.write(line)
 
     def set_font_str(self, page_init):
         """
@@ -246,7 +245,7 @@ class Format:
     def __str__(self):
         return f'''Format: {self.name}
     pageheight         {self.page_height / CM:.2f}cm
-    staffwidth         {self.staff_width / CM:.2f}cm
+    staff_width         {self.staff_width / CM:.2f}cm
     topmargin          {self.top_margin / CM:.2f}cm
     botmargin          {self.bot_margin / CM:.2f}cm
     leftmargin         {self.left_margin / CM:.2f}cm
@@ -313,7 +312,7 @@ class Format:
 
     def interpret_g_unum(self, key, value):
         if key not in ['pageheight',
-                       'staffwidth',
+                       'staff_width',
                        'topmargin',
                        'botmargin',
                        "leftmargin",
@@ -394,12 +393,8 @@ class Format:
             return
         setattr(self, key, g_fspc(value))
 
-    def interpret_format_line(self, line):
-        """
-        Read the line with a format directive to reset a format value
-
-        :param line:
-        """
+    def interpret_format_line(self, line: str):
+        """ Read the line with a format directive to reset a format value """
         if line.startswith('%'):
             return False
         log.info(f"Interpret format line: {line}")
@@ -451,13 +446,8 @@ class Format:
         common.posy = self.page_height - self.top_margin
 
 
-def g_unum(s):
-    """
-    read a number with a unit
-
-    :param str s:
-    :return float: number
-    """
+def g_unum(s: str) -> float:
+    """ read a number with a unit """
     try:
         if s[-2:] in ['pt', 'cm', 'in', 'mm']:
             unit = s[-2:]

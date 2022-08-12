@@ -1,9 +1,10 @@
 import re
 
+import abctab2ps
 from log import log
 from constants import (S_SOURCE, S_RHYTHM, S_COMPOSER)
 from constants import (NWPOOL, NTEXT)
-from common import voices
+from common import voices, ivc
 import common
 import symbol
 
@@ -1407,7 +1408,7 @@ def do_index(filename, xref_str: str, pat: list, select_all: bool, search_field:
     with open(filename) as fp:
         lines = fp.readlines()
     for line in lines:
-        if is_comment(line):
+        if abctab2ps.is_comment(line):
             continue
         line = decomment_line(line)
         f_type = info.get_default_info()   # todo this right?

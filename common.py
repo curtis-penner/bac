@@ -114,7 +114,7 @@ ivc: int = 0   # current v
 # #
 # # char mbf[501]                 # mini-buffer for one line
 # # char buf[BUFFSZ]              # output buffer.. should hold one tune
-# bposy: float = 0.0                  # current position in buffered data
+bposy: float = 0.0                  # current position in buffered data
 #
 # # float ln_pos[BUFFLN]          # vertical positions of buffered lines
 # # int   ln_buf[BUFFLN]          # buffer location of buffered lines
@@ -124,7 +124,7 @@ ivc: int = 0   # current v
 # page_init: str = ''   # initialization string after page break
 # escseq: str = ''               # escape sequence string
 # linenum: int = 0                  # current line number in input file
-# tunenum: int = 0                  # number of current tune
+tunenum: int = 0                  # number of current tune
 # tnum1: int = 0
 # tnum2: int = 0
 # number_of_titles: int = 0                  # how many titles were read
@@ -168,7 +168,7 @@ ivc: int = 0   # current v
 # # int do_words                    # flag if staff has words under it
 # #
 # # int vb, verbose                 # verbosity, global and within tune
-# # int in_page=0
+in_page: bool = False
 # #
 # #                                  # switches modified by flags:
 # # int gmode                         # switch for glue treatment
@@ -229,12 +229,12 @@ ivc: int = 0   # current v
 # # allocSyms: int = 800
 # # maxVc: int = 3
 # # maxSymx: int = 3
-#
-#
-# def bskip(fp, h: float) -> None:
-#     """ translate down by h points in output buffer """
-#     global bposy
-#
-#     if h*h > 0.0001:
-#         fp.write(f'0 {-h:.2f} T\n')
-#         bposy = bposy - h
+
+
+def bskip(fp, h: float) -> None:
+    """ translate down by h points in output buffer """
+    global bposy
+
+    if h*h > 0.0001:
+        fp.write(f'0 {-h:.2f} T\n')
+        bposy = bposy - h

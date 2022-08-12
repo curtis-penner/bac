@@ -1,6 +1,5 @@
 
 import os
-import re
 
 import constants
 import music
@@ -12,7 +11,7 @@ import format
 import util
 from format import cfmt, font
 import common
-from common import voices
+from common import voices, ivc
 import cmdline
 from parse import add_wd, parse_uint
 
@@ -22,16 +21,6 @@ args = cmdline.options()
 def is_field(s: str) -> bool:
     """ Validate a field type """
     return len(s) > 2 and s[1] == ':' and s[0] in 'ABCDEFGHKLMNOPQRSTVWwXZ'
-
-
-def parse_vocals(line):
-    if Voice().parse_vocals(line):
-        return
-
-    # now parse a real line of music
-    if not common.voices:
-        common.voices.append(Voice().switch_voice(constants.DEFVOICE))
-
 
 def parse_voice(line):
     ok = True
@@ -290,6 +279,7 @@ class Blank:
     pass
 
 
+
 class Composers:
     def __init__(self):
         self.size = 5
@@ -334,7 +324,7 @@ class Titles:
         if cfmt.titleleft:
             fp.write(") 0 0 M rshow\n")
         else:
-            fp.write(f") {cfmt.staffwidth / 2:.1f} 0 M cshow\n")
+            fp.write(f") {cfmt.staff_width / 2:.1f} 0 M cshow\n")
         common.bskip(fp, cfmt.musicspace + 0.2 * constants.CM)
 
 
@@ -516,10 +506,10 @@ class Meter:
         self.display_mflag: int = 0
 
     def __call__(self, meter_str, header=False):
-        self.meter_str = meter_str.strip()
         if not meter_str:
             log.error("Empty meter string")
             return
+        self.meter_str = meter_str.strip()
 
         # if no meter, set invisible 4/4 (for default length)
         if meter_str == "none":
@@ -1713,6 +1703,35 @@ class Voice:
                     log.error(f'Unknown option in v spec: {k}')
         voices.append(self)
 
+    @staticmethod
+    def get_field_value(c, line):
+        """ this should be in field.Voice() """
+        s = f'[{c}:'
+        if s in line:
+            n = line.find(s)
+            if ']' in line[n + 3:]:
+                p = line[n + 3:].find(']')
+                return line[n + 3:n + 3 + p].strip(), line[n + 3 + p + 1:]
+            else:
+                log.error('Reached end of line and no "]"')
+        return line
+
+    def is_tab_line(self, line: str) -> bool:
+        """
+        this should be in field.Voice()
+
+        decide whether an input line is tablature
+        Returns true, if the line contains a v specifier [V:...]
+        corresponding to a tablature v or if the current v
+        is tablature by default
+        """
+        voice_spec, line = self.get_field_value('V', line)
+        # There is a problem here, this parameter are not used.
+        if self.key.is_tab_key(voices[0].switch_voice(voice_spec).key):
+            return True
+        else:  # check default current v
+            return self.key.is_tab_key(voices[0].key)
+
     #
     # /* ----- switch_voice: read spec for a v, return v number ----- */
     # int switch_voice (std::string str)
@@ -1817,31 +1836,31 @@ class Field:
     body = False
 
     def __init__(self):
-        # self.area = Single()   # A:
-        # self.book = Single()   # B:
-        # self.composer = Composers()   # C:
-        # self.discography = Single()   # D:
-        # self.layout_parameter = LayoutParams()   # E:
-        # self.file_name = Single(True)   # F:
-        # self.group = Single()   # G:
-        # self.history = History()   # H:
-        self.key = Key()   # K:
-        self.dlen = DefaultLength()   # L:
-        self.meter = Meter()   # M:
-        # self.notes = Single(True)   # N:
-        # self.origin = Single()   # O:
-        # self.parts = Parts()   # P:
-        # self.tempo = Tempo()   # Q:
-        self.rhythm = Single()   # R:
-        # self.source = Single()   # S:
-        self.titles = Titles()   # T:
-        # self.voice = Voice()   # V:
-        # self.lyrics = Lyrics()   # W:
-        # self.words = Words()   # w:
-        self.xref = XRef()   # X:
-        # self.transcription_note = Single()   # Z:
+        self.area = None   # A:
+        self.book = None   # B:
+        self.composers = None   # C:
+        self.discography = None   # D:
+        self.layout_parameter = None   # E:
+        self.file_name = None  # F:
+        self.group = None   # G:
+        self.history = None   # H:
+        self.key = None  # K:
+        self.dlen = None   # L:
+        self.meter = None   # M:
+        self.notes = None   # N:
+        self.origin = None   # O:
+        self.parts = None   # P:
+        self.tempo = None   # Q:
+        self.rhythm = None   # R:
+        self.source = None   # S:
+        self.titles = None   # T:
+        self.voice = None   # V:
+        self.lyrics = None  # W:
+        self.words = None   # w:
+        self.xref = None   # X:
+        self.transcription_note = None   # Z:
 
-    def __call__(self, line: str) -> None:
+    def __call__(self, fp, line: str) -> None:
         key, value = line.split(':', 1)
         key = key.strip()
         value = value.strip()
@@ -1849,73 +1868,221 @@ class Field:
         if is_field(line):
             if not common.within_block:
                 if key == 'X':
+                    self.xref = XRef()
                     ret_val = self.xref(value)
                     if ret_val:
                         Field.header = True
                         self.do_tune = True
-
+                if not common.epsf:
+                    pass
+                    # buffer.write_buffer(fp)  # flush stuff left from %% lines
+                if common.within_block:
+                    log.error("+++ Last tune not closed properly")
+                common.within_block = True
+                common.within_tune = False
+                common.do_this_tune = False
+                self.titles.titles = list()
+                cfmt.init_pdims()
                 return
 
             log.debug(f"process_line: {key}:{value}")
             if key == 'K':
+                self.key = Key()
                 self.key(value, Field.header)
                 self.within_block = False
+                if not common.within_block:
+                    return
+                if common.within_tune:
+                    if common.do_this_tune:
+                        self.handle_inside_field(type)
+                else:  # end of header ... start now
+                    self.check_selected(fp, xref_str, pat, sel_all, search_field0)
+                    if common.do_this_tune:
+                        common.tunenum += 1
+                        log.warning(f"---- start {self.xref.xref} ({self.titles.titles[0]}) ----")
+                        # self.key.halftones = self.key.get_halftones(transpose)
+                        # self.key.set_transtab(self.key.halftones)
+                        cfmt.check_margin(cfmt.leftmargin)
+                        self.write_heading(fp)
+                        # voices = list()
+                        symbol.Symbol().init_parse_params()
+                        # insert is now set in set_meter (for invisible meter)
+                        self.meter.insert = 1
+
+                        common.number_of_music_lines = 0
+                        common.do_indent = True
+                        common.do_meter = True
+                        common.bar_init = cfmt.barinit
+                        common.write_num = False
+                common.within_tune = True
+                return
             elif key == 'M':
+                self.meter = Meter()
                 self.meter(value, Field.header)
+                if not common.within_block:
+                    return
+                if common.do_this_tune and common.within_tune:
+                    self.handle_inside_field(self.meter)
+                return
             elif key == 'A':
+                self.area = Single()
                 self.area(value)
             elif key == 'B':
+                self.book = Single()
                 self.book(value)
             elif key == 'C':
-                self.composer(value)
+                self.composers = Composers()
+                self.composers(value)
             elif key == 'D':
+                self.discography = Single()
                 self.discography(value)
             elif key == 'E':
+                self.layout_parameter = LayoutParams()
                 self.layout_parameter(value, Field.header)
             elif key == 'F':
+                self.file_name = Single(True)
                 self.file_name(value)
             elif key == 'G':
+                self.group = Single()
                 self.group(value)
             elif key == 'H':
+                self.history = History()
                 self.history(value, Field.header)
             elif key == 'L':
+                self.dlen = DefaultLength()
                 self.dlen(value, Field.header)
+                if not common.within_block:
+                    return
+                if common.do_this_tune and common.within_tune:
+                    self.handle_inside_field(self.dlen)
+                return
             elif key == 'N':
+                self.notes = Single(True)
                 self.notes(value)
             elif key == 'O':
+                self.origin = Single()
                 self.origin(value)
             elif key == 'P':
+                self.parts = Parts()
                 self.parts(value, Field.header)
+                if not common.within_block:
+                    return
+                if common.do_this_tune and common.within_tune:
+                    music.output_music(fp)
+                    self.parts.write_parts(fp)
+                return
             elif key == 'Q':
+                self.tempo = Tempo()
                 self.tempo(value)
+                if not common.within_block:
+                    return
+                if common.within_tune:  # tempo within tune
+                    if common.do_this_tune:
+                        music.output_music(fp)
+                        self.tempo.write_inside_tempo(fp)
+                else:
+                    self.check_selected(fp, xref_str, pat, sel_all, search_field0)
+                return
+            elif key == 'R':
+                self.rhythm = Single()
+                self.rhythm(value)
             elif key == 'S':
+                self.source = Single()
                 self.source(value)
             elif key == 'T':
+                self.titles = Titles()
                 self.titles(value)
+                if not common.within_block:
+                    return
+                if common.within_tune:  # title within tune
+                    if common.do_this_tune:
+                        music.output_music(fp)
+                        self.titles.write_inside_title(fp)
+                        common.do_meter = True
+                        common.do_indent = True
+                        common.bar_init = cfmt.barinit
+                else:
+                    self.check_selected(fp, xref_str, pat, sel_all, search_field0)
+                return
             elif key == 'V':
+                self.voice = Voice()
                 self.voice(value, Field.header)
+                if common.do_this_tune and common.within_block:
+                    if not common.within_tune:
+                        log.info(f"+++ Voice field not allowed in header: V:{common.lvoiceid}")
+                    else:
+                        pass
+                        # ivc = self.voice.switch_voice(common.lvoiceid)
             elif key == 'Z':
+                self.transcription_note = Single()
                 self.transcription_note(value)
 
         if key in ['E', 'K', 'L', 'M', 'P', 'V', 'w', 'W'] and Field.body:
             log.debug(f"process_line: {key}:{value}")
             if key == 'M':
+                self.meter = Meter()
                 self.meter(value, Field.body)
             elif key == 'K':
+                self.key = Key()
                 self.key(value, Field.body)
             elif key == 'V':
+                self.voice = Voice()
                 self.voice(value, Field.body)
+                return
             elif key == 'P':
+                self.parts = Parts()
                 self.parts(value, Field.body)
             elif key == 'L':
+                self.dlen = DefaultLength()
                 self.dlen(value, Field.body)
             elif key == 'w':
+                self.lyrics = Lyrics()
                 self.lyrics(value)
             elif key == 'W':
+                self.words = Words()
                 self.words(value)
 
-    def is_selected(self, xref_str: str, pat: list,
-                    select_all: bool, search_field: str) -> bool:
+        if not line:
+            if common.do_this_tune:
+                music.output_music(fp)
+                self.words.put_words(fp)
+                if cfmt.writehistory:
+                    self.history.put_history(fp)
+                if common.epsf:
+                    self.close_output_file(fp)
+                    if common.choose_outname:
+                        fnm = self.epsf_title(self.titles.titles[0])
+                        fnm += ".eps"
+                    else:
+                        common.nepsf += 1
+                        fnm = f"{common.file_open}.{common.nepsf:03d}.eps"
+                    finf = f"{common.in_file[0]} ({self.xref.xref})"
+                    if not os.path.exists(fnm):
+                        raise FileExistsError
+                    with open(fnm, 'w') as feps:
+                        pssubs.init_ps(feps, finf,
+                                       cfmt.leftmargin - 5, common.posy + common.bposy - 5,
+                                       cfmt.leftmargin + cfmt.staffwidth + 5,
+                                       cfmt.pageheight - cfmt.topmargin)
+                        pssubs.init_epsf(feps)
+                        # buffer.write_buffer(feps)
+                        log.info(f"\n[{fnm}] {self.titles.titles[0]}")
+                        pssubs.close_epsf(feps)
+                        feps.close()
+                        common.in_page = False
+                        cfmt.init_pdims()
+                else:
+                    pass
+
+
+        if common.within_block and not common.within_tune:
+            log.debug(f"\n+++ Header not closed in tune {self.xref.xref}")
+        common.within_tune = False
+        common.within_block = False
+        common.do_this_tune = False
+        return
+
+    def is_selected(self, xref_str: str, pat: list, select_all: bool, search_field: str) -> bool:
         """ check selection for current info fields """
         # true if select_all or if no selectors given
         if select_all:
@@ -1923,24 +2090,23 @@ class Field:
         if not xref_str and len(pat) == 0:
             return True
 
-        m = 0
+        m = False
         for i in range(len(pat)):
             if search_field == constants.S_COMPOSER:
-                for j in range(len(self.composer)):
+                for composer in self.composers.composers:
                     if not m:
-                        m = re.match(self.composer.composers[j], pat[i])
+                        m = pat[i] in composer
             elif search_field == constants.S_SOURCE:
-                m = re.match(self.source.line, pat[i])
+                m = pat[i] in self.source.line
             elif search_field == constants.S_RHYTHM:
-                m = re.match(self.rhythm.line, pat[i])
+                m = pat[i] in self.rhythm.line
             else:
-                m = re.match(self.titles.titles[0], pat[i])
-                if not m and len(self.titles) >= 2:
-                    m = re.match(self.titles.titles[1], pat[i])
-                if not m and len(self.titles.titles[2]) == 3:
-                    m = re.match(self.titles.titles[2], pat[i])
-            if m:
-                return True
+                for title in self.titles.titles:
+                    m = pat[i] in title
+                    if m:
+                        break
+
+            return m
 
         # check xref against string of numbers
         # This is wrong. Need to check with doc to valid the need to rework.
@@ -1961,13 +2127,13 @@ class Field:
         return False
 
     def check_selected(self, fp, xref_str: str, pat: list, sel_all: bool, search_field: str):
-        """
-        :param fp:
-        :param xref_str:
-        :param pat:
-        :param sel_all:
-        :param search_field:
-        """
+        # """
+        # :param fp:
+        # :param xref_str:
+        # :param pat:
+        # :param sel_all:
+        # :param search_field:
+        # """
         if not common.do_this_tune:
             if self.is_selected(xref_str, pat, sel_all, search_field):
                 common.do_this_tune = True
@@ -2015,131 +2181,9 @@ class Field:
         fp.write(f"{dif:.2f} 0 T\n")
         common.posx = new_posx
 
-    def process_line(self, fp, line):    # i_type: object, xref_str: str, pat: list, sel_all: bool, search_field0: str):
-        if common.within_block:
-            log.info(f"process_line, type {i_type.__name__} ")
+    def process_line(self, fp, iy):    # i_type: object, xref_str: str, pat: list, sel_all: bool, search_field0:
 
-        if xref_str:  # start of new block
-            if not common.epsf:
-                pass
-                # buffer.write_buffer(fp)  # flush stuff left from %% lines
-            if common.within_block:
-                log.error("+++ Last tune not closed properly")
-            common.within_block = True
-            common.within_tune = False
-            common.do_this_tune = False
-            self.titles.titles = list()
-            cfmt.init_pdims()
-            return
-        elif isinstance(i_type, Titles):
-            if not common.within_block:
-                return
-            if common.within_tune:  # title within tune
-                if common.do_this_tune:
-                    music.output_music(fp)
-                    self.titles.write_inside_title(fp)
-                    common.do_meter = True
-                    common.do_indent = True
-                    common.bar_init = cfmt.barinit
-            else:
-                self.check_selected(fp, xref_str, pat, sel_all, search_field0)
-            return
-        elif self.tempo:
-            if not common.within_block:
-                return
-            if common.within_tune:   # tempo within tune
-                if common.do_this_tune:
-                    music.output_music(fp)
-                    self.tempo.write_inside_tempo(fp)
-            else:
-                self.check_selected(fp, xref_str, pat, sel_all, search_field0)
-            return
-        elif isinstance(i_type, Key):
-            if not common.within_block:
-                return
-            if common.within_tune:
-                if common.do_this_tune:
-                    self.handle_inside_field(type)
-            else:   # end of header ... start now
-                self.check_selected(fp, xref_str, pat, sel_all, search_field0)
-                if common.do_this_tune:
-                    common.tunenum += 1
-                    log.warning(f"---- start {self.xref.xref} ({self.titles.titles[0]}) ----")
-                    # self.key.halftones = self.key.get_halftones(transpose)
-                    # self.key.set_transtab(self.key.halftones)
-                    cfmt.check_margin(cfmt.leftmargin)
-                    self.write_heading(fp)
-                    # voices = list()
-                    symbol.Symbol().init_parse_params()
-                    # insert is now set in set_meter (for invisible meter)
-                    self.meter.insert = 1
 
-                    common.number_of_music_lines = 0
-                    common.do_indent = True
-                    common.do_meter = True
-                    common.bar_init = cfmt.barinit
-                    common.write_num = False
-            common.within_tune = True
-            return
-        elif isinstance(i_type, Meter):
-            if not common.within_block:
-                return
-            if common.do_this_tune and common.within_tune:
-                self.handle_inside_field(i_type)
-            return
-        elif isinstance(i_type, DefaultLength):
-            if not common.within_block:
-                return
-            if common.do_this_tune and common.within_tune:
-                self.handle_inside_field(i_type)
-            return
-        elif isinstance(i_type, Parts):
-            if not common.within_block:
-                return
-            if common.do_this_tune and common.within_tune:
-                music.output_music(fp)
-                self.parts.write_parts(fp)
-            return
-
-        elif isinstance(i_type, Voice):
-            if common.do_this_tune and common.within_block:
-                if not common.within_tune:
-                    log.info(f"+++ Voice field not allowed in header: V:{common.lvoiceid}")
-                else:
-                    pass
-                    # ivc = self.voice.switch_voice(common.lvoiceid)
-            return
-        elif isinstance(i_type, Blank) or isinstance(i_type, EOF):
-            if common.do_this_tune:
-                music.output_music(fp)
-                self.words.put_words(fp)
-                if cfmt.writehistory:
-                    self.history.put_history(fp)
-                if common.epsf:
-                    self.close_output_file(fp)
-                    if common.choose_outname:
-                        fnm = self.epsf_title(self.titles.titles[0])
-                        fnm += ".eps"
-                    else:
-                        common.nepsf += 1
-                        fnm = f"{common.file_open}.{common.nepsf:03d}.eps"
-                    finf = f"{common.in_file[0]} ({self.xref.xref})"
-                    if not os.path.exists(fnm):
-                        raise FileExistsError
-                    with open(fnm, 'w') as feps:
-                        pssubs.init_ps(feps, finf, 
-                                       cfmt.leftmargin-5, common.posy+common.bposy-5,
-                                       cfmt.leftmargin+cfmt.staffwidth+5,
-                                       cfmt.pageheight-cfmt.topmargin)
-                        pssubs.init_epsf(feps)
-                        # buffer.write_buffer(feps)
-                        log.info(f"\n[{fnm}] {self.titles.titles[0]}")
-                        pssubs.close_epsf(feps)
-                        feps.close()
-                        common.in_page = False
-                        cfmt.init_pdims()
-                else:
-                    pass
                     # buffer.buffer_eob(fp)
                     # buffer.write_buffer(fp)
 

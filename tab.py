@@ -20,36 +20,6 @@ voices = list()
 TAB_prevlen = 0   # no previous notelength
 
 
-def get_field_value(c, line):
-    """ this should be in field.Voice() """
-    s = f'[{c}:'
-    if s in line:
-        n = line.find(s)
-        if ']' in line[n+3:]:
-            p = line[n+3:].find(']')
-            return line[n + 3:n + 3 + p].strip(), line[n+3+p+1:]
-        else:
-            log.error('Reached end of line and no "]"')
-    return line
-
-
-def is_tab_line(line: str) -> bool:
-    """
-    this should be in field.Voice()
-
-    decide whether an input line is tablature
-    Returns true, if the line contains a v specifier [V:...]
-    corresponding to a tablature v or if the current v
-    is tablature by default
-    """
-    info = field.Field()
-    voice_spec, line = get_field_value('V', line)
-    # There is a problem here, this parameter are not used.
-    if info.key.is_tab_key(common.voices[0].switch_voice(voice_spec).key):
-        return True
-    else:   # check default current v
-        return info.key.is_tab_key(voices[0].key)
-
 
 class Tabformat:
     usraddflags = False  # True if user explicitly sets that parameter

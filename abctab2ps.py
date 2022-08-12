@@ -7,6 +7,7 @@ import signal
 import cmdline
 import common
 import constants
+import field
 from field import Field
 import music
 import parse
@@ -62,9 +63,9 @@ def process_file(fin):    # , fp_out, xref_str, pat, sel_all, search_field):
 
         for line in lines:
             line = line.strip()
-            if not line:   # Todo: if within_block end it, otherwise do nothing
-                # if common.within_tune
-                continue
+            # if not line:   # Todo: if within_block end it, otherwise do nothing
+            #     # if common.within_tune
+            #     pass
             if is_pseudo_comment(line):
                 music.process_ps_comment(fp, line)
                 continue
@@ -75,21 +76,20 @@ def process_file(fin):    # , fp_out, xref_str, pat, sel_all, search_field):
 
             # reset_info(default_info)
             if is_field(line):
-                info(line)
+                info(fp, line)
                 continue
 
             if not common.do_this_tune:
                 continue
 
-            # music or tablature?
-            if tab.is_tab_line(line):
-                tab.parse_tab_line(line)
-            else:
-                parse.parse_music_line(line)
-
             # log.debug(f"  parsed music symbols {n_sym_0} to"
             #           f" {len(common.voices[common.ivc].syms)-1} for voice {common.ivc}")
-            info.process_line(fp, line)    # field.XRef, line, xref_str, pat, sel_all)
+            info.process_line(fp, line)  # field.XRef, line, xref_str, pat, sel_all)
+            # music or tablature?
+            # if False:    # tab.is_tab_line(line):
+            #     tab.parse_tab_line(line)
+            # else:
+            parse.parse_music_line(line)
 
         # if not common.epsf:
         #     buffer.buffer_eob(fp_out)
